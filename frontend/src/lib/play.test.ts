@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { afterArrowRelease, backoff, countdown, formatCommand, keyToButton, tallyRows } from './play';
+import { activityText, afterArrowRelease, ago, backoff, countdown, formatCommand, keyToButton, tallyRows } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -65,5 +65,15 @@ describe('countdown', () => {
 		expect(countdown(1)).toBe('00:00:01'); // rounds up: never shows 0 while time is left
 		expect(countdown(((4 * 60 + 12) * 60 + 9) * 1000)).toBe('04:12:09');
 		expect(countdown((2 * 86400 + 3600) * 1000)).toBe('2d 01:00:00');
+	});
+});
+
+describe('scoreboard activity', () => {
+	it('words each kind of event and how long ago it was', () => {
+		const e = { user: 'jordan@x.y', type: 'BADGE', detail: 'Boulder', points: 100, at: 0 };
+		expect(activityText(e)).toBe('jordan earned the Boulder Badge');
+		expect(activityText({ ...e, type: 'LEVEL', detail: '20' })).toBe('jordan reached Lv. 20');
+		expect(activityText({ ...e, type: 'HALL_OF_FAME', detail: '' })).toBe('jordan entered the Hall of Fame');
+		expect([0, 59_000, 120_000, 3 * 3_600_000, 49 * 3_600_000].map(ago)).toEqual(['now', 'now', '2 min', '3 h', '2 d']);
 	});
 });

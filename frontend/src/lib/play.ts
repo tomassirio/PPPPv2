@@ -98,3 +98,25 @@ export function afterArrowRelease(still: Button[], walking: Button | null, relea
 	if (walking && walking !== released) return 'keep';
 	return still.at(-1) ?? null;
 }
+
+/** Shapes from ScoreRow / ScoreEvent (GET /scoreboard, /activity; SCOREBOARD_CHANGED, PROGRESS). */
+export type ScoreRow = { userId: string; points: number; badges: number; caught: number; seen: number; game: string | null; online: boolean };
+export type ScoreEvent = { user: string; type: string; detail: string; points: number; at: number };
+
+/** "jordan earned the Boulder Badge". */
+export function activityText(e: ScoreEvent): string {
+	const did: Record<string, string> = {
+		BADGE: `earned the ${e.detail} Badge`,
+		CAUGHT: `caught ${e.detail}`,
+		SEEN: `saw ${e.detail}`,
+		LEVEL: `reached Lv. ${e.detail}`,
+		HALL_OF_FAME: 'entered the Hall of Fame'
+	};
+	return `${shortUser(e.user)} ${did[e.type] ?? e.type.toLowerCase()}`;
+}
+
+/** How long ago, short: "now", "2 min", "3 h", "5 d". */
+export function ago(ms: number): string {
+	const min = Math.floor(ms / 60_000);
+	return min < 1 ? 'now' : min < 60 ? `${min} min` : min < 1440 ? `${Math.floor(min / 60)} h` : `${Math.floor(min / 1440)} d`;
+}

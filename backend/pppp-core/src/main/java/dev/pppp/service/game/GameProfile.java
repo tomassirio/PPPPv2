@@ -2,6 +2,7 @@ package dev.pppp.service.game;
 
 import dev.pppp.model.GameEvent;
 import dev.pppp.model.GameSummary;
+import dev.pppp.model.Progress;
 import java.util.List;
 
 /**
@@ -16,7 +17,7 @@ public interface GameProfile<S> {
     /** The profile for this ROM, or null when the game has none (it then emits no events). */
     static GameProfile<?> forRom(byte[] rom) {
         if (PokemonRed.matches(rom)) return new PokemonRed(rom);
-        return null;
+        return PokemonGen2.forRom(rom);
     }
 
     /** First address of the memory window read on every poll. */
@@ -29,6 +30,9 @@ public interface GameProfile<S> {
 
     /** Events for a confirmed change from before to after; both non-null. */
     List<GameEvent> diff(S before, S after);
+
+    /** What the scoreboard counts in this state ({@link ProgressTracker}). */
+    Progress progress(S state);
 
     /** state is null before the game first comes into play: an empty summary (no party, nothing earned). */
     GameSummary summary(S state);

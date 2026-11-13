@@ -2,12 +2,15 @@ package dev.pppp.service.game;
 
 import dev.pppp.model.GameEvent;
 import dev.pppp.model.GameSummary;
+import dev.pppp.model.Progress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -156,6 +159,23 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
             events.add(GameEvent.of("NEW_TOWN", "First time in " + TOWNS[bit] + "!", Map.of("town", TOWNS[bit])));
         }
         return events;
+    }
+
+    /** No Hall of Fame: the state does not read it. Levels over 100 are a party member mid-write. */
+    @Override
+    public Progress progress(State s) {
+        Set<String> badges = new LinkedHashSet<>();
+        for (int i = 0; i < 8; i++) if ((s.badges() & 1 << i) != 0) badges.add(BADGE_NAMES[i]);
+        BitSet seen = (BitSet) s.seen().clone();
+        seen.or(s.owned());
+        return new Progress(badges, names(s.owned()), names(seen),
+                s.party().stream().mapToInt(Mon::level).filter(l -> l <= 100).max().orElse(0), false);
+    }
+
+    private Set<String> names(BitSet dex) {
+        Set<String> names = new LinkedHashSet<>();
+        dex.stream().filter(i -> i < DEX_SIZE).forEach(i -> names.add(namesByDex[i + 1] == null ? "#" + (i + 1) : namesByDex[i + 1]));
+        return names;
     }
 
     @Override
