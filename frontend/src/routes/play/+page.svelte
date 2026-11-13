@@ -17,6 +17,8 @@
 	import PokedexBanner from '#lib/components/PokedexBanner.svelte';
 	import Gamepad from '#lib/components/Gamepad.svelte';
 	import GamePicker from '#lib/components/GamePicker.svelte';
+	import LinkPanel from '#lib/components/LinkPanel.svelte';
+	import Scoreboard from '#lib/components/Scoreboard.svelte';
 	import Presence from '#lib/components/Presence.svelte';
 	import SoundControl from '#lib/components/SoundControl.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
@@ -264,6 +266,8 @@
 			<section class="side" class:off={tab !== 'vote' && tab !== 'party'} aria-label="Mode, votes and party">
 				<!-- Phones: Vote and Party are separate tabs; desktop: one column (display: contents). -->
 				<div class="party" class:off={shown !== 'party'}>
+					<LinkPanel />
+					<Scoreboard />
 					<GameStatus />
 				</div>
 			</section>

@@ -111,6 +111,17 @@ public class PlayerConsoles {
         });
     }
 
+    /** Players whose console is in memory (running or paused). */
+    public Set<String> running() {
+        return Set.copyOf(consoles.keySet());
+    }
+
+    /** Bytes of the player's console memory, or null when their console is not in memory. */
+    public byte[] readBytes(String userId, int address, int length) {
+        Console c = consoles.get(userId);
+        return c == null ? null : c.host().readBytes(address, length);
+    }
+
     /** Every console's frames (every second one, RGB) and audio chunks, tagged with the player's id. */
     public void onFrame(BiConsumer<String, int[]> listener) {
         frameListeners.add(listener);
