@@ -1,0 +1,101 @@
+/* Tokens from the screen designs (frontend/design/*.dc.html). */
+:root {
+	--bg: #11161a;
+	--panel: #1a2228;
+	--border: #2c3840;
+	--text: #edebe3;
+	--muted: #a3ada8;
+	--accent: #f2c14e;
+	--accent-hover: #ffd77a;
+	--accent-text: #f2c14e; /* accent used as text/outline; darker in light mode */
+	--accent-text-hover: #ffd77a;
+	--border-strong: #3a4851;
+	--name-dim: 0%; /* how much chat name colours are pulled toward --text (pastels need it on light) */
+	--glow: #1d1a28; /* sign-in backdrop behind the handheld */
+	--scenery-filter: brightness(0.62) saturate(0.85); /* sign-in overworld, dimmed for the dark theme */
+	--pad-edge: transparent; /* outline for the beige gamepad on light backgrounds */
+	--ink: #1d1f1c;
+	--grass: #9bbc0f;
+	--danger: #e76f51;
+	--anarchy: #f05454;
+	--democracy: #4f8ff7;
+	--pixel-font: 'Press Start 2P', monospace;
+	--body-font: Inter, system-ui, sans-serif;
+	color-scheme: dark;
+}
+
+/* Light theme: data-theme="light", or the OS preference when the user picked Auto (no data-theme). */
+:root[data-theme='light'] {
+	--bg: #f4f1e8;
+	--panel: #ffffff;
+	--border: #dcd6c6;
+	--border-strong: #c2bba8;
+	--text: #1d1f1c;
+	--muted: #5d6460;
+	--accent-text: #8a5a00;
+	--accent-text-hover: #6b4500;
+	--grass: #4d7a00;
+	--danger: #c0432a;
+	--name-dim: 50%;
+	--pad-edge: #c2bba8;
+	--glow: #e6e0f2;
+	--scenery-filter: none;
+	color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+	:root:not([data-theme='dark']) {
+		--bg: #f4f1e8;
+		--panel: #ffffff;
+		--border: #dcd6c6;
+		--border-strong: #c2bba8;
+		--text: #1d1f1c;
+		--muted: #5d6460;
+		--accent-text: #8a5a00;
+		--accent-text-hover: #6b4500;
+		--grass: #4d7a00;
+		--danger: #c0432a;
+		--name-dim: 50%;
+		--pad-edge: #c2bba8;
+		--glow: #e6e0f2;
+		--scenery-filter: none;
+		color-scheme: light;
+	}
+}
+
+html,
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--body-font);
+}
+
+a {
+	color: var(--accent-text);
+}
+a:hover {
+	color: var(--accent-text-hover);
+}
+
+button {
+	font: inherit;
+	cursor: pointer;
+}
+
+.pixel {
+	font-family: var(--pixel-font);
+}
+
+.panel {
+	background: var(--panel);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation: none !important;
+	}
+}

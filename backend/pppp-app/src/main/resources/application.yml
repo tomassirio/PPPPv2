@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: pppp
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  session:
+    redis:
+      namespace: spring:session
+      # Indexed = FindByIndexNameSessionRepository, so a user's sessions can be ended by email.
+      repository-type: indexed
+  mvc:
+    problemdetails:
+      enabled: true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:change-me}
+            client-secret: ${GOOGLE_CLIENT_SECRET:change-me}
+            scope: openid,email,profile
+  quartz:
+    job-store-type: memory
+  servlet:
+    multipart:
+      # Largest Game Boy ROMs are 8 MB.
+      max-file-size: 8MB
+      max-request-size: 9MB
+
+server:
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      # Stay signed in across tab/browser restarts: 30-day idle timeout and a persistent (not session-only) cookie.
+      timeout: 30d
+      cookie:
+        max-age: 30d
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+pppp:
+  # Seeds the first admin when the allowlist is empty.
+  admins: ${PPPP_ADMINS:}
+  data-dir: ${PPPP_DATA_DIR:./data}
