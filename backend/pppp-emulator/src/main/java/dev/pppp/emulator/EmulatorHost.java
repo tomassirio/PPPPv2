@@ -9,6 +9,7 @@ import eu.rekawek.coffeegb.core.ir.InfraredEndpoint;
 import eu.rekawek.coffeegb.core.memory.cart.Rom;
 import eu.rekawek.coffeegb.core.memory.cart.battery.BatteryPersistenceFailedEvent;
 import eu.rekawek.coffeegb.core.memory.cart.battery.BatteryStorage;
+import eu.rekawek.coffeegb.core.serial.Peer2PeerSerialEndpoint;
 import eu.rekawek.coffeegb.core.serial.SerialEndpoint;
 import eu.rekawek.coffeegb.core.sound.Sound;
 import eu.rekawek.coffeegb.core.sound.StereoPcmConverter;
@@ -53,6 +54,11 @@ public class EmulatorHost {
     private static final int PIXELS = Display.DISPLAY_WIDTH * Display.DISPLAY_HEIGHT;
     /** Mono, so 18 listeners cost ~44 KB/s each; GB audio is near-mono and tops out well below 11 kHz. */
     private static final int AUDIO_SAMPLE_RATE = 22050;
+    /**
+     * Linked consoles advance alternately, one scanline each, so neither runs more than 456 ticks ahead
+     * of the other; a serial bit lasts 512 ticks at the normal link clock.
+     */
+    private static final int LINK_SLICE = 456;
 
     // Lifecycle fields are guarded by `this`; the machine fields belong to the emulator thread.
     private String cartridgeId;
@@ -61,6 +67,11 @@ public class EmulatorHost {
     private Thread thread;
     private volatile boolean paused;
     private volatile double speed = 1.0;
+    // Link cable. `peer` is the other end (guarded by the class lock). While linked, the driver's thread
+    // runs both machines and drains both task queues; the follower's own thread idles.
+    private volatile EmulatorHost peer;
+    private volatile EmulatorHost driver;
+    private EmulatorHost follower; // emulator thread of the driver
 
     private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
     private final List<Consumer<int[]>> frameListeners = new CopyOnWriteArrayList<>();
@@ -112,8 +123,66 @@ public class EmulatorHost {
         thread = Thread.ofPlatform().name("emulator").daemon().start(this::loop);
     }
 
-    /** Flushes the battery save, then stops the emulator thread. */
-    public synchronized void powerOff() {
+    /**
+     * Plugs a link cable between two powered-on consoles. Until {@link #unlink}, both run in lockstep at
+     * 1x on a's thread (a's pause state applies to both). Each console keeps its own buttons, frames and audio.
+     */
+    public static synchronized void link(EmulatorHost a, EmulatorHost b) {
+        if (a == b) throw new IllegalArgumentException("A console cannot link to itself");
+        if (a.peer != null || b.peer != null) throw new IllegalStateException("Console is already linked");
+        var endA = new Peer2PeerSerialEndpoint();
+        var endB = new Peer2PeerSerialEndpoint();
+        endA.init(endB);
+        // b first: once its thread has handed over, a's thread is the only one touching b's machine.
+        b.call(() -> {
+            b.speed = 1.0;
+            b.gb.setSerialEndpoint(endB);
+            b.driver = a;
+            return null;
+        });
+        try {
+            a.call(() -> {
+                a.speed = 1.0;
+                a.gb.setSerialEndpoint(endA);
+                a.follower = b;
+                return null;
+            });
+        } catch (RuntimeException e) { // a is off: give b back to its own thread
+            b.driver = null;
+            throw e;
+        }
+        a.peer = b;
+        b.peer = a;
+    }
+
+    /** Pulls the cable, from either end. No-op when the console is not linked. */
+    public static synchronized void unlink(EmulatorHost host) {
+        EmulatorHost other = host.peer;
+        if (other == null) return;
+        EmulatorHost d = host.driver == null ? host : other;
+        EmulatorHost f = d == host ? other : host;
+        d.call(() -> {
+            d.follower = null;
+            d.gb.setSerialEndpoint(SerialEndpoint.NULL_ENDPOINT);
+            f.gb.setSerialEndpoint(SerialEndpoint.NULL_ENDPOINT);
+            f.driver = null; // f's own thread takes its machine back
+            return null;
+        });
+        d.peer = null;
+        f.peer = null;
+    }
+
+    public boolean isLinked() {
+        return peer != null;
+    }
+
+    /** Pulls the link cable if plugged, flushes the battery save, then stops the emulator thread. */
+    public void powerOff() {
+        unlink(this); // before taking the monitor: unlinking runs on the driver's thread
+        powerOffUnlinked();
+    }
+
+    private synchronized void powerOffUnlinked() {
         requireOn();
         try {
             call(() -> {
@@ -267,8 +336,11 @@ public class EmulatorHost {
     }
 
     /** Stops the emulator if it is running. Call on application shutdown. */
-    public synchronized void shutdown() {
-        if (thread != null) powerOff();
+    public void shutdown() {
+        unlink(this);
+        synchronized (this) {
+            if (thread != null) powerOffUnlinked();
+        }
     }
 
     // ---- emulator thread ----
@@ -277,9 +349,17 @@ public class EmulatorHost {
         long deadline = System.nanoTime();
         while (running) {
             try {
+                if (driver != null) { // linked follower: the driver's thread owns this machine and its tasks
+                    LockSupport.parkNanos(5_000_000L);
+                    deadline = System.nanoTime();
+                    continue;
+                }
                 Runnable task;
-                while (running && (task = tasks.poll()) != null) task.run();
+                while (running && driver == null && (task = tasks.poll()) != null) task.run();
+                EmulatorHost f = follower;
+                while (running && f != null && f == follower && (task = f.tasks.poll()) != null) task.run();
                 if (!running) break;
+                if (driver != null) continue;
                 if (paused) {
                     task = tasks.poll(20, TimeUnit.MILLISECONDS);
                     if (task != null) task.run();
@@ -301,9 +381,32 @@ public class EmulatorHost {
     }
 
     private void step() {
+        EmulatorHost f = follower;
+        if (f == null) {
+            beginFrame();
+            gb.runTicks(TICKS_PER_FRAME);
+            endFrame();
+            return;
+        }
+        beginFrame();
+        f.beginFrame();
+        // ponytail: bit-level Peer2PeerSerialEndpoint drops Coffee GB's fast paths (~10x slower per console);
+        // write a byte-level SerialEndpoint if linked pairs cannot hold real time on the target hardware.
+        for (int t = 0; t < TICKS_PER_FRAME; t += LINK_SLICE) {
+            gb.runTicks(LINK_SLICE);
+            f.gb.runTicks(LINK_SLICE);
+        }
+        endFrame();
+        f.endFrame();
+    }
+
+    private void beginFrame() {
         Press p = press;
         if (p != null && p.frames == 0 && p.button != null && p.hold > 0) gb.setPressedButtons(Set.of(p.button));
-        gb.runTicks(TICKS_PER_FRAME);
+    }
+
+    private void endFrame() {
+        Press p = press;
         frame++;
         if (frame % 2 == 0 && !frameListeners.isEmpty()) {
             for (Consumer<int[]> l : frameListeners) {
@@ -407,7 +510,8 @@ public class EmulatorHost {
         FutureTask<T> f = new FutureTask<>(task);
         synchronized (this) {
             requireOn();
-            if (Thread.currentThread() == thread) {
+            EmulatorHost d = driver;
+            if (Thread.currentThread() == thread || (d != null && Thread.currentThread() == d.thread)) {
                 f.run();
             } else {
                 tasks.add(f);

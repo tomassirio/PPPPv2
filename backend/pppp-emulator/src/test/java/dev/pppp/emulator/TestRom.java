@@ -42,7 +42,60 @@ public final class TestRom {
             0x18, 0xDF,             // JR loop
     };
 
+    /**
+     * Link cable, clock side. On every A press it sends $42 with the internal clock, stores the byte
+     * it got back in $C000 and increments $C001.
+     */
+    static final int[] LINK_MASTER = {
+            0x06, 0x00,             // LD B,0         previous A state
+            0xAF,                   // XOR A
+            0xEA, 0x01, 0xC0,       // LD ($C001),A
+            0x3E, 0x10,             // loop: LD A,$10
+            0xE0, 0x00,             // LDH ($00),A
+            0xF0, 0x00,             // LDH A,($00)
+            0xF0, 0x00,             // LDH A,($00)
+            0x2F,                   // CPL
+            0xE6, 0x01,             // AND $01
+            0xB8,                   // CP B
+            0x28, 0xF2,             // JR Z,loop
+            0x47,                   // LD B,A
+            0xB7,                   // OR A
+            0x28, 0xEE,             // JR Z,loop      released
+            0x3E, 0x42, 0xE0, 0x01, // SB = $42
+            0x3E, 0x81, 0xE0, 0x02, // SC = $81       start, internal clock
+            0xF0, 0x02,             // wait: LDH A,($02)
+            0xCB, 0x7F,             // BIT 7,A
+            0x20, 0xFA,             // JR NZ,wait
+            0xF0, 0x01,             // LDH A,($01)
+            0xEA, 0x00, 0xC0,       // LD ($C000),A
+            0xFA, 0x01, 0xC0,       // LD A,($C001)
+            0x3C,                   // INC A
+            0xEA, 0x01, 0xC0,       // LD ($C001),A
+            0x18, 0xD2,             // JR loop
+    };
+
+    /** Link cable, other side. Offers $99 on the external clock, forever; same $C000/$C001 as the master. */
+    static final int[] LINK_SLAVE = {
+            0xAF,                   // XOR A
+            0xEA, 0x01, 0xC0,       // LD ($C001),A
+            0x3E, 0x99, 0xE0, 0x01, // loop: SB = $99
+            0x3E, 0x80, 0xE0, 0x02, // SC = $80       start, external clock
+            0xF0, 0x02,             // wait: LDH A,($02)
+            0xCB, 0x7F,             // BIT 7,A
+            0x20, 0xFA,             // JR NZ,wait
+            0xF0, 0x01,             // LDH A,($01)
+            0xEA, 0x00, 0xC0,       // LD ($C000),A
+            0xFA, 0x01, 0xC0,       // LD A,($C001)
+            0x3C,                   // INC A
+            0xEA, 0x01, 0xC0,       // LD ($C001),A
+            0x18, 0xE4,             // JR loop
+    };
+
     public static Path write(Path dir) throws IOException {
+        return write(dir, "test.gb", PROGRAM);
+    }
+
+    static Path write(Path dir, String name, int[] program) throws IOException {
         byte[] rom = new byte[0x8000];
         rom[0x100] = 0x00;                          // NOP
         rom[0x101] = (byte) 0xC3;                   // JP $0150
@@ -55,8 +108,8 @@ public final class TestRom {
         int sum = 0;
         for (int a = 0x134; a <= 0x14C; a++) sum = sum - rom[a] - 1;
         rom[0x14D] = (byte) sum;
-        for (int i = 0; i < PROGRAM.length; i++) rom[0x150 + i] = (byte) PROGRAM[i];
-        Path file = dir.resolve("test.gb");
+        for (int i = 0; i < program.length; i++) rom[0x150 + i] = (byte) program[i];
+        Path file = dir.resolve(name);
         Files.write(file, rom);
         return file;
     }

@@ -1,6 +1,17 @@
-# pppp (Pibs&PibettesPlayPokemon)
+# PPP (PibsPlayPokemon)
 
-Design doc: https://claude.ai/artifact/58m66h93Jn9y9LyDrqKDrm (read with the Claude Docs tools, not web fetch).
+v2 of PPPP: every Pib gets a private Game Boy (Pokémon Gold, Silver or Crystal, picked once), a shared
+scoreboard fed by RAM-read progress events, and a link cable between any two players.
+Started as a copy of PPPP v1 (commit 420d8c2), so package and module names still say `pppp`.
+
+Design doc: https://claude.ai/artifact/W6kDXEHSaUafTTw8GUa4Fs (read with the Claude Docs tools, not web fetch).
+Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
+
+## Status
+- Done: link cable in `EmulatorHost` (`link`, `unlink`, `isLinked`); `LinkCableTest` swaps bytes between two consoles.
+- Next: one `EmulatorHost` per player (v1 has a single shared one), private screen stream, game picker,
+  progress job + scoreboard, lobby and link sessions. Crowd input (modes, votes, queue) goes away.
+- No deploy workflow yet: v1's Helm release names would overwrite PPPP on the cluster. Rename the charts first.
 
 ## Backend (`backend/`)
 - Spring Boot 3.5, Java 21, Maven multi-module, MVC layers. Package root `dev.pppp`.
