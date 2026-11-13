@@ -9,9 +9,24 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 
 ## Status
 - Done: link cable in `EmulatorHost` (`link`, `unlink`, `isLinked`); `LinkCableTest` swaps bytes between two consoles.
-- Next: one `EmulatorHost` per player (v1 has a single shared one), private screen stream, game picker,
-  progress job + scoreboard, lobby and link sessions. Crowd input (modes, votes, queue) goes away.
+- Done: one private console per player. `PlayerConsoles` (core) boots it when `/ws/screen` connects, pauses it and
+  parks its state in `saves/{user}/{cartridge}.state` when the player's last socket closes. The game is picked once
+  (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`.
+  `/ws/screen` and `/ws/audio` carry only the caller's own console. /play shows `GamePicker` until a game is picked.
+- Leftover from v1, still compiled but no longer on /play: the shared `EmulatorHost` bean and everything built on it
+  (crowd input queue, modes, votes, admin console/save-state/launch/reset, RamWatcher). Remove or re-point per player.
+- Next: progress job + scoreboard per player, lobby and link sessions (`EmulatorHost.link` between two players'
+  consoles), admin view of player consoles.
 - No deploy workflow yet: v1's Helm release names would overwrite PPPP on the cluster. Rename the charts first.
+
+## Local run (next to a running PPPP v1 dev stack)
+- Backend, from `backend/` after `mvn clean package -DskipTests`: `SERVER_PORT=8082 PPPP_DATA_DIR=<abs>/PPP/data
+  PPPP_DEV_LOGIN=true SPRING_DATA_REDIS_DATABASE=1 java -jar pppp-app/target/pppp-app-*.jar` (Redis db 1 keeps its
+  keys apart from v1's db 0 on the same local Redis).
+- Frontend: `PPPP_BACKEND=http://127.0.0.1:8082 npm run dev -- --host 127.0.0.1 --port 5174`. Open it as
+  `http://127.0.0.1:5174`, not `localhost`: cookies are per host, and `localhost` belongs to v1's session.
+- Sign in without Google: `http://127.0.0.1:5174/dev/login?email=someone@example.com` (only with `PPPP_DEV_LOGIN=true`;
+  an e-mail listed in `PPPP_ADMINS` gets the admin role). Use two browsers or profiles for two players.
 
 ## Backend (`backend/`)
 - Spring Boot 3.5, Java 21, Maven multi-module, MVC layers. Package root `dev.pppp`.

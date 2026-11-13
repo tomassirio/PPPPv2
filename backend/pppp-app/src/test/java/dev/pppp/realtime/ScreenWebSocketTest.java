@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import dev.pppp.TestRedis;
 import dev.pppp.model.UserRevokedEvent;
-import dev.pppp.emulator.EmulatorHost;
+import dev.pppp.service.PlayerConsoles;
 import dev.pppp.emulator.TestRom;
 import java.net.URI;
 import java.nio.file.Path;
@@ -16,7 +16,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import java.io.IOException;
+import java.nio.file.Files;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -45,10 +48,23 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 @Import({TestRedis.class, ScreenWebSocketTest.BasicAuth.class})
 class ScreenWebSocketTest {
     @Autowired MockMvc mvc;
-    @Autowired EmulatorHost host;
+    @Autowired PlayerConsoles consoles;
     @Autowired ApplicationEventPublisher events;
     @LocalServerPort int port;
-    @TempDir Path dir;
+    static final Path DATA;
+    static {
+        try {
+            DATA = Files.createTempDirectory("ppp-ws-test");
+            TestRom.write(Files.createDirectories(DATA.resolve("roms"))); // cartridge "test"
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @DynamicPropertySource
+    static void dataDir(DynamicPropertyRegistry r) {
+        r.add("pppp.data-dir", DATA::toString);
+    }
 
     /** The real login is Google; a real socket client here authenticates with Basic instead. */
     @TestConfiguration
@@ -75,8 +91,7 @@ class ScreenWebSocketTest {
 
     @Test
     void streamsPngFramesAndClosesOnRevoke() throws Exception {
-        host.insert("test", TestRom.write(dir), dir.resolve("test.sav"));
-        host.powerOn();
+        consoles.pick("friend@x.y", "test");
         try {
             BlockingQueue<byte[]> frames = new LinkedBlockingQueue<>();
             CompletableFuture<CloseStatus> closed = new CompletableFuture<>();
@@ -104,8 +119,7 @@ class ScreenWebSocketTest {
             events.publishEvent(new UserRevokedEvent("friend@x.y"));
             assertThat(closed.get(5, TimeUnit.SECONDS).getCode()).isEqualTo(CloseStatus.POLICY_VIOLATION.getCode());
         } finally {
-            host.powerOff();
-            host.eject();
+            consoles.idle("friend@x.y");
         }
     }
 }

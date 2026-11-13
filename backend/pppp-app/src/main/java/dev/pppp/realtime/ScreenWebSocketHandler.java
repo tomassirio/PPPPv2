@@ -1,8 +1,8 @@
 package dev.pppp.realtime;
 
-import dev.pppp.security.CurrentUser;
 import dev.pppp.model.UserRevokedEvent;
-import dev.pppp.emulator.EmulatorHost;
+import dev.pppp.security.CurrentUser;
+import dev.pppp.service.PlayerConsoles;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,39 +15,50 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 /**
- * /ws/screen: pushes every second emulated frame as a PNG binary message to every socket. Each socket
- * has a one-frame handoff, so a slow client just skips frames; nothing here blocks the emulator thread.
+ * /ws/screen: the signed-in player's own console, every second emulated frame as a PNG binary message.
+ * Connecting wakes the console; closing the player's last socket pauses it. Each socket has a one-frame
+ * handoff, so a slow client just skips frames; nothing here blocks an emulator thread.
  * The handshake goes through the normal security chain (ROLE_PLAYER), so the principal is the Authentication.
  */
 @Component
 public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
+    /** Closing code for a player who has not picked a game yet. */
+    static final CloseStatus NO_GAME = new CloseStatus(4409, "Pick a game first");
 
-    private final Map<WebSocketSession, Handoff<byte[]>> sessions = new ConcurrentHashMap<>();
-    private final Handoff<int[]> encoder = new Handoff<>(1, this::broadcast);
-    private volatile byte[] latest;
+    private record Viewer(Handoff<int[]> encoder, Map<WebSocketSession, Handoff<byte[]>> sockets) {}
 
-    ScreenWebSocketHandler(EmulatorHost host) {
-        // ponytail: encodes even with no viewers (~30 small PNGs/s); skip when idle if CPU ever matters.
-        host.onFrame(encoder::offer);
+    private final Map<String, Viewer> viewers = new ConcurrentHashMap<>();
+    private final PlayerConsoles consoles;
+
+    ScreenWebSocketHandler(PlayerConsoles consoles) {
+        this.consoles = consoles;
+        consoles.onFrame((userId, pixels) -> {
+            Viewer v = viewers.get(userId);
+            if (v != null) v.encoder().offer(pixels);
+        });
     }
 
-    /** The newest frame as PNG, or null before the first one. */
+    /** v1 showed a delayed public screenshot of the shared game; screens are private now, so there is none. */
     public byte[] latest() {
-        return latest;
-    }
-
-    private void broadcast(int[] pixels) {
-        byte[] png = FrameEncoder.png(pixels);
-        latest = png;
-        sessions.values().forEach(slot -> slot.offer(png));
+        return null;
     }
 
     @Override
-    public void afterConnectionEstablished(WebSocketSession session) {
-        Handoff<byte[]> slot = new Handoff<>(1, png -> send(session, png));
-        sessions.put(session, slot);
-        byte[] last = latest;
-        if (last != null) slot.offer(last);
+    public synchronized void afterConnectionEstablished(WebSocketSession session) {
+        String userId = userId(session);
+        Viewer v = viewers.computeIfAbsent(userId, id -> {
+            Map<WebSocketSession, Handoff<byte[]>> sockets = new ConcurrentHashMap<>();
+            return new Viewer(new Handoff<>(1, pixels -> {
+                byte[] png = FrameEncoder.png(pixels);
+                sockets.values().forEach(slot -> slot.offer(png));
+            }), sockets);
+        });
+        v.sockets().put(session, new Handoff<>(1, png -> send(session, png)));
+        try {
+            consoles.open(userId);
+        } catch (RuntimeException e) { // no game picked, or its ROM is gone
+            close(session, NO_GAME);
+        }
     }
 
     private void send(WebSocketSession session, byte[] png) {
@@ -55,19 +66,26 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         try {
             session.sendMessage(new BinaryMessage(png));
         } catch (IOException | IllegalStateException e) {
-            sessions.remove(session);
             close(session, CloseStatus.SESSION_NOT_RELIABLE);
         }
     }
 
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        sessions.remove(session);
+    public synchronized void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        String userId = userId(session);
+        Viewer v = viewers.get(userId);
+        if (v == null || v.sockets().remove(session) == null || !v.sockets().isEmpty()) return;
+        viewers.remove(userId);
+        consoles.idle(userId);
     }
 
     @EventListener
     public void onUserRevoked(UserRevokedEvent event) {
-        closeSessionsOf(sessions.keySet(), event.userId());
+        closeSessionsOf(viewers.values().stream().flatMap(v -> v.sockets().keySet().stream()).toList(), event.userId());
+    }
+
+    static String userId(WebSocketSession session) {
+        return CurrentUser.id((Authentication) session.getPrincipal());
     }
 
     static void closeSessionsOf(java.util.Collection<WebSocketSession> sessions, String userId) {

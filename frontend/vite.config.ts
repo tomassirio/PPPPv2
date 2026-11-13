@@ -23,6 +23,7 @@ export default defineConfig({
 		// Keep the browser's Host header so Spring builds OAuth redirect URIs for the dev server, not :8080.
 		proxy: {
 			'/api': { target: backend },
+			'/dev': { target: backend }, // local sign-in, only when the backend runs with PPPP_DEV_LOGIN=true
 			'/oauth2': { target: backend },
 			'/login/oauth2': { target: backend },
 			'/ws': { target: backend, ws: true }

@@ -21,6 +21,8 @@ public class SecurityConfig {
         return http
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/", "/assets/**", "/actuator/health/**", "/error").permitAll()
+                        // Mapped only when pppp.dev-login=true (DevLoginController); otherwise a 404.
+                        .requestMatchers("/dev/login").permitAll()
                         // The sign-in page's teaser (counts, party species, a delayed screenshot) and the sprites it uses.
                         .requestMatchers("/api/v1/public/**", "/api/v1/game/icons/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

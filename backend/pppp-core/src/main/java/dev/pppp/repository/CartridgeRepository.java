@@ -70,6 +70,22 @@ public class CartridgeRepository {
         return saves.resolve(id + ".sav");
     }
 
+    /** A player's own battery save: {dataDir}/saves/{user}/{id}.sav. */
+    public Path playerBatterySave(String userId, String id) {
+        return saves.resolve(dir(userId)).resolve(id + ".sav");
+    }
+
+    /** Where a player's console is parked between sessions: {dataDir}/saves/{user}/{id}.state. */
+    public Path playerState(String userId, String id) {
+        return saves.resolve(dir(userId)).resolve(id + ".state");
+    }
+
+    /** User ids are e-mails; anything that is not a plain file-name character becomes "_". */
+    private static String dir(String userId) {
+        if (!userId.contains("@")) throw new IllegalArgumentException("Not a user id: " + userId);
+        return userId.replaceAll("[^a-z0-9._@+-]", "_");
+    }
+
     public void deleteBatterySave(String id) {
         try {
             Files.deleteIfExists(batterySave(id));

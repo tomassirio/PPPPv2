@@ -16,14 +16,11 @@
 	import ChatOverlayToggle from '#lib/components/ChatOverlayToggle.svelte';
 	import PokedexBanner from '#lib/components/PokedexBanner.svelte';
 	import Gamepad from '#lib/components/Gamepad.svelte';
-	import ModeCard from '#lib/components/ModeCard.svelte';
+	import GamePicker from '#lib/components/GamePicker.svelte';
 	import Presence from '#lib/components/Presence.svelte';
 	import SoundControl from '#lib/components/SoundControl.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
 	import ShellPicker from '#lib/components/ShellPicker.svelte';
-	import UpNext from '#lib/components/UpNext.svelte';
-	import LastPressed from '#lib/components/LastPressed.svelte';
-	import VoteTally from '#lib/components/VoteTally.svelte';
 	import ViewportDebug from '#lib/components/ViewportDebug.svelte';
 	import PokeballRain from '#lib/components/PokeballRain.svelte';
 	import { page } from '$app/state';
@@ -177,7 +174,8 @@
 
 	const me = $derived(session.me);
 	let loadFailed = $state(false);
-	const modeLabel = $derived(game.mode === 'DEMOCRACY' ? 'Democracy' : 'Anarchy');
+	// The player's own cartridge: null until /me/game answers, then `game` is null until they pick one.
+	let myGame = $state<{ game: string | null; available: { id: string; title: string; size: number; cgb: boolean }[] } | null>(null);
 
 	$effect(() => {
 		loadMe()
@@ -190,13 +188,8 @@
 	// Only once signed in: /state plus the live events that keep it current.
 	$effect(() => {
 		if (!me) return;
-		api<GameState>('GET', '/state').then((s) => (game = s));
+		api<NonNullable<typeof myGame>>('GET', '/me/game').then((g) => (myGame = g));
 		const offs = [
-			on('CONSOLE_CHANGED', (s) => {
-				game.power = s.power;
-				game.paused = s.paused;
-				game.cartridgeId = s.cartridgeId;
-			}),
 			on('MODE_CHANGED', (e) => {
 				game.mode = e.mode;
 				game.modeVotes = { ANARCHY: 0, DEMOCRACY: 0 }; // the backend clears mode votes on a switch
@@ -215,13 +208,14 @@
 
 <svelte:window onpointerdowncapture={closeSheetOnOutsideTap} onclickcapture={swallowClosingClick} />
 
-{#if me}
+{#if me && myGame && !myGame.game}
+	<GamePicker available={myGame.available} onpicked={(g) => (myGame = { ...myGame!, game: g })} />
+{:else if me && myGame}
 	<div class="page play-root" class:big={bigScreen} style:zoom={uiZoom === 1 ? null : uiZoom} style:--page-h={uiZoom === 1 ? null : `${pageH}px`} style:--plate={currentShell.value.shell} style:--plate-ink={inkFor(currentShell.value.shell)}>
 		<header>
 			<div class="brand">
 				<img class="logo" src={banner} alt="Pibs&amp;PibettesPlayPokemon" width="924" height="111" />
 				<img class="short" src={ppppLogo} alt="PPPP" width="240" height="103" />
-				<span class="pill {game.mode.toLowerCase()}"><span class="pill-label">Mode: </span>{modeLabel}</span>
 			</div>
 			<div class="user">
 				<Presence />
@@ -234,14 +228,14 @@
 		<main>
 			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null}>
 				<div class="screen-slot" bind:this={screenSlot}>
-					<GameScreen power={game.power} paused={game.paused} launchAt={game.launchAt}>
+					<GameScreen power="ON" paused={false}>
 						{#snippet controls()}<span class="bezel-controls"><ChatOverlayToggle /><SoundControl /></span>{/snippet}
 					</GameScreen>
 					<GameToasts />
 					<ChatOverlay hidden={tab === 'chat'} />
 				</div>
 				<nav class="tabs" aria-label="Panels">
-					{#each TABS.filter((t) => !(landscape && t.id === 'play')) as t (t.id)}
+					{#each TABS.filter((t) => t.id !== 'vote' && !(landscape && t.id === 'play')) as t (t.id)}
 						{@const badge = badges[t.id]}
 						<button
 							type="button"
@@ -269,17 +263,6 @@
 			</section>
 			<section class="side" class:off={tab !== 'vote' && tab !== 'party'} aria-label="Mode, votes and party">
 				<!-- Phones: Vote and Party are separate tabs; desktop: one column (display: contents). -->
-				<div class="voting" class:off={shown !== 'vote'}>
-					<ModeCard mode={game.mode} bind:votes={game.modeVotes} />
-					<!-- The flexible slot: the open vote in democracy (the queue is only votes then), the queue in anarchy. -->
-					<div class="next">
-						{#if game.mode === 'DEMOCRACY'}
-							<VoteTally tally={game.tally}><LastPressed /></VoteTally>
-						{:else}
-							<UpNext />
-						{/if}
-					</div>
-				</div>
 				<div class="party" class:off={shown !== 'party'}>
 					<GameStatus />
 				</div>

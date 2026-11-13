@@ -47,7 +47,7 @@
 		lastPress = command.toUpperCase();
 		inFlight = true;
 		try {
-			await api('POST', '/inputs', walk ? { command, repeat: 1, walk } : { command, repeat: 1 });
+			await api('POST', '/me/inputs', walk ? { command, repeat: 1, walk } : { command, repeat: 1 });
 			say(mode === 'DEMOCRACY' ? 'Voted' : 'Sent', false);
 		} catch (e) {
 			if (!(e instanceof ApiError)) return say('Network error, try again');

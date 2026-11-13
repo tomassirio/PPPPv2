@@ -49,3 +49,5 @@ pppp:
   # Seeds the first admin when the allowlist is empty.
   admins: ${PPPP_ADMINS:}
   data-dir: ${PPPP_DATA_DIR:./data}
+  # Local development only: enables GET /dev/login?email=... (no password). Never on a reachable host.
+  dev-login: ${PPPP_DEV_LOGIN:false}

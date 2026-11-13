@@ -1,6 +1,6 @@
 package dev.pppp.realtime;
 
-import dev.pppp.emulator.EmulatorHost;
+import dev.pppp.service.PlayerConsoles;
 import dev.pppp.model.UserRevokedEvent;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -16,7 +16,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 /**
- * /ws/audio: one text header {"sampleRate":N,"channels":1,"format":"s16le"}, then a binary message of
+ * /ws/audio: the signed-in player's own console. One text header {"sampleRate":N,"channels":1,"format":"s16le"}, then a binary message of
  * mono s16le PCM per emulated frame (~369 samples, ~740 bytes, ~44 KB/s). Each socket keeps at most
  * MAX_PENDING chunks; a lagging client loses its oldest ones. Same security as /ws/screen.
  */
@@ -27,25 +27,29 @@ public class AudioWebSocketHandler extends AbstractWebSocketHandler {
     private static final int MAX_PENDING = 6;
 
     private final Map<WebSocketSession, Handoff<byte[]>> sessions = new ConcurrentHashMap<>();
+    private final Map<WebSocketSession, String> users = new ConcurrentHashMap<>();
     private final String header;
 
-    AudioWebSocketHandler(EmulatorHost host) {
+    AudioWebSocketHandler(PlayerConsoles host) {
         header = "{\"sampleRate\":" + host.audioSampleRate() + ",\"channels\":1,\"format\":\"s16le\"}";
         host.onAudio(this::broadcast);
     }
 
     /** Emulator thread: encode once, hand off to every socket, never block. */
-    private void broadcast(short[] samples) {
-        if (sessions.isEmpty()) return;
+    private void broadcast(String userId, short[] samples) {
+        if (!users.containsValue(userId)) return;
         ByteBuffer bytes = ByteBuffer.allocate(samples.length * 2).order(ByteOrder.LITTLE_ENDIAN);
         bytes.asShortBuffer().put(samples);
         byte[] chunk = bytes.array();
-        sessions.values().forEach(h -> h.offer(chunk));
+        sessions.forEach((session, h) -> {
+            if (userId.equals(users.get(session))) h.offer(chunk);
+        });
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws IOException {
         session.sendMessage(new TextMessage(header)); // before registering, so no concurrent send
+        users.put(session, ScreenWebSocketHandler.userId(session));
         sessions.put(session, new Handoff<>(MAX_PENDING, chunk -> send(session, chunk)));
     }
 
@@ -54,7 +58,6 @@ public class AudioWebSocketHandler extends AbstractWebSocketHandler {
         try {
             session.sendMessage(new BinaryMessage(chunk));
         } catch (IOException | IllegalStateException e) {
-            sessions.remove(session);
             ScreenWebSocketHandler.close(session, CloseStatus.SESSION_NOT_RELIABLE);
         }
     }
@@ -62,6 +65,7 @@ public class AudioWebSocketHandler extends AbstractWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessions.remove(session);
+        users.remove(session);
     }
 
     @EventListener
