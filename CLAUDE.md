@@ -13,10 +13,18 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   parks its state in `saves/{user}/{cartridge}.state` when the player's last socket closes. The game is picked once
   (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`.
   `/ws/screen` and `/ws/audio` carry only the caller's own console. /play shows `GamePicker` until a game is picked.
+- Done: lobby and link sessions. `LinkService` (core): ready to TRADE/BATTLE in Redis hash `pibs:lobby`, challenges
+  (60 s) and sessions (15 min cap) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events
+  `LOBBY_CHANGED`, `LINK_CHALLENGE`, `LINK_SESSION` (to everyone, with user ids). Panel: `LinkPanel.svelte`.
+- Done: progress + scoreboard. `ProgressTracker` (core, `service/game`) samples every running console once a second
+  and scores badges, Pokédex, level milestones. Redis: `pibs:events` stream, `pibs:scoreboard` sorted set (also the
+  list of players), `pibs:progress:{userId}` hash. `GET /api/v1/scoreboard`, `GET /api/v1/activity`; events `PROGRESS`,
+  `SCOREBOARD_CHANGED`. Profiles: `PokemonRed`, `PokemonGen2` (Gold/Silver/Crystal, addresses from the pret symbol
+  files, never run against a real ROM). Panel: `Scoreboard.svelte`.
 - Leftover from v1, still compiled but no longer on /play: the shared `EmulatorHost` bean and everything built on it
   (crowd input queue, modes, votes, admin console/save-state/launch/reset, RamWatcher). Remove or re-point per player.
-- Next: progress job + scoreboard per player, lobby and link sessions (`EmulatorHost.link` between two players'
-  consoles), admin view of player consoles.
+- Next: remove the v1 leftovers, admin view of player consoles, a real trade between two Pokémon ROMs, the
+  byte-level serial endpoint if linked pairs are too slow on the Pi, chart renames for deploy.
 - No deploy workflow yet: v1's Helm release names would overwrite PPPP on the cluster. Rename the charts first.
 
 ## Local run (next to a running PPPP v1 dev stack)
