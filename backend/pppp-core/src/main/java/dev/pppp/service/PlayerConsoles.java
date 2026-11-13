@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.ContextClosedEvent;
@@ -41,6 +43,9 @@ public class PlayerConsoles {
     private final Map<String, Console> consoles = new ConcurrentHashMap<>();
     private final List<BiConsumer<String, int[]>> frameListeners = new CopyOnWriteArrayList<>();
     private final List<BiConsumer<String, short[]>> audioListeners = new CopyOnWriteArrayList<>();
+    private final List<Consumer<String>> idleListeners = new CopyOnWriteArrayList<>();
+    /** Link cables, one entry per end: userId -> the player at the other end. Guarded by itself. */
+    private final Map<String, String> links = new HashMap<>();
     private final PlayerRepository players;
     private final CartridgeService cartridges;
     private final CartridgeRepository files;
@@ -76,8 +81,16 @@ public class PlayerConsoles {
         });
     }
 
-    /** The player left: pause and park the state on disk. */
+    /** The player left: tell the listeners, pull their link cable, then pause and park the state on disk. */
     public void idle(String userId) {
+        for (Consumer<String> l : idleListeners) {
+            try {
+                l.accept(userId);
+            } catch (RuntimeException e) {
+                log.warn("Idle listener failed for {}", userId, e);
+            }
+        }
+        unlink(userId); // before pausing: a paused driver would freeze the other player's console too
         consoles.computeIfPresent(userId, (id, c) -> {
             c.host().pause();
             park(id, c);
@@ -109,6 +122,53 @@ public class PlayerConsoles {
                 c.pending().decrementAndGet();
             }
         });
+    }
+
+    /** Called with the player's id when they leave, before their console pauses. */
+    public void onIdle(Consumer<String> listener) {
+        idleListeners.add(listener);
+    }
+
+    /** True while the player's console is in memory and not paused, i.e. they have it open. */
+    public boolean isAwake(String userId) {
+        Console c = consoles.get(userId);
+        return c != null && !c.host().status().paused();
+    }
+
+    /** Plugs a link cable between the two players' consoles. IllegalStateException when either is not open or already linked. */
+    public void link(String userA, String userB) {
+        synchronized (links) {
+            if (!isAwake(userA) || !isAwake(userB)) throw new IllegalStateException("Both consoles must be open to link");
+            EmulatorHost.link(consoles.get(userA).host(), consoles.get(userB).host());
+            links.put(userA, userB);
+            links.put(userB, userA);
+        }
+        log.info("Link cable plugged: {} and {}", userA, userB);
+    }
+
+    /** Pulls the player's link cable and parks both consoles. Returns who was at the other end, or null when not linked. */
+    public String unlink(String userId) {
+        String peer;
+        synchronized (links) {
+            peer = links.remove(userId);
+            if (peer == null) return null;
+            links.remove(peer);
+            Console c = consoles.get(userId);
+            if (c != null) EmulatorHost.unlink(c.host());
+        }
+        for (String id : List.of(userId, peer)) {
+            Console c = consoles.get(id);
+            if (c != null) park(id, c);
+        }
+        log.info("Link cable pulled: {} and {}", userId, peer);
+        return peer;
+    }
+
+    /** The player at the other end of the cable, or null. */
+    public String linkedWith(String userId) {
+        synchronized (links) {
+            return links.get(userId);
+        }
     }
 
     /** Players whose console is in memory (running or paused). */
@@ -143,6 +203,9 @@ public class PlayerConsoles {
             c.host().shutdown();
         });
         consoles.clear();
+        synchronized (links) {
+            links.clear();
+        }
     }
 
     private Console start(String userId) {
