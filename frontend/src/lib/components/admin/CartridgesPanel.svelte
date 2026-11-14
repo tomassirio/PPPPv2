@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '#lib/api.ts';
-	import { act, consoleStatus, loadConsole, setConsole, type ConsoleStatus } from './admin.svelte';
+	import { act } from './admin.svelte';
 
 	type Cartridge = { id: string; title: string; size: number; cgb: boolean };
 
@@ -23,17 +23,12 @@
 		body.append('file', f);
 		if (await act(`Upload ${f.name}`, () => api('POST', '/admin/cartridges', body))) {
 			form.reset();
-			await Promise.all([load(), loadConsole()]);
+			await load();
 		}
 	}
 
-	async function insert(id: string) {
-		const s = await act(`Insert ${id}`, () => api<ConsoleStatus>('PUT', '/admin/console/cartridge', { cartridgeId: id }));
-		if (s) setConsole(s);
-	}
-
 	async function remove(id: string) {
-		const ok = await act(`Delete ${id}`, () => api('DELETE', `/admin/cartridges/${encodeURIComponent(id)}`).then(() => true), `Delete cartridge ${id} and its saves?`);
+		const ok = await act(`Delete ${id}`, () => api('DELETE', `/admin/cartridges/${encodeURIComponent(id)}`).then(() => true), `Delete cartridge ${id}? Players who picked it cannot play until it is uploaded again; their saves stay.`);
 		if (ok) await load();
 	}
 </script>
@@ -51,12 +46,7 @@
 						<td>{Math.round(cart.size / 1024)} KB</td>
 						<td>{cart.cgb ? 'GBC' : 'GB'}</td>
 						<td class="row">
-							{#if consoleStatus.cartridgeId === cart.id}
-								<span class="muted">inserted</span>
-							{:else}
-								<button onclick={() => insert(cart.id)} title={consoleStatus.power === 'ON' ? 'Power off first' : undefined}>Insert</button>
-								<button class="danger" onclick={() => remove(cart.id)}>Delete</button>
-							{/if}
+							<button class="danger" onclick={() => remove(cart.id)}>Delete</button>
 						</td>
 					</tr>
 				{:else}

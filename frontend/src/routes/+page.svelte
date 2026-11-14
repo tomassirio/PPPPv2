@@ -9,7 +9,7 @@
 	import face from '#lib/assets/konami-face.webp';
 	import SignInAbout from '#lib/components/SignInAbout.svelte';
 	import SignInBackdrop from '#lib/components/SignInBackdrop.svelte';
-	import { bootChime, counter, fanfare, loadTeaser, type Teaser } from '#lib/teaser.js';
+	import { bootChime, fanfare, loadTeaser, type Teaser } from '#lib/teaser.js';
 
 
 	const BOOT_MS = 2900;
@@ -66,19 +66,15 @@
 
 	let teaser = $state<Teaser | null>(null);
 
-	// Attract mode: after a while with no input the screen cycles demo slides (party, progress) like an arcade
-	// cabinet; any key or tap brings the title back.
+	// Attract mode: after a while with no input the screen alternates the title with a demo slide (who is
+	// playing) like an arcade cabinet; any key or tap brings the title back.
 	const IDLE_MS = 20000;
 	const SLIDE_MS = 4500;
 	let idle = $state(false);
 	let slide = $state(0);
 	let idleTimer: ReturnType<typeof setTimeout>;
-	const slides = $derived(
-		teaser ? (['party', 'progress', 'title'] as const).filter((k) => k !== 'party' || teaser!.party.length) : []
-	);
+	const slides = $derived(teaser ? (['players', 'title'] as const) : []);
 	const attract = $derived(idle && !glitch && !denied && slides.length > 0 ? slides[slide % slides.length] : 'title');
-	const badges = $derived(counter(teaser, 'Badges'));
-	const caught = $derived(counter(teaser, 'Pokédex'));
 
 	// Sound is only allowed after a gesture: the first key or tap plays the power-on chime.
 	let chimed = false;
@@ -177,7 +173,7 @@
 
 <svelte:window {onkeydown} {onkeyup} onpointerdown={() => (skip(), activity())} onpointerup={release} onblur={release} />
 
-<SignInBackdrop {teaser} />
+<SignInBackdrop />
 
 <main>
 	<div class="device" class:booting class:glitch>
@@ -191,25 +187,11 @@
 						><img src={play} alt="PlayPokemon" width="720" height="171" /></span
 					>
 				</h1>
-				{#if attract === 'party' && teaser}
+				{#if attract === 'players' && teaser}
 					<div class="attract" aria-hidden="true">
-						<p class="slide-title">OUR TEAM</p>
-						<ul class="team">
-							{#each teaser.party.slice(0, 6) as m, i (i)}
-								<li>
-									{#if m.icon}<img src="/api/v1/game/icons/{m.icon}.png" alt="" />{/if}
-									<span>L{m.level}</span>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{:else if attract === 'progress' && teaser}
-					<div class="attract" aria-hidden="true">
-						<p class="slide-title">OUR JOURNEY</p>
+						<p class="slide-title">OUR TRAINERS</p>
 						<dl class="journey">
-							{#if badges}<dt>BADGES</dt><dd>{badges.value}/{badges.max}</dd>{/if}
-							{#if caught}<dt>CAUGHT</dt><dd>{caught.value}/{caught.max}</dd>{/if}
-							{#if teaser.playTime}<dt>TIME</dt><dd>{teaser.playTime}</dd>{/if}
+							<dt>TRAINERS</dt><dd>{teaser.players}</dd>
 							<dt>ONLINE</dt><dd>{teaser.online}</dd>
 						</dl>
 					</div>
@@ -901,27 +883,6 @@
 	}
 	.slide-title {
 		font-size: 3cqw;
-	}
-	.team {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		display: grid;
-		grid-template-columns: repeat(3, 13cqw);
-		gap: 1.5cqw 3cqw;
-	}
-	.team li {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.6cqw;
-		font-size: 1.9cqw;
-	}
-	.team img {
-		width: 11cqw;
-		height: 11cqw;
-		object-fit: contain;
-		image-rendering: pixelated;
 	}
 	.journey {
 		margin: 0;

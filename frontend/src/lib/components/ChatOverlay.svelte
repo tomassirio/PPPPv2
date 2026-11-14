@@ -20,7 +20,6 @@
 	$effect(() => {
 		if (hidden || !chatOverlay.on) lines = [];
 	});
-	$effect(() => on('APP_RESET', () => (lines = [])));
 </script>
 
 <ul class="overlay" aria-hidden="true">

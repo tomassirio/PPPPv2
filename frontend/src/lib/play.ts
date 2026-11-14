@@ -2,28 +2,6 @@
 
 export type Button = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'start' | 'select';
 
-/** Shapes from StateController.State / InputScheduler.Tally / EmulatorHost.Status. */
-export type Tally = { window: string; tally: Record<string, number>; endsAt: number };
-export type GameState = {
-	power: 'ON' | 'OFF';
-	cartridgeId: string | null;
-	paused: boolean;
-	mode: 'ANARCHY' | 'DEMOCRACY';
-	queueDepth: number;
-	tally: Tally | null;
-	modeVotes: Record<string, number>;
-	launchAt: string | null; // ISO instant the console powers itself on (the countdown), or null
-};
-
-/** Time left as "2d 04:12:09", or "04:12:09" under a day; "00:00:00" once it is over. */
-export function countdown(ms: number): string {
-	const s = Math.max(0, Math.ceil(ms / 1000));
-	const pad = (n: number) => String(n).padStart(2, '0');
-	const hms = `${pad(Math.floor(s / 3600) % 24)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
-	const days = Math.floor(s / 86400);
-	return days ? `${days}d ${hms}` : hms;
-}
-
 const KEYS: Record<string, Button> = {
 	ArrowUp: 'up',
 	ArrowDown: 'down',
@@ -64,27 +42,8 @@ export function keyToButton(e: KeyLike): Button | null {
 	return KEYS[e.key] ?? null;
 }
 
-/** Tally rows, most votes first; ties keep first-vote order (the backend's tie-break). */
-export function tallyRows(tally: Record<string, number>) {
-	const total = Object.values(tally).reduce((s, n) => s + n, 0);
-	return Object.entries(tally)
-		.map(([button, votes]) => ({ button, votes, pct: total ? Math.round((votes * 100) / total) : 0 }))
-		.sort((x, y) => y.votes - x.votes);
-}
-
 /** Reconnect delay: 0.5 s doubling up to 30 s. */
 export const backoff = (attempt: number) => Math.min(30_000, 500 * 2 ** attempt);
-
-/** "LEFT,LEFT,DOWN" -> "LEFT ×2 DOWN". */
-export function formatCommand(cmd: string): string {
-	const out: [string, number][] = [];
-	for (const b of cmd.split(',')) {
-		const last = out[out.length - 1];
-		if (last && last[0] === b) last[1]++;
-		else out.push([b, 1]);
-	}
-	return out.map(([b, n]) => (n > 1 ? `${b} ×${n}` : b)).join(' ');
-}
 
 /** User ids are e-mails; show the local part. */
 export const shortUser = (id: string) => id.split('@')[0];
@@ -103,8 +62,8 @@ export function afterArrowRelease(still: Button[], walking: Button | null, relea
 export type ScoreRow = { userId: string; points: number; badges: number; caught: number; seen: number; game: string | null; online: boolean };
 export type ScoreEvent = { user: string; type: string; detail: string; points: number; at: number };
 
-/** "jordan earned the Boulder Badge". */
-export function activityText(e: ScoreEvent): string {
+/** "jordan earned the Boulder Badge"; who: another subject ("You"). */
+export function activityText(e: ScoreEvent, who = shortUser(e.user)): string {
 	const did: Record<string, string> = {
 		BADGE: `earned the ${e.detail} Badge`,
 		CAUGHT: `caught ${e.detail}`,
@@ -112,7 +71,7 @@ export function activityText(e: ScoreEvent): string {
 		LEVEL: `reached Lv. ${e.detail}`,
 		HALL_OF_FAME: 'entered the Hall of Fame'
 	};
-	return `${shortUser(e.user)} ${did[e.type] ?? e.type.toLowerCase()}`;
+	return `${who} ${did[e.type] ?? e.type.toLowerCase()}`;
 }
 
 /** How long ago, short: "now", "2 min", "3 h", "5 d". */

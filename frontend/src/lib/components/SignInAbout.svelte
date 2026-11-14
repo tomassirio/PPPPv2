@@ -1,56 +1,24 @@
-<!-- What PPPP is, for first-time visitors, how the shared game is going right now (public teaser), and the way in.
-     Drawn as an in-game text box, with the run's progress as a trainer card. -->
+<!-- What PPP is, for first-time visitors, how many are playing right now (public teaser), and the way in.
+     Drawn as an in-game text box, with the numbers as a trainer card. -->
 <script lang="ts">
-	import { counter, type Teaser } from '#lib/teaser.js';
+	import type { Teaser } from '#lib/teaser.js';
 
 	let { teaser }: { teaser: Teaser | null } = $props();
-
-	const badgeArt = import.meta.glob('../assets/badges/*.png', { eager: true, import: 'default' }) as Record<
-		string,
-		string
-	>;
-	// Gym order; the teaser only gives a count, and badges are earned in this order on a normal run.
-	const BADGES = ['Boulder', 'Cascade', 'Thunder', 'Rainbow', 'Soul', 'Marsh', 'Volcano', 'Earth'];
-
-	const badges = $derived(counter(teaser, 'Badges'));
-	const caught = $derived(counter(teaser, 'Pokédex'));
-	const earned = $derived(badges?.value ?? 0);
 </script>
 
 <section class="about" aria-labelledby="about-title">
-	<h2 id="about-title">One cartridge. <br />Too many thumbs.</h2>
+	<h2 id="about-title">A Game Boy <br />for every Pib.</h2>
 	<p class="pitch">
-		One Game Boy, one Pokémon Red save, and everyone holding the controls. Every button you press lands in the same game.<span
-			class="more"
-			aria-hidden="true">▼</span
-		>
+		Everyone gets their own Game Boy and their own Pokémon save. Climb the shared scoreboard, and plug in a link cable to
+		trade or battle.<span class="more" aria-hidden="true">▼</span>
 	</p>
 
-	<div class="modes">
-		<p class="mode anarchy"><b>ANARCHY</b>Every press goes straight in. Chaos.</p>
-		<p class="mode democracy"><b>DEMOCRACY</b>We vote on the next move. Slower chaos.</p>
-	</div>
-
 	<!-- Placeholders until the teaser loads (or if the server is down), so the card keeps its shape. -->
-	<div class="card" aria-label="Our run so far" role="group">
+	<div class="card" aria-label="Who is playing" role="group">
 		<p class="card-title">TRAINER CARD</p>
 		<dl>
-			<dt>BADGES</dt>
-			<dd class="badges">
-				{#each BADGES as name, i (name)}
-					<img
-						src={badgeArt[`../assets/badges/${name.toLowerCase()}.png`]}
-						alt=""
-						class:dim={i >= earned}
-						title="{name} Badge"
-					/>
-				{/each}
-				<span class="sr-only">{earned} of 8</span>
-			</dd>
-			<dt>POKéDEX</dt>
-			<dd>{caught?.value ?? '–'} caught</dd>
-			<dt>TIME</dt>
-			<dd>{teaser?.playTime ?? '–'}</dd>
+			<dt>TRAINERS</dt>
+			<dd>{teaser?.players ?? '–'}</dd>
 			<dt>ONLINE</dt>
 			<dd><span class="dot" class:live={teaser} aria-hidden="true"></span>{teaser?.online ?? '–'}</dd>
 		</dl>
@@ -118,34 +86,6 @@
 		}
 	}
 
-	.modes {
-		margin-top: 16px;
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 10px;
-	}
-	.mode {
-		margin: 0;
-		padding: 10px 12px;
-		border-radius: 8px;
-		border: 2px solid var(--c);
-		background: color-mix(in oklab, var(--c), transparent 90%);
-		font-size: 13px;
-		line-height: 1.4;
-	}
-	.mode b {
-		display: block;
-		margin-bottom: 6px;
-		font: 9px/1 var(--pixel-font);
-		color: var(--c);
-	}
-	.anarchy {
-		--c: var(--anarchy);
-	}
-	.democracy {
-		--c: var(--democracy);
-	}
-
 	.card {
 		margin-top: 16px;
 		padding: 12px 14px;
@@ -172,26 +112,6 @@
 		margin: 0;
 		font-size: 14px;
 		font-weight: 600;
-	}
-	.badges {
-		display: flex;
-		gap: 4px;
-	}
-	.badges img {
-		width: 22px;
-		height: 22px;
-		image-rendering: pixelated;
-	}
-	.badges img.dim {
-		filter: grayscale(1);
-		opacity: 0.25;
-	}
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
 	}
 	.dot {
 		display: inline-block;
@@ -273,10 +193,7 @@
 		}
 		h2 br,
 		.pitch,
-		.modes,
-		.card-title,
-		dt:nth-of-type(1),
-		.badges {
+		.card-title {
 			display: none;
 		}
 		.card {

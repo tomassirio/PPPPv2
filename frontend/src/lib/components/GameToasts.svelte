@@ -1,29 +1,33 @@
-<!-- Game events (GAME_EVENT) as a banner over the top of the game screen, one at a time, so they are seen on any
-     tab. Text only (never HTML). Place inside a positioned container. -->
+<!-- The player's own scored progress (their PROGRESS events) as a banner over the top of the game screen, one at a
+     time, so it is seen on any tab. Text only (never HTML). Place inside a positioned container. -->
 <script lang="ts">
 	import { on } from '#lib/events.ts';
+	import { activityText, type ScoreEvent } from '#lib/play.ts';
+	import { session } from '#lib/session.svelte.ts';
 
-	type GameEvent = { id: string | null; type: string; text: string };
 	const SHOW_MS = 3500;
 
-	let queue = $state<GameEvent[]>([]);
+	let queue = $state<ScoreEvent[]>([]);
 	const current = $derived(queue[0]);
 
-	$effect(() => on('GAME_EVENT', (e: GameEvent) => (queue = [...queue, e].slice(-5))));
+	$effect(() =>
+		on('PROGRESS', (e: ScoreEvent) => {
+			if (e.user === session.me?.id) queue = [...queue, e].slice(-5);
+		})
+	);
 	$effect(() => {
 		if (!current) return;
 		const t = setTimeout(() => (queue = queue.slice(1)), SHOW_MS);
 		return () => clearTimeout(t);
 	});
 
-	const tone = (type: string) =>
-		type === 'BLACKED_OUT' || type === 'POKEMON_FAINTED' ? 'bad' : type === 'BADGE_EARNED' || type === 'POKEMON_OBTAINED' ? 'great' : 'info';
+	const tone = (type: string) => (type === 'SEEN' || type === 'LEVEL' ? 'info' : 'great');
 </script>
 
 <div class="toasts" role="status" aria-live="polite">
 	{#if current}
 		{#key current}
-			<p class="toast {tone(current.type)}">{current.text}</p>
+			<p class="toast {tone(current.type)}">{activityText(current, 'You')} +{current.points}</p>
 		{/key}
 	{/if}
 </div>
@@ -55,9 +59,6 @@
 	}
 	.toast.great {
 		border-color: #f5c542;
-	}
-	.toast.bad {
-		border-color: #ff6b5b;
 	}
 	@keyframes drop {
 		from {

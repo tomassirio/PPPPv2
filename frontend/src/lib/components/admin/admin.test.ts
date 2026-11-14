@@ -7,8 +7,8 @@ describe('act', () => {
 		expect(await act('Reset', async () => 42)).toBe(42);
 		expect(notice).toEqual({ text: 'Reset: done', error: false });
 
-		await act('Insert', () => Promise.reject(new ApiError(409, 'Power the console off first')));
-		expect(notice).toEqual({ text: 'Insert failed: Power the console off first', error: true });
+		await act('Upload', () => Promise.reject(new ApiError(409, 'Cartridge red already exists')));
+		expect(notice).toEqual({ text: 'Upload failed: Cartridge red already exists', error: true });
 
 		vi.stubGlobal('confirm', () => false);
 		const fn = vi.fn();

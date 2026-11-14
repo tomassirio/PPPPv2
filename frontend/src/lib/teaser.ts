@@ -1,16 +1,10 @@
 // The sign-in page's public teaser (GET /api/v1/public/teaser, anonymous) and its sound.
 import { api } from './api.js';
 
-export type Teaser = {
-	online: number;
-	playTime: string | null;
-	counters: { label: string; value: number; max: number }[];
-	party: { species: string; level: number; icon: number }[];
-};
+/** players: everyone who picked a game; online: how many have the site open. */
+export type Teaser = { online: number; players: number };
 
 export const loadTeaser = () => api<Teaser>('GET', '/public/teaser');
-
-export const counter = (t: Teaser | null, label: string) => t?.counters.find((c) => c.label === label);
 
 let audio: AudioContext | null = null;
 

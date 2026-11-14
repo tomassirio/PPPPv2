@@ -3,8 +3,7 @@
 export class ApiError extends Error {
 	constructor(
 		public status: number,
-		public detail: string,
-		public retryAfter: number | null = null
+		public detail: string
 	) {
 		super(detail);
 	}
@@ -43,8 +42,7 @@ export async function api<T = unknown>(
 		} catch {
 			/* no body */
 		}
-		const retry = res.headers.get('Retry-After');
-		throw new ApiError(res.status, detail, retry ? Number(retry) : null);
+		throw new ApiError(res.status, detail);
 	}
 	if (res.status === 204 || res.headers.get('Content-Length') === '0') return undefined as T;
 	const text = await res.text();

@@ -1,27 +1,18 @@
-<!-- D-pad, A/B, Start/Select. Click/tap/keyboard -> POST /api/v1/inputs. Keys: arrows, Z=A, X=B, Enter=Start, Shift/Backspace=Select. -->
+<!-- D-pad, A/B, Start/Select. Click/tap/keyboard -> POST /api/v1/me/inputs (the player's own console). Keys: arrows, Z=A, X=B, Enter=Start, Shift/Backspace=Select. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
-	import { afterArrowRelease, formatCommand, keyToButton, type Button } from '#lib/play.ts';
+	import { afterArrowRelease, keyToButton, type Button } from '#lib/play.ts';
 	import { shellVars } from '#lib/shells.ts';
 	import { currentShell } from '#lib/shell.svelte.ts';
 	import ShellPicker from './ShellPicker.svelte';
-	import Who from './Who.svelte';
-	import { presses, watchPresses } from '#lib/presses.svelte.ts';
 	import { konamiPress } from '#lib/konami.svelte.ts';
-
-	let { mode }: { mode: 'ANARCHY' | 'DEMOCRACY' } = $props();
 
 	// The player's controller shell (colours), remembered in this browser.
 	const shell = $derived(currentShell.value);
-	$effect(() => watchPresses());
-	const gameLast = $derived(presses.recent.at(-1));
 	const vars = $derived(shellVars(shell));
 
 	let lastPress = $state('');
 	let status = $state('');
-	let blockedUntil = $state(0);
-	let now = $state(Date.now());
-	const blocked = $derived(now < blockedUntil);
 
 	let statusError = $state(false);
 	let statusTimer: ReturnType<typeof setTimeout> | undefined;
@@ -32,36 +23,19 @@
 		statusTimer = setTimeout(() => (status = ''), 3000);
 	}
 
-	function block(seconds: number) {
-		blockedUntil = Date.now() + seconds * 1000;
-		now = Date.now();
-		setTimeout(() => (now = Date.now()), seconds * 1000 + 10);
-	}
-
 	let inFlight = false;
 
-	/** walk: a held direction, pressed by the server long enough to chain steps (see InputScheduler). */
+	/** walk: a held direction, pressed by the server long enough to chain steps (see PlayerConsoles.press). */
 	async function send(command: string, walk = false) {
 		if (!walk) konamiPress(command);
-		if (Date.now() < blockedUntil) return;
 		lastPress = command.toUpperCase();
 		inFlight = true;
 		try {
 			await api('POST', '/me/inputs', walk ? { command, repeat: 1, walk } : { command, repeat: 1 });
-			say(mode === 'DEMOCRACY' ? 'Voted' : 'Sent', false);
+			say('Sent', false);
 		} catch (e) {
 			if (!(e instanceof ApiError)) return say('Network error, try again');
-			if (e.status === 429) {
-				block(1);
-				say('Slow down a little');
-			} else if (e.status === 503) {
-				block(e.retryAfter ?? 1);
-				say('Queue is full, wait a moment');
-			} else if (e.status === 400) {
-				say(e.detail);
-			} else {
-				say(`Not sent: ${e.detail}`);
-			}
+			say(e.status === 400 ? e.detail : `Not sent: ${e.detail}`);
 		} finally {
 			inFlight = false;
 		}
@@ -72,15 +46,10 @@
 	let heldTimer: ReturnType<typeof setTimeout> | undefined;
 
 	/*
-	 * Holding an arrow key in anarchy keeps walking: one press every REPEAT_MS. The buffer is one press in flight
-	 * per player: a repeat waits until the server accepted the previous one, and pauses while it says slow down
-	 * or queue full. The browser's own key auto-repeat is ignored. Democracy is one vote per window: no repeats.
-	 */
-	/*
-	 * Held direction (anarchy): a tap first (turn, or one tile when already facing that way, as in the game); if
-	 * still held after WALK_AFTER_MS, walk presses every WALK_MS. The server holds those a bit longer than a step
-	 * with no release, so they chain into smooth walking. One press in flight at a time; paused while the server
-	 * says slow down or queue full.
+	 * Held direction: a tap first (turn, or one tile when already facing that way, as in the game); if still held
+	 * after WALK_AFTER_MS, walk presses every WALK_MS. The server holds those a bit longer than a step with no
+	 * release, so they chain into smooth walking. One press in flight at a time. The browser's own key
+	 * auto-repeat is ignored.
 	 */
 	const WALK_AFTER_MS = 180;
 	const WALK_MS = 320;
@@ -95,7 +64,7 @@
 		repeating = b;
 		const tick = () => {
 			if (repeating !== b) return;
-			if (!inFlight && Date.now() >= blockedUntil) send(b, true);
+			if (!inFlight) send(b, true);
 			repeatTimer = setTimeout(tick, WALK_MS);
 		};
 		repeatTimer = setTimeout(tick, delay);
@@ -119,7 +88,7 @@
 		clearTimeout(heldTimer);
 		const walking = repeating !== null; // already walking: a new direction walks straight away
 		if (ARROWS.includes(b)) heldArrows = [...heldArrows.filter((x) => x !== b), b];
-		if (mode === 'ANARCHY' && ARROWS.includes(b)) {
+		if (ARROWS.includes(b)) {
 			if (walking) startRepeat(b, 0);
 			else {
 				send(b);
@@ -137,7 +106,7 @@
 			heldArrows = heldArrows.filter((x) => x !== b);
 			const next = afterArrowRelease(heldArrows, repeating, b);
 			if (next === 'keep') return; // let go of an arrow already switched away from: keep walking
-			if (next && mode === 'ANARCHY') {
+			if (next) {
 				startRepeat(next, 0); // still holding another arrow: keep walking that way
 				held = next;
 				return;
@@ -158,14 +127,14 @@
 		send(b);
 	}
 
-	/* D-pad by pointer: the press goes out on touch-down; holding repeats like a held arrow key (anarchy).
+	/* D-pad by pointer: the press goes out on touch-down; holding repeats like a held arrow key.
 	   Keyboard activation of the focused button still arrives as a click with detail 0. */
 	function pressDir(e: PointerEvent, b: Button) {
-		if (e.button !== 0 || blocked) return;
+		if (e.button !== 0) return;
 		buzz(e);
 		held = b;
 		send(b);
-		if (mode === 'ANARCHY') startRepeat(b);
+		startRepeat(b);
 	}
 
 	function releaseDir() {
@@ -204,7 +173,6 @@
 					style:grid-area={d.area}
 					aria-label={d.label}
 					aria-keyshortcuts={d.key}
-					disabled={blocked}
 					onpointerdown={(e) => pressDir(e, d.b)}
 					onpointerup={releaseDir}
 					onpointercancel={releaseDir}
@@ -228,25 +196,25 @@
 			<div class="hub"></div>
 		</div>
 		<div class="ab">
-			<button type="button" class="round pixel b" class:held={held === 'b'} aria-label="B button" aria-keyshortcuts="X" disabled={blocked} onclick={(e) => tap(e, 'b')}
+			<button type="button" class="round pixel b" class:held={held === 'b'} aria-label="B button" aria-keyshortcuts="X" onclick={(e) => tap(e, 'b')}
 				>B</button
 			>
-			<button type="button" class="round pixel" class:held={held === 'a'} aria-label="A button" aria-keyshortcuts="Z" disabled={blocked} onclick={(e) => tap(e, 'a')}
+			<button type="button" class="round pixel" class:held={held === 'a'} aria-label="A button" aria-keyshortcuts="Z" onclick={(e) => tap(e, 'a')}
 				>A</button
 			>
 		</div>
 	</div>
 	<div class="meta">
-		<button type="button" class="pill" class:held={held === 'select'} aria-label="Select" aria-keyshortcuts="Shift" disabled={blocked} onclick={(e) => tap(e, 'select')}
+		<button type="button" class="pill" class:held={held === 'select'} aria-label="Select" aria-keyshortcuts="Shift" onclick={(e) => tap(e, 'select')}
 			>SELECT</button
 		>
-		<button type="button" class="pill" class:held={held === 'start'} aria-label="Start" aria-keyshortcuts="Enter" disabled={blocked} onclick={(e) => tap(e, 'start')}
+		<button type="button" class="pill" class:held={held === 'start'} aria-label="Start" aria-keyshortcuts="Enter" onclick={(e) => tap(e, 'start')}
 			>START</button
 		>
 	</div>
 </div>
 
-<section class="controls panel" style={vars} class:idle={!lastPress && !status && !gameLast} aria-label="Controls">
+<section class="controls panel" style={vars} class:idle={!lastPress && !status} aria-label="Controls">
 	<div class="head">
 		<h2 class="keys-only">Keyboard</h2>
 		<p class="last" class:empty={!lastPress && !status} role="status" aria-live="polite">
@@ -256,14 +224,6 @@
 			{#if status}<span class:error={statusError} class:muted={!statusError}>{status}</span>{/if}
 		</p>
 	</div>
-	<!-- Phones: the last press the game ran, from anyone. -->
-	{#if gameLast}
-		<p class="game-last">
-			<span class="muted label-phone">In game</span>
-			<strong class="chip pixel">{formatCommand(gameLast.command)}</strong>
-			<Who user={gameLast.user} compact />
-		</p>
-	{/if}
 	<div class="keys keys-only">
 		<div class="cluster" role="img" aria-label="Arrow keys move">
 			<kbd style:grid-area="up">↑</kbd><kbd style:grid-area="left">←</kbd><kbd style:grid-area="down">↓</kbd><kbd
@@ -313,10 +273,6 @@
 		-webkit-tap-highlight-color: transparent;
 		user-select: none;
 	}
-	button:disabled {
-		opacity: 0.55;
-		cursor: not-allowed;
-	}
 	button:focus-visible {
 		outline: 3px solid var(--accent-text);
 		outline-offset: 2px;
@@ -331,10 +287,10 @@
 		justify-content: center;
 		padding: 0;
 	}
-	.dir:active:not(:disabled),
-	.round:active:not(:disabled),
-	.pill:active:not(:disabled),
-	.held:not(:disabled) {
+	.dir:active,
+	.round:active,
+	.pill:active,
+	.held {
 		filter: brightness(0.8);
 	}
 	.ab {
@@ -396,8 +352,7 @@
 			display: none; /* the pad is split around the screen there */
 		}
 	}
-	.label-phone,
-	.game-last {
+	.label-phone {
 		display: none;
 	}
 	.picker-corner {
@@ -610,8 +565,7 @@
 			padding: 4px 9px;
 			font-size: 9px;
 		}
-		.last,
-		.game-last {
+		.last {
 			display: flex;
 			align-items: center;
 			gap: 6px;
@@ -621,16 +575,10 @@
 			font-size: 12px;
 			white-space: nowrap;
 		}
-		.game-last {
-			border-left: 1px solid var(--border);
-		}
 		.last.empty {
 			display: none;
 		}
-		.head:has(.last.empty) + .game-last {
-			border-left: none;
-		}
-		/* Sent/Voted would not fit; errors still show. */
+		/* "Sent" would not fit; errors still show. */
 		.last > span.muted:not(.label-phone):not(.label-wide) {
 			display: none;
 		}

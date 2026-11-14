@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareIds, nameColor, merge, myReaction, remove, setReactions, systemParts, type ChatMessage } from './messages';
+import { compareIds, nameColor, merge, myReaction, remove, setReactions, type ChatMessage } from './messages';
 
 const msg = (id: string): ChatMessage => ({
 	id,
@@ -7,7 +7,6 @@ const msg = (id: string): ChatMessage => ({
 	name: 'U',
 	text: id,
 	kind: 'USER',
-	command: false,
 	at: 0
 });
 const ids = (l: ChatMessage[]) => l.map((m) => m.id);
@@ -43,16 +42,5 @@ describe('chat messages', () => {
 
 	it('removes by id', () => {
 		expect(ids(remove([msg('1-0'), msg('2-0')], '1-0'))).toEqual(['2-0']);
-	});
-
-	it('splits out mode names and towns', () => {
-		expect(systemParts('Mode is now ANARCHY')).toEqual([{ text: 'Mode is now ' }, { text: 'ANARCHY', mode: 'anarchy' }]);
-		expect(systemParts('DEMOCRACY wins over ANARCHY!').map((p) => p.text)).toEqual(['DEMOCRACY', ' wins over ', 'ANARCHY', '!']);
-		expect(systemParts('First time in Cerulean City!')).toEqual([
-			{ text: 'First time in ' },
-			{ text: 'Cerulean City', town: '#5cb8ff' },
-			{ text: '!' }
-		]);
-		expect(systemParts('First time in Route 1!')).toEqual([{ text: 'First time in Route 1!' }]);
 	});
 });

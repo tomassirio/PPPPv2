@@ -1,7 +1,8 @@
-// The inserted game's summary (GET /api/v1/game/state, kept current by GAME_STATE), shared by the party box and
-// the Pokédex banners. null while the game has no profile.
+// The player's own game summary (GET /api/v1/game/state, kept current by their GAME_STATE events), shared by the
+// party box and the Pokédex banners. null while their game has no profile.
 import { api } from './api';
 import { on } from './events';
+import { session } from './session.svelte';
 
 /** Shape of GameSummary (backend model). */
 export type Member = { name: string; species: string; level: number; hp: number; maxHp: number; status: string | null; icon: number };
@@ -32,10 +33,10 @@ export function watchGame(): () => void {
 	if (watchers++ === 0) {
 		refresh();
 		offs = [
-			on('GAME_STATE', (s: GameSummary) => {
-				game.summary = s;
-			}),
-			on('CONSOLE_CHANGED', refresh) // another cartridge may have no profile
+			// Sent to everyone, like the scoreboard: only the player's own belongs in their party box.
+			on('GAME_STATE', (e: { user: string; state: GameSummary }) => {
+				if (e.user === session.me?.id) game.summary = e.state;
+			})
 		];
 	}
 	return () => {

@@ -1,32 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { on } from '#lib/events.ts';
 	import { isAdmin, loadMe, session } from '#lib/session.svelte.ts';
-	import { loadConsole, notice, setConsole, type ConsoleStatus } from '#lib/components/admin/admin.svelte.ts';
-	import ConsolePanel from '#lib/components/admin/ConsolePanel.svelte';
+	import { notice } from '#lib/components/admin/admin.svelte.ts';
 	import CartridgesPanel from '#lib/components/admin/CartridgesPanel.svelte';
-	import SaveStatesPanel from '#lib/components/admin/SaveStatesPanel.svelte';
+	import PlayersPanel from '#lib/components/admin/PlayersPanel.svelte';
 	import SettingsPanel from '#lib/components/admin/SettingsPanel.svelte';
 	import PeoplePanel from '#lib/components/admin/PeoplePanel.svelte';
 	import AccessRequestsPanel from '#lib/components/admin/AccessRequestsPanel.svelte';
-	import LaunchPanel from '#lib/components/admin/LaunchPanel.svelte';
-	import ResetPanel from '#lib/components/admin/ResetPanel.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
 	import '#lib/components/admin/admin.css';
 
 	let loadFailed = $state(false);
 
 	onMount(() => {
-		let off: (() => void) | undefined;
-		loadMe().catch(() => ((loadFailed = true), null)).then(async (me) => {
-			if (loadFailed) return;
-			if (!me) return goto('/');
-			if (!isAdmin(me)) return;
-			off = on('CONSOLE_CHANGED', (s: ConsoleStatus) => setConsole(s));
-			await loadConsole();
-		});
-		return () => off?.();
+		loadMe().then(
+			(me) => {
+				if (!me) goto('/');
+			},
+			() => (loadFailed = true)
+		);
 	});
 </script>
 
@@ -45,17 +38,14 @@
 		<main>
 			<div class="column">
 				<h2 class="group">Game</h2>
-				<ConsolePanel />
-				<LaunchPanel />
 				<CartridgesPanel />
-				<SaveStatesPanel />
+				<PlayersPanel />
 			</div>
 			<div class="column">
 				<h2 class="group">Players &amp; settings</h2>
 				<AccessRequestsPanel />
 				<PeoplePanel />
 				<SettingsPanel />
-				<ResetPanel />
 			</div>
 		</main>
 	{:else if session.me}

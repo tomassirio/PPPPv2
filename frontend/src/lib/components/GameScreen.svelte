@@ -1,43 +1,15 @@
-<!-- Live screen: PNG frames from /ws/screen drawn on a 160x144 canvas, scaled with pixelated rendering. -->
+<!-- The player's own live screen: PNG frames from /ws/screen drawn on a 160x144 canvas, scaled with pixelated rendering. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { backoff, countdown } from '#lib/play.ts';
+	import { backoff } from '#lib/play.ts';
 
-	// `controls` renders at the right of the bezel's status strip (e.g. the sound control). `launchAt` (ISO) is a
-	// scheduled start: while the console is off, the screen counts down to it.
-	let {
-		power,
-		paused,
-		launchAt = null,
-		controls
-	}: { power: 'ON' | 'OFF'; paused: boolean; launchAt?: string | null; controls?: Snippet } = $props();
-
-	const launch = $derived(power === 'OFF' && launchAt ? Date.parse(launchAt) : null);
-	let now = $state(Date.now());
-	$effect(() => {
-		if (launch === null) return;
-		now = Date.now();
-		const t = setInterval(() => (now = Date.now()), 1000);
-		return () => clearInterval(t);
-	});
-	const launchDay = $derived(
-		launch === null
-			? ''
-			: new Date(launch).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-	);
+	// `controls` renders at the right of the bezel's status strip (e.g. the sound control).
+	let { controls }: { controls?: Snippet } = $props();
 
 	let canvas: HTMLCanvasElement;
 	let connected = $state(false);
 
-	const overlay = $derived(
-		power === 'OFF'
-			? 'Console is off'
-			: paused
-				? 'Paused'
-				: !connected
-					? 'Reconnecting…'
-					: null
-	);
+	const overlay = $derived(connected ? null : 'Reconnecting…');
 
 	$effect(() => {
 		const ctx = canvas.getContext('2d')!;
@@ -98,23 +70,10 @@
 	<div class="bezel">
 		<div class="screen">
 			<canvas bind:this={canvas} width="160" height="144" aria-label="Live game screen"></canvas>
-			{#if launch !== null}
-				<div class="overlay countdown pixel" aria-hidden="true">
-					{#if launch > now}
-						<span class="label">Game Boy powers on in</span>
-						<span class="time">{countdown(launch - now)}</span>
-						<span class="when">{launchDay}</span>
-					{:else}
-						<span class="time">Starting…</span>
-					{/if}
-				</div>
-				<p class="sr-only" role="status">Console is off. It powers on {launchDay}.</p>
-			{:else}
-				{#if overlay}
-					<div class="overlay pixel" aria-hidden="true">{overlay}</div>
-				{/if}
-				<p class="sr-only" role="status">{overlay ?? ''}</p>
+			{#if overlay}
+				<div class="overlay pixel" aria-hidden="true">{overlay}</div>
 			{/if}
+			<p class="sr-only" role="status">{overlay ?? ''}</p>
 		</div>
 		<div class="strip">
 			<span class="live" class:off={!!overlay}><span class="dot" aria-hidden="true">●</span> {overlay ? 'OFFLINE' : 'LIVE'}</span>
@@ -169,21 +128,6 @@
 		font-size: 14px;
 		line-height: 1.6;
 	}
-	.countdown {
-		flex-direction: column;
-		gap: 12px;
-	}
-	.countdown .label {
-		font-size: 10px;
-	}
-	.countdown .time {
-		font-size: 22px;
-		letter-spacing: 0.04em;
-	}
-	.countdown .when {
-		font-size: 9px;
-		opacity: 0.75;
-	}
 	.sr-only {
 		position: absolute;
 		width: 1px;
@@ -208,7 +152,7 @@
 	.live.off {
 		color: var(--muted);
 	}
-	/* On air: console on, game running, stream connected. */
+	/* On air: stream connected. */
 	.live:not(.off) .dot {
 		color: #ff4d4f;
 	}

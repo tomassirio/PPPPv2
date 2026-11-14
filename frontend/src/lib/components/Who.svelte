@@ -2,12 +2,14 @@
      tooltip and for screen readers (narrow lists). -->
 <script lang="ts">
 	import { shortUser } from '#lib/play.ts';
-	import { needPicture, presses } from '#lib/presses.svelte.ts';
+	import { needPicture, pictures } from '#lib/pictures.svelte.ts';
 
 	let { user, compact = false }: { user: string; compact?: boolean } = $props();
 	let broken = $state(false);
-	const picture = $derived(presses.pictures[user]);
-	$effect(() => needPicture(user));
+	const picture = $derived(pictures.byUser[user]);
+	$effect(() => {
+		needPicture(user);
+	});
 </script>
 
 <span class="who" title={compact ? shortUser(user) : undefined}>

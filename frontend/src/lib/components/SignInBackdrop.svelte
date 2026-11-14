@@ -1,16 +1,8 @@
 <!-- Behind the sign-in device: an original handheld-era overworld in 16px tiles (trees, a crossroads with a sign, tall
-     grass, a pond, flowers, a couple of item balls), tinted by the local hour. A trainer walks the path with the party
-     in tow, wild Pokémon jump out of the grass now and then, and flying-type shadows pass over. -->
+     grass, a pond, flowers, a couple of item balls), tinted by the local hour. A trainer walks the path, tall grass
+     shakes with a "!" now and then, and flying-type shadows pass over. -->
 <script lang="ts">
-	import type { Teaser } from '#lib/teaser.js';
-
-	let { teaser }: { teaser: Teaser | null } = $props();
-
 	const TILE = 48; // one 16px tile drawn at 3x
-	const DEX = 151;
-	const PLAYER = '/api/v1/game/icons/player.png';
-
-	let playerOk = $state(false);
 
 	let w = $state(1280);
 	let h = $state(800);
@@ -18,8 +10,6 @@
 	const hour = new Date().getHours();
 	const time = hour < 6 || hour >= 21 ? 'night' : hour < 9 || hour >= 18 ? 'dusk' : 'day';
 	const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-	const party = $derived((teaser?.party ?? []).filter((m) => m.icon > 0).slice(0, 6));
 
 	type Kind = 'grass' | 'tall' | 'tree' | 'path' | 'flower' | 'water' | 'sign' | 'ball';
 	type Cell = { x: number; y: number; kind: Kind; n: number };
@@ -57,9 +47,8 @@
 	});
 
 	// Wild encounters: every few seconds a tuft of tall grass (preferably one not hidden behind the device or the
-	// card) shakes, a "!" pops up, and a random Pokémon hops out and back in. Sprites come from the ROM; no game, no
-	// sprite, the "!" still shows.
-	let encounter = $state<{ x: number; y: number; id: number; key: number } | null>(null);
+	// card) shakes and a "!" pops up.
+	let encounter = $state<{ x: number; y: number; key: number } | null>(null);
 	$effect(() => {
 		if (still) return;
 		let key = 0;
@@ -69,12 +58,12 @@
 			const pool = seen.length ? seen : tall;
 			if (!pool.length) return;
 			const c = pool[Math.floor(Math.random() * pool.length)];
-			encounter = { x: c.x, y: c.y, id: 1 + Math.floor(Math.random() * DEX), key: ++key };
+			encounter = { x: c.x, y: c.y, key: ++key };
 		}, 4200);
 		return () => clearInterval(t);
 	});
 
-	// The trainer and party cross the screen at walking pace (about 3 tiles a second), then the path stays empty a bit.
+	// The trainer crosses the screen at walking pace (about 3 tiles a second), then the path stays empty a bit.
 	// Each pass comes in from a random side: along the crossroads' row from the left or right, or down/up its column.
 	type Dir = 'right' | 'left' | 'down' | 'up';
 	const DIRS: Dir[] = ['right', 'left', 'down', 'up'];
@@ -82,15 +71,15 @@
 	let dir = $state<Dir>(pick());
 	let pass = $state(0);
 	const vertical = $derived(dir === 'down' || dir === 'up');
-	const lineLength = $derived((party.length + 1) * TILE);
+	const lineLength = TILE;
 	const crossSeconds = $derived(((vertical ? h : w) + lineLength + 2 * TILE) / (TILE * 3));
-	// Where the line starts and ends (translate), and where each follower sits relative to the one ahead.
+	// Where the trainer starts and ends (translate).
 	const route = $derived(
 		{
-			right: { from: '-48px 0', to: `calc(100vw + ${lineLength}px) 0`, ox: '-52px', oy: '0px' },
-			left: { from: '100vw 0', to: `${-lineLength - TILE}px 0`, ox: '52px', oy: '0px' },
-			down: { from: '0 -48px', to: `0 calc(100vh + ${lineLength}px)`, ox: '0px', oy: '-52px' },
-			up: { from: '0 100vh', to: `0 ${-lineLength - TILE}px`, ox: '0px', oy: '52px' }
+			right: { from: '-48px 0', to: `calc(100vw + ${lineLength}px) 0` },
+			left: { from: '100vw 0', to: `${-lineLength - TILE}px 0` },
+			down: { from: '0 -48px', to: `0 calc(100vh + ${lineLength}px)` },
+			up: { from: '0 100vh', to: `0 ${-lineLength - TILE}px` }
 		}[dir]
 	);
 </script>
@@ -98,8 +87,6 @@
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
 
 <div class="backdrop {time}" aria-hidden="true">
-	<!-- Probe: the player's own sprite sheet from the ROM; the stand-in trainer walks until it loads. -->
-	<img class="probe" src={PLAYER} alt="" onload={() => (playerOk = true)} />
 	<svg
 		width={cols * TILE}
 		height={rows * TILE}
@@ -231,7 +218,7 @@
 		<span class="glint" style:left="{c.x * TILE + 30}px" style:top="{c.y * TILE + 10}px" style:--i={i}></span>
 	{/each}
 
-	<!-- The trainer leads, the party follows one tile behind each other. -->
+	<!-- The trainer. -->
 	{#key pass}
 	<div
 		class="line {dir}"
@@ -240,39 +227,22 @@
 		style:--cross="{crossSeconds}s"
 		style:--from={route.from}
 		style:--to={route.to}
-		style:--ox={route.ox}
-		style:--oy={route.oy}
 		onanimationend={(e) => {
 			if (e.target !== e.currentTarget) return;
 			dir = pick();
 			pass++;
 		}}
 	>
-		{#if playerOk}
-			<span class="member player"></span>
-		{:else}
-			<svg class="member" viewBox="0 0 16 16" shape-rendering="crispEdges">
-				<use class="s1" href="#t-kid-1" width="16" height="16" />
-				<use class="s2" href="#t-kid-2" width="16" height="16" />
-			</svg>
-		{/if}
-		{#each party as m, i (i)}
-			<img class="member mon" src="/api/v1/game/icons/{m.icon}.png" alt="" style:--i={i + 1} />
-		{/each}
+		<svg class="member" viewBox="0 0 16 16" shape-rendering="crispEdges">
+			<use class="s1" href="#t-kid-1" width="16" height="16" />
+			<use class="s2" href="#t-kid-2" width="16" height="16" />
+		</svg>
 	</div>
 	{/key}
 
 	{#if encounter}
 		{#key encounter.key}
 			<div class="encounter" style:left="{encounter.x * TILE}px" style:top="{encounter.y * TILE}px">
-				<div class="pop">
-					<img
-						class="wild"
-					src="/api/v1/game/icons/{encounter.id}.png"
-					alt=""
-						onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
-					/>
-				</div>
 				<svg class="tuft" viewBox="0 0 16 16" shape-rendering="crispEdges">
 					<use href="#t-tall" width="16" height="16" />
 					<use class="sway r" href="#t-tall-r" width="16" height="16" />
@@ -426,55 +396,10 @@
 			visibility: hidden;
 		}
 	}
-	.probe {
-		display: none;
-	}
-	/* The player's sheet (16x96: down, up, left, then each one's walking frame). Right mirrors left. A tile is
-	   stand-walk; walking up or down, every other step uses the walking frame mirrored, as the game does. */
-	.player {
-		--stand: -96px;
-		--walk: -240px;
-		--face: 1;
-		--alt: 1;
-		background: url('/api/v1/game/icons/player.png') 0 var(--stand) / 48px 288px;
-		image-rendering: pixelated;
-		transform: scaleX(var(--face));
-	}
-	.right .player {
-		--face: -1;
-	}
-	.down .player {
-		--stand: 0px;
-		--walk: -144px;
-		--alt: -1;
-	}
-	.up .player {
-		--stand: -48px;
-		--walk: -192px;
-		--alt: -1;
-	}
-	/* The stand-in only has side frames. */
+	/* The trainer only has side frames. */
 	.left svg.member {
 		transform: scaleX(-1);
 	}
-	@media (prefers-reduced-motion: no-preference) {
-		.player {
-			animation: step 0.68s steps(1) infinite;
-		}
-	}
-	@keyframes step {
-		25% {
-			background-position: 0 var(--walk);
-		}
-		50% {
-			background-position: 0 var(--stand);
-		}
-		75% {
-			background-position: 0 var(--walk);
-			transform: scaleX(calc(var(--face) * var(--alt)));
-		}
-	}
-
 	/* A four-point sparkle on the item ball. */
 	.glint {
 		position: absolute;
@@ -502,8 +427,7 @@
 		}
 	}
 
-	/* The walking line. The whole line glides along its path, then waits off screen a moment before the next pass;
-	   each member sits one tile behind the one before. */
+	/* The walking line: the trainer glides along the path, then waits off screen a moment before the next pass. */
 	.line {
 		position: absolute;
 		width: 48px;
@@ -524,22 +448,12 @@
 		position: absolute;
 		width: 48px;
 		height: 48px;
-		left: calc(var(--i, 0) * var(--ox));
-		top: calc(var(--i, 0) * var(--oy));
+		left: 0;
+		top: 0;
 		image-rendering: pixelated;
 		filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.18));
 	}
-	/* Party sprites hop a pixel on alternate steps from the trainer. */
-	.mon {
-		animation: hop 0.34s steps(1) calc(var(--i) * -0.17s) infinite;
-	}
-	@keyframes hop {
-		50% {
-			translate: 0 -3px;
-		}
-	}
-
-	/* Wild encounter, 2.6 s: the tuft shakes, leaves fly, "!" pops, the Pokémon hops up out of the grass and back in. */
+	/* Wild encounter, 2.6 s: the tuft shakes, leaves fly, "!" pops. */
 	.encounter {
 		position: absolute;
 		width: 48px;
@@ -613,49 +527,6 @@
 			scale: 0;
 		}
 	}
-	/* Clipped at the tile's bottom edge, so the Pokémon comes out of the grass, not from under it. */
-	.pop {
-		position: absolute;
-		inset: 0;
-		clip-path: inset(-80px -24px 0 -24px);
-	}
-	.wild {
-		position: absolute;
-		left: 0;
-		top: 0;
-		width: 48px;
-		height: 48px;
-		image-rendering: pixelated;
-		opacity: 0;
-		animation: wild 1.8s 0.8s both;
-	}
-	@keyframes wild {
-		0% {
-			opacity: 1;
-			translate: 0 24px;
-			animation-timing-function: cubic-bezier(0.2, 0.8, 0.4, 1);
-		}
-		22% {
-			translate: 0 -30px;
-			animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
-		}
-		38% {
-			translate: 0 -14px;
-		}
-		48% {
-			translate: 0 -20px;
-		}
-		58%,
-		80% {
-			opacity: 1;
-			translate: 0 -14px;
-		}
-		100% {
-			opacity: 0;
-			translate: 0 24px;
-		}
-	}
-
 	/* A flying type's shadow crossing the map, wings beating. */
 	.shadow {
 		position: absolute;
@@ -698,7 +569,6 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		.line,
-		.mon,
 		.glint {
 			animation: none;
 		}

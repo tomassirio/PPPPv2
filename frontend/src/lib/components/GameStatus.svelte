@@ -1,5 +1,7 @@
-<!-- Party and badges read from the game's RAM: GET /api/v1/game/state, kept current by GAME_STATE.
-     The party box always shows (six empty slots before a game is running); badges and Pokédex need a game profile. Sprites come from the ROM via /api/v1/game/icons/{id}.png. -->
+<!-- The player's own party and badges, read from their console's RAM: GET /api/v1/game/state, kept current by GAME_STATE.
+     The party box shows six empty slots before the game is in play; badges and Pokédex need a game profile. A profile
+     without a party box (Gold/Silver/Crystal so far) shows its counters only. Sprites come from the player's ROM via
+     /api/v1/game/icons/{id}.png. -->
 <script lang="ts">
 	import { game, watchGame, type Member } from '#lib/game.svelte.ts';
 
@@ -15,6 +17,8 @@
 	const next = $derived(summary?.badges.find((b) => !b.earned));
 	const dex = $derived(summary?.counters.find((c) => c.label === 'Pokédex'));
 	const seen = $derived(summary?.counters.find((c) => c.label === 'Seen'));
+	const countersOnly = $derived(!!summary && !summary.badges.length);
+	const badgeCount = $derived(summary?.counters.find((c) => c.label === 'Badges'));
 
 	function hp(m: Member) {
 		const r = m.maxHp > 0 ? m.hp / m.maxHp : 0;
@@ -22,7 +26,8 @@
 	}
 </script>
 
-<section class="panel card" aria-labelledby="party-h">
+<section class="panel card" aria-label="Your game">
+	{#if !countersOnly}
 		<div class="head">
 			<h2 id="party-h">Party</h2>
 			<span class="muted">{party.length} / 6</span>
@@ -56,7 +61,16 @@
 				{/if}
 			{/each}
 		</ol>
+	{/if}
 	{#if summary}
+		{#if countersOnly}
+			{#if badgeCount}
+				<div class="head">
+					<h2>Badges</h2>
+					<span class="muted">{badgeCount.value} / {badgeCount.max}</span>
+				</div>
+			{/if}
+		{:else}
 		<hr />
 
 		<div class="head">
@@ -74,6 +88,7 @@
 			{/each}
 		</ul>
 		<p class="muted next-line">{next ? `Next Gym: ${next.place.replace(/ Gym$/, '')}` : 'All badges earned'}</p>
+		{/if}
 		{#if dex}
 			<hr />
 			<div class="split">

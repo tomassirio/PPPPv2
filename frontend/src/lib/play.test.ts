@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, afterArrowRelease, ago, backoff, countdown, formatCommand, keyToButton, tallyRows } from './play';
+import { activityText, afterArrowRelease, ago, backoff, keyToButton } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -13,21 +13,9 @@ describe('play helpers', () => {
 		expect(keyToButton({ key: 'x', target: { tagName: 'BUTTON' } as never })).toBe('b');
 	});
 
-	it('orders tally rows by votes, keeping first-vote order on ties', () => {
-		expect(tallyRows({ UP: 1, A: 2, LEFT: 1 })).toEqual([
-			{ button: 'A', votes: 2, pct: 50 },
-			{ button: 'UP', votes: 1, pct: 25 },
-			{ button: 'LEFT', votes: 1, pct: 25 }
-		]);
-	});
-
 	it('backs off exponentially with a cap', () => {
 		expect([0, 1, 2].map(backoff)).toEqual([500, 1000, 2000]);
 		expect(backoff(20)).toBe(30_000);
-	});
-
-	it('groups repeated steps', () => {
-		expect(formatCommand('LEFT,LEFT,DOWN')).toBe('LEFT ×2 DOWN');
 	});
 });
 
@@ -58,22 +46,13 @@ describe('walking with held arrows', () => {
 	});
 });
 
-describe('countdown', () => {
-	it('formats hours, minutes and seconds, days when there are any, and stops at zero', () => {
-		expect(countdown(0)).toBe('00:00:00');
-		expect(countdown(-5000)).toBe('00:00:00');
-		expect(countdown(1)).toBe('00:00:01'); // rounds up: never shows 0 while time is left
-		expect(countdown(((4 * 60 + 12) * 60 + 9) * 1000)).toBe('04:12:09');
-		expect(countdown((2 * 86400 + 3600) * 1000)).toBe('2d 01:00:00');
-	});
-});
-
 describe('scoreboard activity', () => {
 	it('words each kind of event and how long ago it was', () => {
 		const e = { user: 'jordan@x.y', type: 'BADGE', detail: 'Boulder', points: 100, at: 0 };
 		expect(activityText(e)).toBe('jordan earned the Boulder Badge');
 		expect(activityText({ ...e, type: 'LEVEL', detail: '20' })).toBe('jordan reached Lv. 20');
 		expect(activityText({ ...e, type: 'HALL_OF_FAME', detail: '' })).toBe('jordan entered the Hall of Fame');
+		expect(activityText({ ...e, type: 'CAUGHT', detail: 'Pidgey' }, 'You')).toBe('You caught Pidgey');
 		expect([0, 59_000, 120_000, 3 * 3_600_000, 49 * 3_600_000].map(ago)).toEqual(['now', 'now', '2 min', '3 h', '2 d']);
 	});
 });

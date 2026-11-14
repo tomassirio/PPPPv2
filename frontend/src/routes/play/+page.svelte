@@ -1,4 +1,5 @@
-<!-- /play: game screen, pad, mode/votes/queue and chat. Desktop = columns, phone = screen + Play/Vote/Chat tabs. -->
+<!-- /play: the player's own game screen and pad, the link/scoreboard/party column and chat. Desktop = columns,
+     phone = screen + Play/Party/Chat tabs. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { dexBanners } from '#lib/dex.svelte.ts';
@@ -7,7 +8,6 @@
 	import { loadMe, session } from '#lib/session.svelte.ts';
 	import { currentShell } from '#lib/shell.svelte.ts';
 	import { inkFor } from '#lib/shells.ts';
-	import type { GameState } from '#lib/play.ts';
 	import Chat from '#lib/components/Chat.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
 	import GameStatus from '#lib/components/GameStatus.svelte';
@@ -29,23 +29,12 @@
 	import banner from '#lib/assets/banner.webp';
 	import ppppLogo from '#lib/assets/pppp-logo.png';
 
-	let game = $state<GameState>({
-		power: 'OFF',
-		cartridgeId: null,
-		paused: false,
-		mode: 'ANARCHY',
-		queueDepth: 0,
-		tally: null,
-		modeVotes: { ANARCHY: 0, DEMOCRACY: 0 },
-		launchAt: null
-	});
-	type Tab = 'play' | 'vote' | 'party' | 'chat';
+	type Tab = 'play' | 'party' | 'chat';
 	let tab = $state<Tab>('play');
 
 	// Phone tab bar: icons (static SVG paths, not user content) and badges for what changed on other tabs.
 	const TABS: { id: Tab; label: string; icon: string }[] = [
 		{ id: 'play', label: 'Play', icon: '<rect x="3" y="6" width="18" height="12" rx="4"/><path d="M7 12h4M9 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>' },
-		{ id: 'vote', label: 'Vote', icon: '<path d="M4 13l4 4L20 5"/><path d="M4 20h16"/>' },
 		{ id: 'party', label: 'Party', icon: '<circle cx="12" cy="12" r="9"/><path d="M3 12h6m6 0h6"/><circle cx="12" cy="12" r="3"/>' },
 		{ id: 'chat', label: 'Chat', icon: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>' }
 	];
@@ -64,8 +53,8 @@
 		};
 	});
 
-	// Landscape (phone held sideways): Vote/Party/Chat are sheets over the game. The sheet keeps showing the
-	// last of them while it slides out, and a tap outside the sheet and the rail closes it.
+	// Landscape (phone held sideways): Party and Chat are sheets over the game; a tap outside the sheet and the
+	// rail closes it.
 	const LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
 	let landscape = $state(typeof matchMedia !== 'undefined' && matchMedia(LANDSCAPE).matches);
 	$effect(() => {
@@ -91,11 +80,6 @@
 			/* private mode: not remembered */
 		}
 	}
-	let sheetTab = $state<Tab>('vote');
-	$effect(() => {
-		if (tab !== 'play') sheetTab = tab;
-	});
-	const shown = $derived(landscape && tab === 'play' ? sheetTab : tab); // what the side panels display
 	function closeSheetOnOutsideTap(e: PointerEvent) {
 		if (!landscape || tab === 'play') return;
 		const t = e.target as Element;
@@ -116,14 +100,8 @@
 
 	let unreadChat = $state(0);
 	let newInParty = $state(false);
-	let now = $state(Date.now());
-	$effect(() => {
-		const t = setInterval(() => (now = Date.now()), 1000);
-		return () => clearInterval(t);
-	});
 	const badges = $derived<Record<Tab, number | boolean>>({
 		play: false,
-		vote: tab !== 'vote' && !!game.tally && game.tally.endsAt > now,
 		party: newInParty,
 		chat: unreadChat
 	});
@@ -136,8 +114,8 @@
 			on('CHAT_MESSAGE', (m: { kind: string }) => {
 				if (tab !== 'chat' && m.kind === 'USER') unreadChat++; // only people's messages, not system lines
 			}),
-			on('GAME_EVENT', () => {
-				if (tab !== 'party') newInParty = true;
+			on('PROGRESS', () => {
+				if (tab !== 'party') newInParty = true; // a new line in the scoreboard's activity
 			})
 		];
 		return () => offs.forEach((off) => off());
@@ -187,24 +165,9 @@
 			.catch(() => (loadFailed = true));
 	});
 
-	// Only once signed in: /state plus the live events that keep it current.
+	// Only once signed in.
 	$effect(() => {
-		if (!me) return;
-		api<NonNullable<typeof myGame>>('GET', '/me/game').then((g) => (myGame = g));
-		const offs = [
-			on('MODE_CHANGED', (e) => {
-				game.mode = e.mode;
-				game.modeVotes = { ANARCHY: 0, DEMOCRACY: 0 }; // the backend clears mode votes on a switch
-				game.tally = null;
-			}),
-			on('MODE_VOTES', (v) => (game.modeVotes = v)),
-			on('LAUNCH', (e) => (game.launchAt = e.at)),
-			on('VOTE_TALLY', (t) => (game.tally = t)),
-			on('INPUT_EXECUTED', (e) => {
-				if (e.window && e.window === game.tally?.window) game.tally = null;
-			})
-		];
-		return () => offs.forEach((off) => off());
+		if (me) api<NonNullable<typeof myGame>>('GET', '/me/game').then((g) => (myGame = g));
 	});
 </script>
 
@@ -230,14 +193,14 @@
 		<main>
 			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null}>
 				<div class="screen-slot" bind:this={screenSlot}>
-					<GameScreen power="ON" paused={false}>
+					<GameScreen>
 						{#snippet controls()}<span class="bezel-controls"><ChatOverlayToggle /><SoundControl /></span>{/snippet}
 					</GameScreen>
 					<GameToasts />
 					<ChatOverlay hidden={tab === 'chat'} />
 				</div>
 				<nav class="tabs" aria-label="Panels">
-					{#each TABS.filter((t) => t.id !== 'vote' && !(landscape && t.id === 'play')) as t (t.id)}
+					{#each TABS.filter((t) => !(landscape && t.id === 'play')) as t (t.id)}
 						{@const badge = badges[t.id]}
 						<button
 							type="button"
@@ -260,16 +223,13 @@
 					<span class="rail-picker"><ShellPicker up /></span>
 				</nav>
 				<div class="pad" class:off={tab !== 'play'}>
-					<Gamepad mode={game.mode} />
+					<Gamepad />
 				</div>
 			</section>
-			<section class="side" class:off={tab !== 'vote' && tab !== 'party'} aria-label="Mode, votes and party">
-				<!-- Phones: Vote and Party are separate tabs; desktop: one column (display: contents). -->
-				<div class="party" class:off={shown !== 'party'}>
-					<LinkPanel />
-					<Scoreboard />
-					<GameStatus />
-				</div>
+			<section class="side" class:off={tab !== 'party'} aria-label="Link cable, scoreboard and party">
+				<LinkPanel />
+				<Scoreboard />
+				<GameStatus />
 			</section>
 			<section class="chat" class:off={tab !== 'chat'} aria-label="Chat">
 				<Chat />
@@ -332,21 +292,6 @@
 		height: 32px;
 		width: auto;
 	}
-	.pill {
-		font-size: 13px;
-		font-weight: 600;
-		padding: 6px 10px;
-		border-radius: 999px;
-		background: var(--border);
-	}
-	.pill.anarchy {
-		background: var(--anarchy);
-		color: var(--ink);
-	}
-	.pill.democracy {
-		background: var(--democracy);
-		color: var(--ink);
-	}
 	main {
 		display: flex;
 		flex-wrap: wrap;
@@ -386,17 +331,6 @@
 		gap: 16px;
 		min-width: 0;
 	}
-	/* Up next takes the middle column's spare height, so the party box lines up with the controller. */
-	.next {
-		flex: 1 1 0;
-		contain: size;
-		min-height: 140px;
-	}
-	/* One card fills the slot: Up next (anarchy) or This vote with Last pressed inside (democracy). */
-	.next > :global(*) {
-		height: 100%;
-		box-sizing: border-box;
-	}
 	.chat {
 		flex: 1 1 340px;
 		/* Its size never drives the row height: it is as tall as the game column. */
@@ -424,10 +358,6 @@
 	}
 	.dex {
 		display: none;
-	}
-	.voting,
-	.party {
-		display: contents;
 	}
 
 	/* Desktop: the page is exactly one screen tall and never scrolls. The game screen takes the height the
@@ -533,7 +463,7 @@
 		}
 	}
 	@media (max-width: 760px) {
-		/* One row: badge + mode on the left, online + account menu on the right. */
+		/* One row: logo on the left, online + account menu on the right. */
 		header {
 			padding: 8px 16px;
 			gap: 8px;
@@ -552,13 +482,6 @@
 		}
 		.user {
 			margin-left: auto;
-		}
-		.pill-label {
-			display: none;
-		}
-		.pill {
-			font-size: 12px;
-			padding: 5px 9px;
 		}
 		/* App-like: the page is one screen tall. Screen on top, the active tab fills the middle and scrolls
 		   inside itself, the tab bar sits at the bottom. 100svh: the height with the browser's bars shown, measured
@@ -629,7 +552,7 @@
 			flex: 1 0 auto;
 			overflow: hidden;
 		}
-		/* Vote and Party are fixed, not scrolled: their content is sized to fit; only lists inside scroll. */
+		/* The Party tab is fixed, not scrolled: its content is sized to fit; only lists inside scroll. */
 		.side {
 			gap: 12px;
 			display: flex;
@@ -638,25 +561,6 @@
 		}
 		.chat {
 			overflow: hidden; /* the chat scrolls its own list; the message box stays at the bottom */
-		}
-		.voting {
-			flex: 1 1 0;
-			min-height: 0;
-			display: flex;
-			flex-direction: column;
-			gap: 12px;
-		}
-		.voting .next {
-			flex: 1 1 0;
-			min-height: 0;
-			height: auto;
-		}
-		.party {
-			flex: 1 1 0;
-			min-height: 0;
-			display: flex;
-			flex-direction: column;
-			gap: 12px;
 		}
 		.off {
 			display: none;
@@ -737,7 +641,7 @@
 		.short {
 			display: none;
 		}
-		/* Mode pill top-left, online + account menu top-right, floating over the corners. */
+		/* Online + account menu top-right, floating over the corner. */
 		header {
 			position: fixed;
 			inset: 8px max(12px, env(safe-area-inset-right)) auto max(12px, env(safe-area-inset-left));
@@ -749,9 +653,6 @@
 		}
 		header > * {
 			pointer-events: auto;
-		}
-		.pill-label {
-			display: none;
 		}
 		.stage,
 		.game,
@@ -871,7 +772,7 @@
 			opacity: 0.55;
 		}
 
-		/* Other tabs: an icon rail in the bottom-left corner; Vote, Party and Chat open as a sheet on the right,
+		/* Other tabs: an icon rail in the bottom-left corner; Party and Chat open as a sheet on the right,
 		   with the game still visible. Play closes it. */
 		.tabs {
 			position: fixed;
@@ -957,18 +858,6 @@
 			overflow: hidden;
 			gap: 10px;
 		}
-		.voting,
-		.party {
-			flex: 1 1 0;
-			min-height: 0;
-			display: flex;
-			flex-direction: column;
-			gap: 10px;
-		}
-		.voting.off,
-		.party.off {
-			display: none;
-		}
 		/* Sheets slide in from the right and back out (kept rendered, moved off-screen when closed). */
 		.side,
 		.side.off,
@@ -984,11 +873,6 @@
 		.chat.off {
 			translate: calc(100% + 24px) 0;
 			visibility: hidden;
-		}
-		.voting .next {
-			flex: 1 1 0;
-			min-height: 0;
-			height: auto;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {

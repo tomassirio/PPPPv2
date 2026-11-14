@@ -15,7 +15,7 @@
 	const pad = (n: number) => String(n).padStart(3, '0');
 </script>
 
-{#if dex}
+{#if dex?.size}
 	<div class="fit">
 	<ol class="banner" aria-label="Pokédex {from} to {to}" style:--rows={Math.ceil(numbers.length / columns)} style:--cols={columns}>
 		{#each numbers as n (n)}
