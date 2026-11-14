@@ -2,9 +2,8 @@ package dev.pppp.model;
 
 /**
  * Something browsers should see live. Services publish it as a Spring ApplicationEvent;
- * the app module relays it to SSE clients. Types: INPUT_EXECUTED, MODE_CHANGED, MODE_VOTES,
- * VOTE_TALLY, CONSOLE_CHANGED, CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, GAME_EVENT, GAME_STATE,
- * LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION (see LinkService),
+ * the app module relays it to SSE clients. Types: CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, CHAT_CLEARED,
+ * GAME_STATE ({user, state}: that player's GameSummary), LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION (see LinkService),
  * PROGRESS (a ScoreEvent), SCOREBOARD_CHANGED (the new List of ScoreRow).
  */
 public record LiveEvent(String type, Object payload) {}

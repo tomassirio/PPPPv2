@@ -1,8 +1,5 @@
 package dev.pppp.controller;
 
-import dev.pppp.exception.QueueFullException;
-import dev.pppp.model.InputAccepted;
-import dev.pppp.exception.RateLimitedException;
 import dev.pppp.model.ChatMessage;
 import dev.pppp.service.AllowlistService;
 import dev.pppp.service.ChatService;
@@ -11,13 +8,9 @@ import dev.pppp.model.User;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -30,9 +23,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.pppp.TestRedis;
 import dev.pppp.realtime.EventPublisher;
-import dev.pppp.service.InputService;
-import dev.pppp.model.Settings;
-import dev.pppp.service.SettingsService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +34,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -56,18 +45,15 @@ import org.springframework.test.web.servlet.ResultActions;
 class ChatApiTest {
     @Autowired MockMvc mvc;
     @Autowired StringRedisTemplate redis;
-    @Autowired SettingsService settings;
     @Autowired ChatService chat;
     @Autowired AllowlistService allowlist;
     @Autowired ObjectMapper json;
-    @MockitoBean InputService inputs;
     @MockitoSpyBean EventPublisher events;
 
     @BeforeEach
     void clean() {
         redis.delete(redis.keys("chat:*"));
         redis.delete(redis.keys("ratelimit:*"));
-        redis.delete("settings:input");
     }
 
     ResultActions send(String userId, String text) throws Exception {
@@ -83,7 +69,6 @@ class ChatApiTest {
                     .andExpect(jsonPath("$.user").value("u" + i + "@y.z"))
                     .andExpect(jsonPath("$.name").value("u" + i + "@y.z"))
                     .andExpect(jsonPath("$.kind").value("USER"))
-                    .andExpect(jsonPath("$.command").value(false))
                     .andExpect(jsonPath("$.at").isNumber());
         }
         verify(events).publish(eq("CHAT_MESSAGE"), argThat(m -> ((ChatMessage) m).text().equals("hello 2")));
@@ -196,29 +181,6 @@ class ChatApiTest {
         assertThat(chat.history(null, 50, true)).singleElement()
                 .satisfies(m -> assertThat(m.kind()).isEqualTo("SYSTEM"));
         verify(events).publish(eq("CHAT_MESSAGE"), any());
-    }
-
-    @Test
-    void bridgeOffByDefault() throws Exception {
-        send("e@y.z", "left2").andExpect(jsonPath("$.command").value(false));
-        verify(inputs, never()).submit(anyString(), anyString(), anyInt());
-    }
-
-    @Test
-    void bridgeOnSubmitsCommandLikeMessages() throws Exception {
-        settings.save(new Settings.Input("ANARCHY", 10, 80, 50, 6, 6, 50, true));
-        when(inputs.submit("f@y.z", "left2", 1)).thenReturn(new InputAccepted("1-0", "ANARCHY"));
-        when(inputs.submit("g@y.z", "hello", 1)).thenThrow(new IllegalArgumentException("bad command"));
-        when(inputs.submit("h@y.z", "a", 1)).thenThrow(new RateLimitedException("slow down"));
-        when(inputs.submit("j@y.z", "b", 1)).thenThrow(new QueueFullException("full", 1));
-
-        send("f@y.z", "left2").andExpect(status().isCreated()).andExpect(jsonPath("$.command").value(true));
-        send("g@y.z", "hello").andExpect(status().isCreated()).andExpect(jsonPath("$.command").value(false));
-        send("h@y.z", "a").andExpect(status().isCreated()).andExpect(jsonPath("$.command").value(false));
-        send("j@y.z", "b").andExpect(status().isCreated()).andExpect(jsonPath("$.command").value(false));
-        send("i@y.z", "hello there").andExpect(jsonPath("$.command").value(false));
-        verify(inputs, never()).submit(eq("i@y.z"), anyString(), anyInt());
-        assertThat(chat.history(null, 50, true)).anySatisfy(m -> assertThat(m.command()).isTrue());
     }
 
     ResultActions react(String userId, String id, String reaction) throws Exception {

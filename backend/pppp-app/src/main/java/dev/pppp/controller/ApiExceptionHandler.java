@@ -2,7 +2,6 @@ package dev.pppp.controller;
 
 import dev.pppp.exception.ForbiddenException;
 import dev.pppp.exception.NotFoundException;
-import dev.pppp.exception.QueueFullException;
 import dev.pppp.exception.RateLimitedException;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
@@ -20,8 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 /**
  * The one place where domain exceptions become HTTP. Every error is an RFC 9457 ProblemDetail:
  * IllegalArgumentException 400, ForbiddenException 403, NotFoundException 404,
- * IllegalStateException 409 (invalid console transition), RateLimitedException 429,
- * QueueFullException 503 + Retry-After. Validation errors name the failing fields.
+ * IllegalStateException 409, RateLimitedException 429. Validation errors name the failing fields.
  */
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
@@ -51,13 +49,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
     }
 
-    @ExceptionHandler(QueueFullException.class)
-    ResponseEntity<ProblemDetail> queueFull(QueueFullException e) {
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.retryAfterSeconds()))
-                .body(ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage()));
-    }
-
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
@@ -70,7 +61,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException e, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
-        // Record constructors (e.g. an invalid autosave cron) throw IllegalArgumentException during parsing.
+        // Record constructors may throw IllegalArgumentException during parsing.
         Throwable root = e;
         while (root.getCause() != null) root = root.getCause();
         String detail = root instanceof IllegalArgumentException ? root.getMessage() : "Malformed request body";

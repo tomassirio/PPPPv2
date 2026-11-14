@@ -38,11 +38,6 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         });
     }
 
-    /** v1 showed a delayed public screenshot of the shared game; screens are private now, so there is none. */
-    public byte[] latest() {
-        return null;
-    }
-
     @Override
     public synchronized void afterConnectionEstablished(WebSocketSession session) {
         String userId = userId(session);

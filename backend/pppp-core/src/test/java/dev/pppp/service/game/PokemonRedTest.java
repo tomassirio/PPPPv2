@@ -2,9 +2,7 @@ package dev.pppp.service.game;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import dev.pppp.model.GameEvent;
 import java.io.ByteArrayInputStream;
-import java.util.List;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,32 +36,20 @@ class PokemonRedTest {
     }
 
     @Test
-    void announcesProgress() {
-        var start = red.read(ram());
-        addMon(0, BULBASAUR, "BULBASAUR", 5, 20, 0x1234);
+    void readsPartyBadgesAndPokedex() {
+        assertThat(red.progress(red.read(ram()))).isEqualTo(dev.pppp.model.Progress.EMPTY);
+        addMon(0, IVYSAUR, "IVYSAUR", 6, 20);
         dexOwned(1);
-        var caught = red.read(ram());
-        assertThat(types(red.diff(start, caught))).containsExactly("POKEMON_OBTAINED");
-        assertThat(red.diff(start, caught).getFirst().text()).isEqualTo("New Pokémon: Bulbasaur! Pokédex 1/151 owned.");
-
-        put(0xD356, new byte[] {0b1}); // Boulder badge
-        put(0xD70B, new byte[] {0b100}); // Pewter City
-        mem[off(0xD16B + 0x21)] = 6;
-        var levelled = red.read(ram());
-        assertThat(red.diff(caught, levelled)).extracting(GameEvent::text).containsExactly(
-                "Bulbasaur grew to Lv. 6!", "Beat Brock and earned the Boulder Badge! Badges: 1/8.", "First time in Pewter City!");
-
-        mem[off(0xD16B)] = IVYSAUR;
-        mem[off(0xD164)] = IVYSAUR;
         dexOwned(2);
-        var evolved = red.read(ram());
-        assertThat(types(red.diff(levelled, evolved))).containsExactly("EVOLVED", "POKEMON_OBTAINED");
+        put(0xD356, new byte[] {0b1}); // Boulder badge
+        var progress = red.progress(red.read(ram()));
+        assertThat(progress.badges()).containsExactly("Boulder");
+        assertThat(progress.caught()).containsExactly("Bulbasaur", "Ivysaur");
+        assertThat(progress.level()).isEqualTo(6);
 
-        put(0xD16B + 1, new byte[] {0, 0});
+        put(0xD16B + 1, new byte[] {0, 0}); // fainted
         put(0xDA41, new byte[] {3, 0, 7}); // 3 h, (not maxed), 7 min
-        var fainted = red.read(ram());
-        assertThat(types(red.diff(evolved, fainted))).containsExactly("POKEMON_FAINTED", "BLACKED_OUT");
-        var summary = red.summary(fainted);
+        var summary = red.summary(red.read(ram()));
         assertThat(summary.party().getFirst().status()).isEqualTo("FNT");
         assertThat(summary.party().getFirst().icon()).isEqualTo(2); // Ivysaur's Pokédex number
         assertThat(summary.badges()).extracting(b -> b.earned()).containsExactly(true, false, false, false, false, false, false, false);
@@ -85,33 +71,26 @@ class PokemonRedTest {
 
     @Test
     void starterPokedexPreviewIsNotACatch() {
-        var start = red.read(ram());
         mem[off(0xD2F7)] = 0b0100_1011; // the game flags 1, 2, 4 and 7 while showing a starter's entry
-        assertThat(red.diff(start, red.read(ram()))).isEmpty();
+        assertThat(red.progress(red.read(ram())).caught()).isEmpty();
     }
 
     @Test
     void halfAddedPokemonIsSkippedNotOutOfPlay() {
-        var start = red.read(ram());
-        addMon(0, BULBASAUR, "BULBASAUR", 5, 20, 1);
+        addMon(0, BULBASAUR, "BULBASAUR", 5, 20);
         mem[off(0xD16B)] = 0; // species list says Bulbasaur, its data is not written yet (nickname prompt)
         var naming = red.read(ram());
         assertThat(naming).isNotNull();
         assertThat(naming.party()).isEmpty();
         mem[off(0xD16B)] = (byte) BULBASAUR;
-        dexOwned(1);
-        assertThat(types(red.diff(naming, red.read(ram())))).containsExactly("POKEMON_OBTAINED");
+        assertThat(red.read(ram()).party()).hasSize(1);
     }
 
     @Test
-    void reorderingThePartyIsNotNews() {
-        addMon(0, BULBASAUR, "BULBASAUR", 5, 20, 1);
-        addMon(1, PIDGEY, "BIRDY", 9, 30, 2);
-        var before = red.read(ram());
-        addMon(0, PIDGEY, "BIRDY", 9, 30, 2);
-        addMon(1, BULBASAUR, "BULBASAUR", 5, 20, 1);
-        assertThat(red.diff(before, red.read(ram()))).isEmpty();
-        assertThat(red.summary(before).party()).extracting(m -> m.name()).containsExactly("Bulbasaur", "BIRDY");
+    void partyShowsNicknamesOrSpecies() {
+        addMon(0, BULBASAUR, "BULBASAUR", 5, 20);
+        addMon(1, PIDGEY, "BIRDY", 9, 30);
+        assertThat(red.summary(red.read(ram())).party()).extracting(m -> m.name()).containsExactly("Bulbasaur", "BIRDY");
     }
 
     // ---- helpers ----
@@ -129,7 +108,7 @@ class PokemonRedTest {
         return b;
     }
 
-    void addMon(int slot, int species, String nick, int level, int hp, int key) {
+    void addMon(int slot, int species, String nick, int level, int hp) {
         int count = Math.max(mem[off(0xD163)], slot + 1);
         mem[off(0xD163)] = (byte) count;
         mem[off(0xD164 + slot)] = (byte) species;
@@ -137,8 +116,6 @@ class PokemonRedTest {
         int base = 0xD16B + slot * 44;
         mem[off(base)] = (byte) species;
         put(base + 1, new byte[] {0, (byte) hp});
-        put(base + 0x0C, new byte[] {0, 0});
-        put(base + 0x1B, new byte[] {(byte) (key >> 8), (byte) key});
         mem[off(base + 0x21)] = (byte) level;
         put(base + 0x22, new byte[] {0, (byte) hp});
         put(0xD2B5 + slot * 11, encode(nick));
@@ -179,9 +156,5 @@ class PokemonRedTest {
         assertThat(img.getRGB(0, 0)).isEqualTo(0xFFF8D0A8);
         assertThat(img.getRGB(15, 15)).isEqualTo(0xFFE04848);
         assertThat(img.getRGB(1, 0) >>> 24).isZero(); // colour 0 is transparent
-    }
-
-    static List<String> types(List<GameEvent> events) {
-        return events.stream().map(GameEvent::type).toList();
     }
 }

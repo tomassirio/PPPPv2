@@ -2,7 +2,6 @@ package dev.pppp.controller;
 
 import dev.pppp.model.ChatMessage;
 import dev.pppp.service.ChatService;
-import dev.pppp.service.game.RamWatcher;
 
 import dev.pppp.security.CurrentUser;
 import jakarta.validation.Valid;
@@ -35,17 +34,14 @@ class ChatController {
     record Cleared(int removed) {}
 
     private final ChatService chat;
-    private final RamWatcher games;
 
-    ChatController(ChatService chat, RamWatcher games) {
+    ChatController(ChatService chat) {
         this.chat = chat;
-        this.games = games;
     }
 
-    /** Fresh start: all system and admin lines out of chat, and the game event history emptied. */
+    /** Fresh start: all system and admin lines out of chat. */
     @DeleteMapping("/admin/chat/system-messages")
     Cleared clearSystem(Authentication auth) {
-        games.clearHistory();
         return new Cleared(chat.clearSystem(CurrentUser.id(auth)));
     }
 

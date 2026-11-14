@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Repository;
 
-/** ROMs at {dataDir}/roms/{id}.gb|.gbc, battery saves at {dataDir}/saves/{id}.sav. Callers pass valid ids. */
+/** ROMs at {dataDir}/roms/{id}.gb|.gbc, each player's saves under {dataDir}/saves/{user}/. Callers pass valid ids. */
 @Repository
 public class CartridgeRepository {
     private final Path roms, saves;
@@ -66,10 +66,6 @@ public class CartridgeRepository {
         }
     }
 
-    public Path batterySave(String id) {
-        return saves.resolve(id + ".sav");
-    }
-
     /** A player's own battery save: {dataDir}/saves/{user}/{id}.sav. */
     public Path playerBatterySave(String userId, String id) {
         return saves.resolve(dir(userId)).resolve(id + ".sav");
@@ -84,14 +80,6 @@ public class CartridgeRepository {
     private static String dir(String userId) {
         if (!userId.contains("@")) throw new IllegalArgumentException("Not a user id: " + userId);
         return userId.replaceAll("[^a-z0-9._@+-]", "_");
-    }
-
-    public void deleteBatterySave(String id) {
-        try {
-            Files.deleteIfExists(batterySave(id));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     private static Cartridge describe(String id, Path rom) {

@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * Fan-out for GET /api/v1/events. Event types: INPUT_EXECUTED, MODE_CHANGED, MODE_VOTES, VOTE_TALLY,
- * CONSOLE_CHANGED, CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, GAME_EVENT, GAME_STATE, PRESENCE.
+ * Fan-out for GET /api/v1/events. Event types: CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, CHAT_CLEARED,
+ * GAME_STATE, PROGRESS, SCOREBOARD_CHANGED, LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION, PRESENCE.
  *
  * <p>Presence = who has a stream open, kept in memory (single instance). PRESENCE carries the list of
  * viewers, one entry per user however many tabs they have open.

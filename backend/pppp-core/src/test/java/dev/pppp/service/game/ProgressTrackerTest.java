@@ -85,7 +85,7 @@ class ProgressTrackerTest {
         tracker.poll();
         assertThat(scored()).isEmpty();
 
-        ram.addMon(0, PokemonRedTest.BULBASAUR, "BULBASAUR", 5, 20, 1);
+        ram.addMon(0, PokemonRedTest.BULBASAUR, "BULBASAUR", 5, 20);
         ram.dexOwned(1);
         tracker.poll();
         assertThat(scored()).isEmpty(); // seen once: could be mid-write
@@ -107,8 +107,33 @@ class ProgressTrackerTest {
     }
 
     @Test
+    void thePartyBoxIsThePlayersOwnConfirmedReading() {
+        var tracker = tracker();
+        assertThat(tracker.summary("nobody@x.y")).isNull(); // no game picked
+        when(consoles.game("tetris@x.y")).thenReturn("tetris");
+        assertThat(tracker.summary("tetris@x.y")).isNull(); // no profile for that cartridge
+        assertThat(tracker.icon("tetris@x.y", 1)).isNull();
+        assertThat(tracker.summary(ASH).party()).isEmpty(); // not sampled yet: an empty box
+        assertThat(tracker.summary(ASH).badges()).hasSize(8).noneMatch(b -> b.earned());
+
+        ram.addMon(0, PokemonRedTest.BULBASAUR, "BULBASAUR", 5, 20);
+        tracker.poll();
+        assertThat(tracker.summary(ASH).party()).isEmpty(); // seen once: could be mid-write
+        tracker.poll();
+        assertThat(tracker.summary(ASH).party()).extracting(m -> m.name()).containsExactly("Bulbasaur");
+        tracker.poll();
+        assertThat(published.stream().map(e -> (LiveEvent) e).filter(e -> e.type().equals("GAME_STATE")).map(LiveEvent::payload))
+                .containsExactly(Map.of("user", ASH, "state", tracker.summary(ASH))); // once per change, tagged with the player
+
+        Arrays.fill(ram.mem, (byte) 0); // out of play for a moment: the box keeps the last reading
+        tracker.poll();
+        tracker.poll();
+        assertThat(tracker.summary(ASH).party()).hasSize(1);
+    }
+
+    @Test
     void aRestartOrALostSaveAwardsNothingTwice() {
-        ram.addMon(0, PokemonRedTest.BULBASAUR, "BULBASAUR", 12, 20, 1);
+        ram.addMon(0, PokemonRedTest.BULBASAUR, "BULBASAUR", 12, 20);
         ram.dexOwned(1);
         ram.mem[ram.off(0xD356)] = 1;
         var tracker = tracker();
@@ -124,7 +149,7 @@ class ProgressTrackerTest {
         ram.setUp(); // the player started a new game on the cartridge and earns the same things again
         tracker.poll();
         tracker.poll();
-        ram.addMon(0, PokemonRedTest.BULBASAUR, "BULBASAUR", 12, 20, 1);
+        ram.addMon(0, PokemonRedTest.BULBASAUR, "BULBASAUR", 12, 20);
         ram.dexOwned(1);
         ram.mem[ram.off(0xD356)] = 0b11;
         tracker.poll();

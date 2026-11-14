@@ -1,6 +1,5 @@
 package dev.pppp.service.game;
 
-import dev.pppp.model.GameEvent;
 import dev.pppp.model.GameSummary;
 import dev.pppp.model.Progress;
 import java.nio.charset.StandardCharsets;
@@ -11,7 +10,7 @@ import java.util.Set;
 
 /**
  * Pokémon Gold, Silver and Crystal (English releases), for the scoreboard only: its state is the {@link Progress}
- * itself, with no party box and no v1 events. Addresses are the symbols of pret/pokegold (pokegold.sym and
+ * itself, with no party box. Addresses are the symbols of pret/pokegold (pokegold.sym and
  * pokesilver.sym agree) and pret/pokecrystal (pokecrystal.sym and pokecrystal11.sym agree), "symbols" branch:
  * wPlayerName, wJohtoBadges (wKantoBadges follows), wHallOfFameCount, wPartyCount (wPartySpecies and wPartyMons
  * follow), wPokedexCaught (wPokedexSeen follows) and PokemonNames in the ROM.
@@ -94,11 +93,6 @@ final class PokemonGen2 implements GameProfile<Progress> {
     @Override
     public Progress progress(Progress state) {
         return state;
-    }
-
-    @Override
-    public List<GameEvent> diff(Progress before, Progress after) {
-        return List.of();
     }
 
     @Override

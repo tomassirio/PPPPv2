@@ -182,12 +182,10 @@ class AuthApiTest {
     }
 
     @Test
-    void meReportsRolesAndRateLimitRemaining() throws Exception {
-        redis.opsForValue().set("ratelimit:me@x.com", "1");
+    void meReportsRoles() throws Exception {
         mvc.perform(get("/api/v1/me").with(user("Me@x.com").roles("PLAYER")))
                 .andExpect(jsonPath("$.id").value("me@x.com"))
-                .andExpect(jsonPath("$.roles[0]").value("PLAYER"))
-                .andExpect(jsonPath("$.rateLimitRemaining").value(1)); // default limit 2
+                .andExpect(jsonPath("$.roles[0]").value("PLAYER"));
     }
 
     @Test

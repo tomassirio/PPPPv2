@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
-/** Chat rules: length, mutes, one message per second, command bridging; delivered over SSE. Other workstreams call postSystem. */
+/** Chat rules: length, mutes, one message per second; delivered over SSE. Other workstreams call postSystem. */
 @Service
 public class ChatService {
     static final int MAX_LENGTH = 300;
@@ -25,12 +25,10 @@ public class ChatService {
 
     private final ChatRepository repo;
     private final ApplicationEventPublisher events;
-    private final ChatCommandBridge bridge;
 
-    public ChatService(ChatRepository repo, ApplicationEventPublisher events, ChatCommandBridge bridge) {
+    public ChatService(ChatRepository repo, ApplicationEventPublisher events) {
         this.repo = repo;
         this.events = events;
-        this.bridge = bridge;
     }
 
     public ChatMessage send(String userId, String displayName, String text) {
@@ -42,10 +40,10 @@ public class ChatService {
         if (!repo.tryAcquireSendSlot(userId, Duration.ofSeconds(1))) {
             throw new RateLimitedException("One message per second");
         }
-        return store(userId, displayName, text, "USER", bridge.trySubmit(userId, text));
+        return store(userId, displayName, text, "USER");
     }
 
-    /** A SYSTEM message everyone sees (mode changes, game events). Stored in chat:stream, published as CHAT_MESSAGE. Never throws. */
+    /** A SYSTEM message everyone sees. Stored in chat:stream, published as CHAT_MESSAGE. Never throws. */
     public void postSystem(String text) {
         post(text, "SYSTEM");
     }
@@ -57,7 +55,7 @@ public class ChatService {
 
     private void post(String text, String kind) {
         try {
-            store("system", "System", text, kind, false);
+            store("system", "System", text, kind);
         } catch (RuntimeException e) {
             log.warn("Could not post {} message '{}'", kind, text, e);
         }
@@ -143,8 +141,8 @@ public class ChatService {
         return mutedUntil(userId) != null;
     }
 
-    private ChatMessage store(String userId, String name, String text, String kind, boolean command) {
-        ChatMessage message = repo.append(userId, name, text, kind, command);
+    private ChatMessage store(String userId, String name, String text, String kind) {
+        ChatMessage message = repo.append(userId, name, text, kind);
         events.publishEvent(new LiveEvent("CHAT_MESSAGE", message));
         return message;
     }

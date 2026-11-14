@@ -1,60 +1,79 @@
 package dev.pppp.controller;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import dev.pppp.TestRedis;
-import dev.pppp.model.GameEvent;
-import dev.pppp.repository.GameEventRepository;
-import java.util.Map;
+import dev.pppp.emulator.TestRom;
+import dev.pppp.service.PlayerConsoles;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @SpringBootTest
 @DirtiesContext
 @AutoConfigureMockMvc
 @Import(TestRedis.class)
 class GameApiTest {
+    static final Path DATA;
+    static {
+        try {
+            DATA = Files.createTempDirectory("ppp-game-test");
+            TestRom.write(Files.createDirectories(DATA.resolve("roms"))); // cartridge "test": no game profile
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @DynamicPropertySource
+    static void dataDir(DynamicPropertyRegistry r) {
+        r.add("pppp.data-dir", DATA::toString);
+    }
+
+    static final RequestPostProcessor PIB = user("pib@x.y").roles("PLAYER");
+
     @Autowired MockMvc mvc;
-    @Autowired GameEventRepository events;
-    @Autowired StringRedisTemplate redis;
+    @Autowired PlayerConsoles consoles;
 
+    /** Decoding a real party box is unit-tested with synthetic RAM (ProgressTrackerTest, PokemonRedTest). */
     @Test
-    void historyIsNewestFirstWithDetails() throws Exception {
-        redis.delete("game:events");
-        events.append(GameEvent.of("BADGE_EARNED", "Boulder", Map.of("count", 1)));
-        events.append(GameEvent.of("NEW_TOWN", "Cerulean", Map.of("town", "Cerulean City")));
-        mvc.perform(get("/api/v1/game-events?limit=10").with(user("x@y.z").roles("PLAYER")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].type").value("NEW_TOWN"))
-                .andExpect(jsonPath("$[1].details.count").value(1));
-        mvc.perform(get("/api/v1/game-events?limit=0").with(user("x@y.z").roles("PLAYER")))
-                .andExpect(status().isBadRequest());
+    void noGameDataBeforeAPickOrForACartridgeWithoutAProfile() throws Exception {
+        mvc.perform(get("/api/v1/game/state")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/game/icons/25.png")).andExpect(status().isUnauthorized()); // sprites are per player now
+        mvc.perform(get("/api/v1/game/state").with(PIB)).andExpect(status().isNoContent()); // nothing picked
+
+        mvc.perform(put("/api/v1/me/game").with(PIB).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cartridgeId\":\"test\"}")).andExpect(status().isOk());
+        consoles.open("pib@x.y");
+        mvc.perform(get("/api/v1/game/state").with(PIB)).andExpect(status().isNoContent());
+        mvc.perform(get("/api/v1/game/icons/25.png").with(PIB)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/game/icons/player.png").with(PIB)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/game-events").with(PIB)).andExpect(status().isNotFound()); // v1's shared history is gone
     }
 
     @Test
-    void noStateWithoutACartridge() throws Exception {
-        mvc.perform(get("/api/v1/game/state").with(user("x@y.z").roles("PLAYER"))).andExpect(status().isNoContent());
-        mvc.perform(get("/api/v1/game/icons/25.png").with(user("x@y.z").roles("PLAYER"))).andExpect(status().isNotFound());
-    }
-
-    @Test
-    void teaserIsPublicAndAnonymous() throws Exception {
+    void teaserIsPublicAndOnlyCounts() throws Exception {
         mvc.perform(get("/api/v1/public/teaser"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.online").isNumber())
-                .andExpect(jsonPath("$.party").isArray());
-        mvc.perform(get("/api/v1/public/screen.png")).andExpect(status().isNoContent());
-        mvc.perform(get("/api/v1/game/icons/25.png")).andExpect(status().isNotFound());
-        mvc.perform(get("/api/v1/game/state")).andExpect(status().isUnauthorized());
+                .andExpect(jsonPath("$.players").isNumber())
+                .andExpect(jsonPath("$.party").doesNotExist());
+        mvc.perform(get("/api/v1/public/screen.png")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/presence")).andExpect(status().isUnauthorized());
     }
 }

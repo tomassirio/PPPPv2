@@ -23,8 +23,8 @@ public class SecurityConfig {
                         .requestMatchers("/", "/assets/**", "/actuator/health/**", "/error").permitAll()
                         // Mapped only when pppp.dev-login=true (DevLoginController); otherwise a 404.
                         .requestMatchers("/dev/login").permitAll()
-                        // The sign-in page's teaser (counts, party species, a delayed screenshot) and the sprites it uses.
-                        .requestMatchers("/api/v1/public/**", "/api/v1/game/icons/**").permitAll()
+                        // The sign-in page's teaser (player counts only).
+                        .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().hasRole("PLAYER"))
                 .oauth2Login(o -> o

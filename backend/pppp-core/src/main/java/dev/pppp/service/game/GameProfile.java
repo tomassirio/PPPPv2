@@ -1,20 +1,18 @@
 package dev.pppp.service.game;
 
-import dev.pppp.model.GameEvent;
 import dev.pppp.model.GameSummary;
 import dev.pppp.model.Progress;
-import java.util.List;
 
 /**
- * Everything game-specific about RAM events: which memory to read, how to parse it into a state, and which
- * changes between two states are worth announcing. {@link RamWatcher} does the polling, debouncing and
- * publishing for every game. To support a new game, implement this and add it to {@link #forRom}.
+ * Everything game-specific about reading a game's RAM: which memory to read, how to parse it into a state, and
+ * what that state means for the scoreboard and the party box. {@link ProgressTracker} does the polling for every
+ * player. To support a new game, implement this and add it to {@link #forRom}.
  *
- * @param <S> the parsed game state; must implement equals (a record), since unchanged states are skipped
+ * @param <S> the parsed game state
  */
 public interface GameProfile<S> {
 
-    /** The profile for this ROM, or null when the game has none (it then emits no events). */
+    /** The profile for this ROM, or null when the game has none (it then scores nothing and has no party box). */
     static GameProfile<?> forRom(byte[] rom) {
         if (PokemonRed.matches(rom)) return new PokemonRed(rom);
         return PokemonGen2.forRom(rom);
@@ -25,11 +23,8 @@ public interface GameProfile<S> {
 
     int ramLength();
 
-    /** Parses the window; null while the game is not in play (boot, title screen, loading), so nothing fires. */
+    /** Parses the window; null while the game is not in play (boot, title screen, loading), so nothing counts. */
     S read(Ram ram);
-
-    /** Events for a confirmed change from before to after; both non-null. */
-    List<GameEvent> diff(S before, S after);
 
     /** What the scoreboard counts in this state ({@link ProgressTracker}). */
     Progress progress(S state);

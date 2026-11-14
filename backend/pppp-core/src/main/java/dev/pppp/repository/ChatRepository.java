@@ -36,13 +36,12 @@ public class ChatRepository {
         this.redis = redis;
     }
 
-    public ChatMessage append(String userId, String name, String text, String kind, boolean command) {
-        Map<String, String> fields = Map.of(
-                "user", userId, "name", name, "text", text, "kind", kind, "command", Boolean.toString(command));
+    public ChatMessage append(String userId, String name, String text, String kind) {
+        Map<String, String> fields = Map.of("user", userId, "name", name, "text", text, "kind", kind);
         RecordId id = redis.opsForStream().add(
                 StreamRecords.newRecord().in(STREAM).ofMap(fields),
                 XAddOptions.maxlen(5000).approximateTrimming(true));
-        return new ChatMessage(id.getValue(), userId, name, text, kind, command, id.getTimestamp(), Map.of());
+        return new ChatMessage(id.getValue(), userId, name, text, kind, id.getTimestamp(), Map.of());
     }
 
     /** Newest first, strictly older than {@code before} (a stream id) when non-null. */
@@ -152,7 +151,7 @@ public class ChatRepository {
     private static ChatMessage toMessage(MapRecord<String, Object, Object> r, Map<String, List<String>> reactions) {
         Map<Object, Object> f = r.getValue();
         return new ChatMessage(r.getId().getValue(), (String) f.get("user"), (String) f.getOrDefault("name", f.get("user")),
-                (String) f.get("text"), (String) f.get("kind"), "true".equals(f.get("command")), r.getId().getTimestamp(),
+                (String) f.get("text"), (String) f.get("kind"), r.getId().getTimestamp(),
                 reactions);
     }
 }

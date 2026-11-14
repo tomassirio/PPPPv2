@@ -16,7 +16,7 @@ public class SettingsRepository {
         this.json = json;
     }
 
-    /** The stored value, or fallback when missing or unreadable. */
+    /** The stored value, or fallback when missing or unreadable. Fields a record no longer has are ignored. */
     public <T> T find(String name, Class<T> type, T fallback) {
         String raw = redis.opsForValue().get("settings:" + name);
         if (raw == null) return fallback;

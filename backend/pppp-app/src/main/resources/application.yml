@@ -21,8 +21,6 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID:change-me}
             client-secret: ${GOOGLE_CLIENT_SECRET:change-me}
             scope: openid,email,profile
-  quartz:
-    job-store-type: memory
   servlet:
     multipart:
       # Largest Game Boy ROMs are 8 MB.

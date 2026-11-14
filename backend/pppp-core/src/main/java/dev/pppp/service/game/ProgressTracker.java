@@ -1,5 +1,6 @@
 package dev.pppp.service.game;
 
+import dev.pppp.model.GameSummary;
 import dev.pppp.model.LiveEvent;
 import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
@@ -24,7 +25,8 @@ import org.springframework.stereotype.Service;
 /**
  * Scores every player's progress. Once a second it reads each in-memory console's RAM through the
  * {@link GameProfile} of that player's cartridge (none: the player scores nothing) and, once a reading has held
- * for two samples in a row, awards whatever it has that the player was never awarded before.
+ * for two samples in a row, awards whatever it has that the player was never awarded before. The same reading is
+ * the player's party box ({@link #summary}); a change goes out as GAME_STATE {user, state}.
  *
  * <p>"Awarded before" is pibs:progress:{userId}, and a player with nothing stored starts from zero rather than
  * from their first sample: every console starts as a new game, so zero is the true baseline, and progress made
@@ -45,7 +47,11 @@ public class ProgressTracker {
     private final ApplicationEventPublisher events;
 
     private final Map<String, Optional<GameProfile<?>>> profiles = new ConcurrentHashMap<>(); // by cartridge id
-    private final Map<String, Progress> samples = new ConcurrentHashMap<>(); // the previous reading per player
+    /** One sample of a console: what it scores and what the party box shows. */
+    private record Reading(Progress progress, GameSummary summary) {}
+
+    private final Map<String, Reading> samples = new ConcurrentHashMap<>(); // the previous reading per player
+    private final Map<String, GameSummary> summaries = new ConcurrentHashMap<>(); // the last confirmed one per player
     private final Map<String, Progress> awarded = new ConcurrentHashMap<>(); // pibs:progress, read once per player
     private Set<String> online = Set.of(); // poll thread only
 
@@ -61,16 +67,20 @@ public class ProgressTracker {
     public void poll() {
         Set<String> running = consoles.running();
         samples.keySet().retainAll(running);
+        summaries.keySet().retainAll(running);
         for (String userId : running) {
             try {
-                String game = consoles.game(userId);
-                GameProfile<?> profile = game == null ? null : profiles.computeIfAbsent(game, this::load).orElse(null);
+                GameProfile<?> profile = profile(userId);
                 if (profile == null) continue;
                 byte[] bytes = consoles.readBytes(userId, profile.ramStart(), profile.ramLength());
-                Progress now = bytes == null ? null : read(profile, new Ram(profile.ramStart(), bytes));
+                Reading now = bytes == null ? null : read(profile, new Ram(profile.ramStart(), bytes));
                 // Not in play (boot, title screen): keep the last reading. RAM is noisy while the game writes it,
                 // so only a reading seen twice counts.
-                if (now != null && now.equals(samples.put(userId, now))) record(userId, now);
+                if (now == null || !now.equals(samples.put(userId, now))) continue;
+                if (!now.summary().equals(summaries.put(userId, now.summary()))) {
+                    events.publishEvent(new LiveEvent("GAME_STATE", Map.of("user", userId, "state", now.summary())));
+                }
+                record(userId, now.progress());
             } catch (RuntimeException e) {
                 log.warn("Progress poll failed for {}", userId, e);
             }
@@ -129,9 +139,37 @@ public class ProgressTracker {
         return repo.newest(limit);
     }
 
-    private static <S> Progress read(GameProfile<S> profile, Ram ram) {
+    /**
+     * The player's own party box: their last confirmed reading, empty until their game comes into play. Null when
+     * they have not picked a game or it has no profile.
+     */
+    public GameSummary summary(String userId) {
+        GameProfile<?> profile = profile(userId);
+        if (profile == null) return null;
+        GameSummary confirmed = summaries.get(userId);
+        return confirmed != null ? confirmed : profile.summary(null);
+    }
+
+    /** PNG for an icon id of the player's summary, drawn from their cartridge, or null. */
+    public byte[] icon(String userId, int id) {
+        GameProfile<?> profile = profile(userId);
+        return profile == null ? null : profile.icon(id);
+    }
+
+    /** PNG sprite sheet of the player character in the player's game, or null. */
+    public byte[] playerSprite(String userId) {
+        GameProfile<?> profile = profile(userId);
+        return profile == null ? null : profile.playerSprite();
+    }
+
+    private static <S> Reading read(GameProfile<S> profile, Ram ram) {
         S state = profile.read(ram);
-        return state == null ? null : profile.progress(state);
+        return state == null ? null : new Reading(profile.progress(state), profile.summary(state));
+    }
+
+    private GameProfile<?> profile(String userId) {
+        String game = consoles.game(userId);
+        return game == null ? null : profiles.computeIfAbsent(game, this::load).orElse(null);
     }
 
     private Optional<GameProfile<?>> load(String cartridgeId) {

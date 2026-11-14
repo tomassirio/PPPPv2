@@ -37,6 +37,11 @@ public class PlayerConsoles {
     private static final Set<Button> DIRECTIONS = EnumSet.of(Button.UP, Button.DOWN, Button.LEFT, Button.RIGHT);
     /** Commands waiting behind the one being pressed; more are dropped, so a held key cannot build a backlog. */
     private static final int MAX_PENDING = 3;
+    /**
+     * A held direction: a bit longer than one 16-frame walking step and no release, so back-to-back walk presses
+     * keep the button down at every step boundary and the player walks smoothly instead of stop-and-go.
+     */
+    static final int WALK_FRAMES = 20;
 
     private record Console(EmulatorHost host, String cartridgeId, ExecutorService presses, AtomicInteger pending) {}
 
@@ -105,7 +110,7 @@ public class PlayerConsoles {
     public void press(String userId, String command, int repeat, boolean walk) {
         Console c = consoles.get(userId);
         if (c == null) throw new IllegalStateException("Your console is not running");
-        List<Button> steps = CommandParser.parse(command, repeat, ModeService.ANARCHY);
+        List<Button> steps = CommandParser.parse(command, repeat);
         if (walk && (steps.size() != 1 || !DIRECTIONS.contains(steps.getFirst()))) {
             throw new IllegalArgumentException("walk is only for a single direction");
         }
@@ -114,7 +119,7 @@ public class PlayerConsoles {
         c.presses().execute(() -> {
             try {
                 Settings.Input s = settings.input();
-                if (walk) c.host().press(steps.getFirst(), InputScheduler.WALK_FRAMES, 0);
+                if (walk) c.host().press(steps.getFirst(), WALK_FRAMES, 0);
                 else for (Button b : steps) c.host().press(b, s.holdFrames(), s.releaseFrames());
             } catch (RuntimeException e) {
                 log.debug("Press dropped for {}: {}", userId, e.getMessage());

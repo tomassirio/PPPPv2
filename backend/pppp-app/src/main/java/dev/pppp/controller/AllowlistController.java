@@ -5,7 +5,6 @@ import dev.pppp.model.Role;
 import dev.pppp.model.User;
 import dev.pppp.security.CurrentUser;
 import dev.pppp.service.AllowlistService;
-import dev.pppp.service.RateLimiter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -31,14 +30,12 @@ public class AllowlistController {
     public record Entry(@NotBlank @Email String email, @NotNull Role role) {}
     public record RoleChange(@NotNull Role role) {}
     /** picture: Google profile photo URL, null for non-OIDC logins or accounts without one. */
-    public record Me(String id, String name, String picture, List<String> roles, int rateLimitRemaining) {}
+    public record Me(String id, String name, String picture, List<String> roles) {}
 
     private final AllowlistService allowlist;
-    private final RateLimiter rateLimiter;
 
-    public AllowlistController(AllowlistService allowlist, RateLimiter rateLimiter) {
+    public AllowlistController(AllowlistService allowlist) {
         this.allowlist = allowlist;
-        this.rateLimiter = rateLimiter;
     }
 
     @GetMapping("/me")
@@ -50,10 +47,10 @@ public class AllowlistController {
                 .filter(a -> a.startsWith("ROLE_"))
                 .map(a -> a.substring(5))
                 .toList();
-        return new Me(v.id(), v.name(), v.picture(), roles, rateLimiter.remaining(v.id()));
+        return new Me(v.id(), v.name(), v.picture(), roles);
     }
 
-    /** Player id -> Google profile photo URL, for the Up next list. */
+    /** Player id -> Google profile photo URL, for wherever players are listed. */
     @GetMapping("/players/pictures")
     public java.util.Map<String, String> pictures() {
         return allowlist.pictures();

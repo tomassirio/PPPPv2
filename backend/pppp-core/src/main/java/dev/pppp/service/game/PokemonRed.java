@@ -1,12 +1,10 @@
 package dev.pppp.service.game;
 
-import dev.pppp.model.GameEvent;
 import dev.pppp.model.GameSummary;
 import dev.pppp.model.Progress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -16,20 +14,19 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Pokémon Red (international release). Addresses are the pret/pokered symbols (wPartyCount, wPokedexOwned,
  * wObtainedBadges, wTownVisitedFlag...); Pokémon names and the Pokédex order are read from the ROM itself.
- * Party members are matched by OT id + DVs, not by slot, so reordering the party fires nothing.
  */
 final class PokemonRed implements GameProfile<PokemonRed.State> {
 
-    record Mon(int key, int species, String nick, int level, int hp, int maxHp, int status) {}
+    record Mon(int species, String nick, int level, int hp, int maxHp, int status) {}
 
     /** BitSets are indexed by Pokédex number - 1 (bit order of the game's flag arrays). */
     /** Play time is kept to the minute, so the clock does not make a new state every second. */
-    record State(List<Mon> party, BitSet owned, BitSet seen, int badges, int towns, int playHours, int playMinutes) {}
+    record State(List<Mon> party, BitSet owned, BitSet seen, int badges, int playHours, int playMinutes) {}
 
     static final int DEX_SIZE = 151;
     private static final int PLAYER_NAME = 0xD158, PARTY_COUNT = 0xD163, PARTY_SPECIES = 0xD164,
             PARTY_MONS = 0xD16B, MON_SIZE = 44, PARTY_NICKS = 0xD2B5, NAME_LENGTH = 11,
-            DEX_OWNED = 0xD2F7, DEX_SEEN = 0xD30A, DEX_BYTES = 19, BADGES = 0xD356, TOWNS_VISITED = 0xD70B,
+            DEX_OWNED = 0xD2F7, DEX_SEEN = 0xD30A, DEX_BYTES = 19, BADGES = 0xD356,
             PLAY_HOURS = 0xDA41, PLAY_MINUTES = 0xDA43; // wPlayTimeHours, (wPlayTimeMaxed), wPlayTimeMinutes
     private static final int ROM_MON_NAMES = 0x1C21E, ROM_DEX_ORDER = 0x41024, SPECIES_COUNT = 190,
             ROM_BASE_STATS = 0x383DE, BASE_STATS_SIZE = 28, ROM_MEW_BASE_STATS = 0x425B;
@@ -41,14 +38,8 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
     /** Bulbasaur, Ivysaur, Charmander, Squirtle (bits = Pokédex number - 1). */
     private static final BitSet STARTER_DEX = BitSet.valueOf(new byte[] {0b0100_1011});
     private static final String[] BADGE_NAMES = {"Boulder", "Cascade", "Thunder", "Rainbow", "Soul", "Marsh", "Volcano", "Earth"};
-    private static final String[] LEADERS = {"Brock", "Misty", "Lt. Surge", "Erika", "Koga", "Sabrina", "Blaine", "Giovanni"};
     private static final String[] GYMS = {"Pewter Gym", "Cerulean Gym", "Vermilion Gym", "Celadon Gym", "Fuchsia Gym",
             "Saffron Gym", "Cinnabar Gym", "Viridian Gym"};
-    /** Map ids 0-10, the bit order of wTownVisitedFlag. */
-    private static final String[] TOWNS = {"Pallet Town", "Viridian City", "Pewter City", "Cerulean City",
-            "Lavender Town", "Vermilion City", "Celadon City", "Fuchsia City", "Cinnabar Island", "Indigo Plateau",
-            "Saffron City"};
-
     private final String[] speciesNames = new String[SPECIES_COUNT + 1]; // by internal species id
     private final int[] dexNumber = new int[SPECIES_COUNT + 1];
     private final String[] namesByDex = new String[DEX_SIZE + 1];
@@ -106,7 +97,7 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
             // Adding a Pokémon, the game writes the species list, asks for a nickname, and only then the data:
             // skip a member that is mid-write rather than calling the whole game out of play.
             if (species < 1 || species > SPECIES_COUNT || species != ram.u8(PARTY_SPECIES + i)) continue;
-            party.add(new Mon(ram.u16(base + 0x0C) << 16 | ram.u16(base + 0x1B), species,
+            party.add(new Mon(species,
                     text(ram.slice(PARTY_NICKS + i * NAME_LENGTH, NAME_LENGTH), 0, NAME_LENGTH),
                     ram.u8(base + 0x21), ram.u16(base + 1), ram.u16(base + 0x22), ram.u8(base + 4)));
         }
@@ -115,50 +106,8 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
         // (pokered StarterDex), before the player owns anything. Not a catch.
         if (owned.equals(STARTER_DEX)) owned = new BitSet();
         return new State(List.copyOf(party), owned,
-                BitSet.valueOf(ram.slice(DEX_SEEN, DEX_BYTES)), ram.u8(BADGES), ram.u16le(TOWNS_VISITED),
+                BitSet.valueOf(ram.slice(DEX_SEEN, DEX_BYTES)), ram.u8(BADGES),
                 ram.u8(PLAY_HOURS), ram.u8(PLAY_MINUTES));
-    }
-
-    @Override
-    public List<GameEvent> diff(State before, State after) {
-        List<GameEvent> events = new ArrayList<>();
-        Map<Integer, Mon> was = new HashMap<>();
-        before.party().forEach(m -> was.put(m.key(), m));
-        for (Mon m : after.party()) {
-            Mon b = was.get(m.key());
-            if (b == null) continue; // joined or withdrawn; a new species shows up as POKEMON_OBTAINED
-            if (b.species() != m.species()) {
-                events.add(GameEvent.of("EVOLVED", display(b) + " evolved into " + speciesNames[m.species()] + "!",
-                        Map.of("from", speciesNames[b.species()], "to", speciesNames[m.species()])));
-            }
-            if (m.level() > b.level()) {
-                events.add(GameEvent.of("LEVEL_UP", display(m) + " grew to Lv. " + m.level() + "!",
-                        Map.of("name", display(m), "level", m.level())));
-            }
-            if (b.hp() > 0 && m.hp() == 0) {
-                events.add(GameEvent.of("POKEMON_FAINTED", display(m) + " fainted!", Map.of("name", display(m))));
-            }
-        }
-        boolean allFainted = !after.party().isEmpty() && after.party().stream().allMatch(m -> m.hp() == 0);
-        if (allFainted && before.party().stream().anyMatch(m -> m.hp() > 0)) {
-            events.add(GameEvent.of("BLACKED_OUT", "All our Pokémon fainted... we blacked out!", Map.of()));
-        }
-
-        BitSet caught = (BitSet) after.owned().clone();
-        caught.andNot(before.owned());
-        caught.stream().filter(i -> i < DEX_SIZE).forEach(i -> events.add(GameEvent.of("POKEMON_OBTAINED",
-                "New Pokémon: " + namesByDex[i + 1] + "! Pokédex " + owned(after) + "/" + DEX_SIZE + " owned.",
-                Map.of("name", namesByDex[i + 1], "dex", i + 1, "owned", owned(after), "total", DEX_SIZE))));
-
-        for (int bit : newBits(before.badges(), after.badges(), 8)) {
-            int count = Integer.bitCount(after.badges());
-            events.add(GameEvent.of("BADGE_EARNED", "Beat " + LEADERS[bit] + " and earned the " + BADGE_NAMES[bit]
-                    + " Badge! Badges: " + count + "/8.", Map.of("badge", BADGE_NAMES[bit], "count", count, "total", 8)));
-        }
-        for (int bit : newBits(before.towns(), after.towns(), TOWNS.length)) {
-            events.add(GameEvent.of("NEW_TOWN", "First time in " + TOWNS[bit] + "!", Map.of("town", TOWNS[bit])));
-        }
-        return events;
     }
 
     /** No Hall of Fame: the state does not read it. Levels over 100 are a party member mid-write. */
@@ -180,7 +129,7 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
 
     @Override
     public GameSummary summary(State s) {
-        if (s == null) s = new State(List.of(), new BitSet(), new BitSet(), 0, 0, 0, 0);
+        if (s == null) s = new State(List.of(), new BitSet(), new BitSet(), 0, 0, 0);
         List<GameSummary.Member> party = s.party().stream().map(m -> new GameSummary.Member(display(m),
                 speciesNames[m.species()], m.level(), m.hp(), m.maxHp(), status(m), dexNumber[m.species()])).toList();
         List<GameSummary.Badge> badges = new ArrayList<>();
@@ -294,12 +243,6 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
 
     private static int owned(State s) {
         return s.owned().get(0, DEX_SIZE).cardinality();
-    }
-
-    private static List<Integer> newBits(int before, int after, int width) {
-        List<Integer> bits = new ArrayList<>();
-        for (int i = 0; i < width; i++) if ((after & ~before & 1 << i) != 0) bits.add(i);
-        return bits;
     }
 
     /** The nickname, or the nicely cased species name when the player kept the default. */

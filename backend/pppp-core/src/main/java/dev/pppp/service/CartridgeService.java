@@ -1,6 +1,5 @@
 package dev.pppp.service;
 
-import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.exception.NotFoundException;
 import dev.pppp.model.Cartridge;
 import dev.pppp.repository.CartridgeRepository;
@@ -9,17 +8,15 @@ import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
 
-/** ROM uploads (validated, id derived from the file name) and the delete-if-not-inserted rule. */
+/** ROM uploads (validated, id derived from the file name), listing and deletion. */
 @Service
 public class CartridgeService {
     private static final int MIN_SIZE = 32 * 1024, MAX_SIZE = 8 * 1024 * 1024;
 
     private final CartridgeRepository roms;
-    private final EmulatorHost host;
 
-    public CartridgeService(CartridgeRepository roms, EmulatorHost host) {
+    public CartridgeService(CartridgeRepository roms) {
         this.roms = roms;
-        this.host = host;
     }
 
     public List<Cartridge> list() {
@@ -41,10 +38,8 @@ public class CartridgeService {
     }
 
     public void delete(String id) {
-        Path rom = require(id);
-        if (id.equals(host.status().cartridgeId())) throw new IllegalStateException("Cartridge " + id + " is inserted");
-        // Battery saves and save states stay: they are the run's progress.
-        roms.delete(rom);
+        // Players' battery saves and parked states stay: they are their progress.
+        roms.delete(require(id));
     }
 
     /** The ROM path, or NotFoundException. Also guards path params against traversal. */
@@ -52,13 +47,5 @@ public class CartridgeService {
         Path rom = id != null && Cartridge.ID.matcher(id).matches() ? roms.romPath(id) : null;
         if (rom == null) throw new NotFoundException("Unknown cartridge " + id);
         return rom;
-    }
-
-    public Path batterySave(String id) {
-        return roms.batterySave(id);
-    }
-
-    public void deleteBatterySave(String id) {
-        roms.deleteBatterySave(id);
     }
 }
