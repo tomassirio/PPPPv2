@@ -101,6 +101,9 @@ class ScoreboardApiTest {
         assertThat(redis.opsForStream().size("pibs:events")).isEqualTo(6);
         assertThat(redis.opsForZSet().score("pibs:scoreboard", "pibette@x.y")).isEqualTo(119);
         assertThat(redis.opsForHash().entries("pibs:progress:pibette@x.y")).containsEntry("badges", "Boulder")
-                .containsEntry("seen", "Pidgey|Rattata").containsEntry("level", "12").containsEntry("hallOfFame", "false");
+                .containsEntry("level", "12").containsEntry("hallOfFame", "false");
+        // Set.of iterates in a different order per JVM, so the stored order is not fixed.
+        assertThat(((String) redis.opsForHash().get("pibs:progress:pibette@x.y", "seen")).split("\\|"))
+                .containsExactlyInAnyOrder("Pidgey", "Rattata");
     }
 }
