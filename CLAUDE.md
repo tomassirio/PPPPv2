@@ -21,10 +21,17 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   list of players), `pibs:progress:{userId}` hash. `GET /api/v1/scoreboard`, `GET /api/v1/activity`; events `PROGRESS`,
   `SCOREBOARD_CHANGED`. Profiles: `PokemonRed`, `PokemonGen2` (Gold/Silver/Crystal, addresses from the pret symbol
   files, never run against a real ROM). Panel: `Scoreboard.svelte`.
-- Leftover from v1, still compiled but no longer on /play: the shared `EmulatorHost` bean and everything built on it
-  (crowd input queue, modes, votes, admin console/save-state/launch/reset, RamWatcher). Remove or re-point per player.
-- Next: remove the v1 leftovers, admin view of player consoles, a real trade between two Pokémon ROMs, the
-  byte-level serial endpoint if linked pairs are too slow on the Pi, chart renames for deploy.
+- Done: v1's shared console is gone (crowd input, modes, votes, admin console/save states/launch/reset/autosave,
+  rate limiter, `GET /state`, the public screenshot). The game-status endpoints serve the caller's own console:
+  `GET /api/v1/game/state` (their `GameSummary`, 204 without a game or a profile) and `/api/v1/game/icons/{id}.png`
+  come from `ProgressTracker.summary/icon(userId)`, the same confirmed reading it scores; a change goes out as
+  `GAME_STATE {user, state}` to everyone and the browser keeps its own (`game.svelte.ts`). Panels: `GameStatus.svelte`,
+  `PokedexBanner.svelte`; `GameToasts.svelte` shows the player's own `PROGRESS` events. Only `PokemonRed` has a party
+  box; `PokemonGen2`'s summary is counters only. `/api/v1/public/teaser` is `{online, players}`. Admin has a
+  read-only Players table (from the scoreboard).
+- Next: admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
+  ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, chart renames for deploy, README
+  (still describes v1).
 - No deploy workflow yet: v1's Helm release names would overwrite PPPP on the cluster. Rename the charts first.
 
 ## Local run (next to a running PPPP v1 dev stack)
@@ -42,15 +49,15 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   - `pppp-core`: `model`, `exception`, `service`, `repository`, `job`, `config` — business logic. No web dependencies; Redis access only in `repository`.
   - `pppp-app`: `controller` (+ `ApiExceptionHandler`), `security`, `realtime` (SSE, screen WebSocket), `config`, `PpppApplication`.
   - Dependencies point one way: app -> core -> emulator.
-- Build/test: `cd backend && mvn -q test`. Run: `mvn -q package -DskipTests && java -jar pppp-app/target/pppp-app-*.jar` with the repo-root `.env` exported (`set -a; . ../.env; set +a`). Integration tests live in pppp-app: `@SpringBootTest @DirtiesContext @AutoConfigureMockMvc @Import(TestRedis.class)` (Testcontainers Redis; Docker required). `@DirtiesContext` gives each class its own context and Redis: shared contexts leak settings, rate limits and mode between classes.
+- Build/test: `cd backend && mvn -q test`. Run: `mvn -q package -DskipTests && java -jar pppp-app/target/pppp-app-*.jar` with the repo-root `.env` exported (`set -a; . ../.env; set +a`). Integration tests live in pppp-app: `@SpringBootTest @DirtiesContext @AutoConfigureMockMvc @Import(TestRedis.class)` (Testcontainers Redis; Docker required). `@DirtiesContext` gives each class its own context and Redis: shared contexts leak settings and consoles between classes.
 - Auth in tests: `.with(user("x@y.z").roles("PLAYER"))` or `oidcLogin()`; mutating calls need `.with(csrf())`.
 - Emulator: Coffee GB, `eu.rekawek.coffeegb:core` from Maven Central.
 
 ## Conventions
 - User id = lower-cased email: `CurrentUser.id(authentication)`.
-- Errors: services throw domain exceptions, `ApiExceptionHandler` alone maps them to ProblemDetail: IllegalArgumentException 400, ForbiddenException 403, NotFoundException 404, IllegalStateException 409, RateLimitedException 429, QueueFullException 503 + Retry-After.
+- Errors: services throw domain exceptions, `ApiExceptionHandler` alone maps them to ProblemDetail: IllegalArgumentException 400, ForbiddenException 403, NotFoundException 404, IllegalStateException 409, RateLimitedException 429 (chat).
 - Live events to browsers: services publish `new LiveEvent(type, payload)` via `ApplicationEventPublisher`; `LiveEventRelay` forwards to SSE (`/api/v1/events`).
-- Settings: `SettingsService` (Redis JSON, publishes the new record as an ApplicationEvent on save). Admin GET/PUT under `/api/v1/admin/settings/{input,rate-limit,autosave}`.
+- Settings: `SettingsService` (Redis JSON, publishes the new record as an ApplicationEvent on save). Admin GET/PUT under `/api/v1/admin/settings/input` (holdFrames, releaseFrames), the only setting left.
 - Admin actions announce themselves via `ChatService.postSystem(text)`.
 - Redis keys follow the design doc's key layout table exactly.
 - Keep it small: no interfaces with one implementation, no speculative config.
@@ -59,7 +66,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - SvelteKit 3 + Svelte 5 runes, TypeScript, Vite 8, adapter-static (SPA, `ssr = false`), served by nginx. Config lives in `vite.config.ts` (no svelte.config.js).
 - Commands: `cd frontend && npm run check && npm test && npm run build`. Dev: `npm run dev` proxies /api, /ws, /oauth2, /login/oauth2 to localhost:8080.
 - Screen designs to match for /play: `frontend/design/Play*.dc.html`. The sign-in page (`/`) is the handheld boot-up. Tokens in `src/app.css` have dark and light values (theme: `src/lib/theme.svelte.ts`, Auto/Light/Dark); use tokens, not hex, for anything that sits on the page background.
-- Backend calls only through `src/lib/api.ts` (`api(method, path, body)`, adds X-XSRF-TOKEN, throws `ApiError{status, detail, retryAfter}`).
+- Backend calls only through `src/lib/api.ts` (`api(method, path, body)`, adds X-XSRF-TOKEN, throws `ApiError{status, detail}`).
 - Live events only through `src/lib/events.ts` (`on(type, handler)` returns unsubscribe; one shared EventSource).
 - Imports via `#lib/*` need the emitted extension: `#lib/session.svelte.js`, `#lib/api.js`.
 - Session: `src/lib/session.svelte.ts` (`session.me`, `loadMe()`, `isAdmin()`, `logout()`).
