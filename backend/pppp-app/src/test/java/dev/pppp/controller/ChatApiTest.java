@@ -149,7 +149,7 @@ class ChatApiTest {
 
     @Test
     void adminMessagesOnlyReachAdmins() throws Exception {
-        chat.postSystem("Mode is now DEMOCRACY");
+        chat.postSystem("Somebody plugged in a link cable");
         for (int i = 0; i < 3; i++) chat.postAdmin("Console reset " + i);
         verify(events, org.mockito.Mockito.times(3)).publishToAdmins(eq("CHAT_MESSAGE"), any());
         mvc.perform(get("/api/v1/chat/messages?limit=2").with(user("p@y.z").roles("PLAYER")))
@@ -163,7 +163,7 @@ class ChatApiTest {
     @Test
     void adminClearsSystemLinesOnly() throws Exception {
         send("p@y.z", "hello");
-        chat.postSystem("Mode is now ANARCHY");
+        chat.postSystem("Somebody pulled the link cable");
         chat.postAdmin("Console reset");
         mvc.perform(delete("/api/v1/admin/chat/system-messages").with(user("p@y.z").roles("PLAYER")).with(csrf()))
                 .andExpect(status().isForbidden());

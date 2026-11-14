@@ -49,7 +49,7 @@ class SettingsApiTest {
     /** What v1 stored: fields that are gone are ignored, the ones that are left are kept. */
     @Test
     void settingsStoredByV1StillLoad() throws Exception {
-        redis.opsForValue().set("settings:input", "{\"mode\":\"DEMOCRACY\",\"democracyWindowSeconds\":10,"
+        redis.opsForValue().set("settings:input", "{\"mode\":\"ANARCHY\",\"democracyWindowSeconds\":10,"
                 + "\"enterDemocracyPercent\":80,\"leaveDemocracyPercent\":50,\"holdFrames\":9,\"releaseFrames\":2,"
                 + "\"maxQueueLength\":50,\"chatCommands\":true}");
         mvc.perform(get("/api/v1/admin/settings/input").with(user("a").roles("ADMIN")))

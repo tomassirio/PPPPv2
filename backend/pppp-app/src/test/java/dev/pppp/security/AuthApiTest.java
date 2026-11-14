@@ -59,7 +59,7 @@ class AuthApiTest {
 
     @BeforeEach
     void reset() {
-        redis.delete(List.of("allowlist", "bans", "ratelimit:me@x.com", "users:pictures", "access:requests", "access:rejected"));
+        redis.delete(List.of("allowlist", "bans", "users:pictures", "access:requests", "access:rejected"));
     }
 
     @Test
