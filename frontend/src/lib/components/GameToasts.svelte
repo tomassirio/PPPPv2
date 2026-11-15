@@ -22,12 +22,14 @@
 	});
 
 	const tone = (type: string) => (type === 'SEEN' || type === 'LEVEL' ? 'info' : 'great');
+	// "You is now Gym Leader (C)" reads wrong; titles get their own sentence, and 0-point lines no "+0".
+	const text = (e: ScoreEvent) => (e.type === 'TITLE' ? `New title: ${e.detail}` : activityText(e, 'You'));
 </script>
 
 <div class="toasts" role="status" aria-live="polite">
 	{#if current}
 		{#key current}
-			<p class="toast {tone(current.type)}">{activityText(current, 'You')} +{current.points}</p>
+			<p class="toast {tone(current.type)}">{text(current)}{current.points ? ` +${current.points}` : ''}</p>
 		{/key}
 	{/if}
 </div>

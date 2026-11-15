@@ -59,6 +59,8 @@ public class LinkService {
                 in != null && in.expiresAt() > now ? in : null,
                 out != null && out.expiresAt() > now ? out : null,
                 s == null ? null : new LinkState.Session(s.a().equals(userId) ? s.b() : s.a(), s.kind(), s.endsAt()),
+                sessions.values().stream().distinct()
+                        .map(e -> new LinkState.Pair(e.a(), e.b(), e.kind(), e.endsAt())).toList(),
                 now);
     }
 

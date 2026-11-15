@@ -134,6 +134,7 @@ class LinkApiTest {
                 .andExpect(jsonPath("$.incoming").doesNotExist())
                 .andExpect(jsonPath("$.session.peer").value(ASH))
                 .andExpect(jsonPath("$.session.kind").value("TRADE"))
+                .andExpect(jsonPath("$.links.length()").value(1))
                 .andExpect(jsonPath("$.lobby.length()").value(1)) // both left the lobby, Gary is still ready
                 .andExpect(jsonPath("$.lobby[0].userId").value(GARY));
         assertThat(consoles.linkedWith(ASH)).isEqualTo(SAM);

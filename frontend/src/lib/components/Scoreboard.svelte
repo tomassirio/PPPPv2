@@ -34,7 +34,10 @@
 						</div>
 						<div class="status {st.kind}"><span class="dot" aria-hidden="true"></span>{st.label}<span class="muted">· {r.caught} caught</span></div>
 					</div>
-					<span class="pts">{r.points.toLocaleString()}<span class="sr"> points</span></span>
+					<span class="score" title="{r.title} · {r.achievementsUnlocked} achievements ({r.achievementPoints} pts)">
+						<span class="pts">{r.trainerScore}<span class="sr"> Trainer Score, grade</span></span>
+						<span class="grade pixel">{r.grade}</span>
+					</span>
 				</li>
 			{/each}
 		</ol>
@@ -163,10 +166,24 @@
 		background: none;
 		box-shadow: inset 0 0 0 1.5px var(--muted);
 	}
-	.pts {
+	.score {
 		flex: none;
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+	}
+	.pts {
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
+	}
+	.grade {
+		min-width: 2.4em;
+		padding: 3px 5px;
+		border-radius: 4px;
+		background: var(--accent-tint);
+		color: var(--accent-text);
+		font-size: 9px;
+		text-align: center;
 	}
 	hr {
 		width: 100%;

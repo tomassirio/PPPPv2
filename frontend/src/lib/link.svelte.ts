@@ -1,7 +1,6 @@
 // The link cable, shared by the Link cable card, the challenge sheet, the phone's linked banner and the scoreboard's
 // status lines. GET /api/v1/link is the whole picture for this player; LOBBY_CHANGED, LINK_CHALLENGE and LINK_SESSION
-// say when to fetch it again. links (user -> peer) also follows other players' sessions from LINK_SESSION, so only
-// sessions started while this page is open (and this player's own) are known.
+// say when to fetch it again. links (user -> peer) holds every running session, from GET /link and LINK_SESSION.
 import { api, ApiError } from './api';
 import { on, onOpen } from './events';
 import type { LinkKind } from './play';
@@ -14,6 +13,7 @@ export type LinkState = {
 	incoming: Challenge | null;
 	outgoing: Challenge | null;
 	session: { peer: string; kind: LinkKind; endsAt: number } | null;
+	links: { a: string; b: string; kind: LinkKind; endsAt: number }[];
 	now: number;
 };
 type SessionEvent = { a: string; b: string; status: 'STARTED' | 'ENDED' };
@@ -38,12 +38,9 @@ function show(s: LinkState) {
 	skew = s.now - Date.now();
 	link.now = s.now;
 	link.state = s;
-	const me = session.me?.id;
-	if (!me) return;
-	const links = { ...link.links };
-	const peer = s.session?.peer;
-	for (const [u, p] of Object.entries(links)) if (u === me || p === me) delete links[u];
-	if (peer) Object.assign(links, { [me]: peer, [peer]: me });
+	// Every running session comes with the state, so other players' "Linked" shows even if it started before this page.
+	const links: Record<string, string> = {};
+	for (const p of s.links ?? []) Object.assign(links, { [p.a]: p.b, [p.b]: p.a });
 	link.links = links;
 }
 

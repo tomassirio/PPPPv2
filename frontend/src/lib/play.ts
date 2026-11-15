@@ -59,7 +59,21 @@ export function afterArrowRelease(still: Button[], walking: Button | null, relea
 }
 
 /** Shapes from ScoreRow / ScoreEvent (GET /scoreboard, /activity; SCOREBOARD_CHANGED, PROGRESS). */
-export type ScoreRow = { userId: string; points: number; badges: number; caught: number; seen: number; game: string | null; online: boolean };
+/** Ranked by trainerScore (0–1000), achievementPoints breaking ties; points is the older per-step tally. */
+export type ScoreRow = {
+	userId: string;
+	points: number;
+	badges: number;
+	caught: number;
+	seen: number;
+	game: string | null;
+	online: boolean;
+	trainerScore: number;
+	title: string;
+	grade: string;
+	achievementPoints: number;
+	achievementsUnlocked: number;
+};
 export type ScoreEvent = { user: string; type: string; detail: string; points: number; at: number };
 
 /** "jordan earned the Boulder Badge"; who: another subject ("You"). */
@@ -69,7 +83,9 @@ export function activityText(e: ScoreEvent, who = shortUser(e.user)): string {
 		CAUGHT: `caught ${e.detail}`,
 		SEEN: `saw ${e.detail}`,
 		LEVEL: `reached Lv. ${e.detail}`,
-		HALL_OF_FAME: 'entered the Hall of Fame'
+		HALL_OF_FAME: 'entered the Hall of Fame',
+		ACHIEVEMENT: `unlocked ${e.detail}`,
+		TITLE: `is now ${e.detail}`
 	};
 	return `${who} ${did[e.type] ?? e.type.toLowerCase()}`;
 }

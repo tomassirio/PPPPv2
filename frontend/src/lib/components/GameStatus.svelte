@@ -1,4 +1,4 @@
-<!-- "Your run": the player's points and rank (scoreboard), badges as pips, Pokédex progress, and the top of their
+<!-- "Your run": the player's Trainer Score, grade, title and rank (scoreboard), achievements, badges as pips, Pokédex progress, and the top of their
      party and play time where the game profile reads them. The game summary is read from the console's RAM
      (GET /api/v1/game/state, kept current by GAME_STATE); Gold/Silver/Crystal give counters only (16 badges: Johto
      8, then Kanto 8). -->
@@ -39,9 +39,13 @@
 	<div class="head">
 		<h2 id="run-h">Your run</h2>
 		{#if mine}
-			<span><span class="pts">{mine.points.toLocaleString()}</span> <span class="muted">pts · {ordinal(rank + 1)}</span></span>
+			<span><span class="pts">{mine.trainerScore}</span> <span class="muted">/ 1000 · {mine.grade} · {ordinal(rank + 1)}</span></span>
 		{/if}
 	</div>
+	{#if mine}
+		<div class="line"><span>Title</span><span class="muted">{mine.title}</span></div>
+		<div class="line"><span>Achievements</span><span class="muted">{mine.achievementsUnlocked} unlocked · {mine.achievementPoints} pts</span></div>
+	{/if}
 	{#if summary}
 		{#each rows as row, r (row.label)}
 			<div class="line wrap" class:later={r > 0 && !row.got}>
