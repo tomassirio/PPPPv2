@@ -4,6 +4,7 @@
      their scoreboard row changes; an older backend without it gets the scoreboard row and achievement catalogue. -->
 <script lang="ts">
 	import RunSummary from '#lib/components/RunSummary.svelte';
+	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import { page } from '$app/state';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -91,6 +92,7 @@
 		trades: profile?.stats.trades ?? row?.link?.trades ?? 0
 	});
 	const partners = $derived(profile?.stats.partners ?? []);
+	let finding = $state(false); // the Find someone to link with dialog
 	const got = $derived(achievements.filter((a) => a.unlocked).length);
 	const tiers = $derived(
 		RARITIES.map((r) => ({ rarity: r, got: achievements.filter((a) => a.rarity === r && a.unlocked).length, of: achievements.filter((a) => a.rarity === r).length }))
@@ -296,7 +298,8 @@
 						{:else if !busy}<span class="muted xs">{nameOf(id)} sees your offer wherever they are, for a minute.</span>{/if}
 						{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
 					{:else}
-						<a class="btn primary wide" href="/play">Find someone to link with</a>
+						<button type="button" class="btn primary wide" onclick={() => (finding = true)}>Find someone to link with</button>
+						<LinkFinder bind:open={finding} />
 					{/if}
 				</section>
 
@@ -689,12 +692,6 @@
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-	a.btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		text-decoration: none;
 	}
 	.btn.wide {
 		width: 100%;
