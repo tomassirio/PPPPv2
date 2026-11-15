@@ -23,7 +23,7 @@
 <header class="app-header" class:on-play={path === '/play'}>
 	<div class="brand">
 		<a href="/play" class="home">
-			<img class="logo" src={banner} alt="Pibs&amp;PibettesPlayPokemon V2" width="1024" height="196" />
+			<img class="logo" src={banner} alt="Pibs&amp;PibettesPlayPokemon V2" width="940" height="113" />
 			<img class="short" src={ppppLogo} alt="PPPP V2" width="480" height="174" />
 		</a>
 		<nav aria-label="Main">
@@ -60,10 +60,12 @@
 	.home {
 		display: block;
 	}
+	/* The banner is cropped to its lettering, so this is the height of the letters themselves (as big as v1's). */
 	.logo {
 		display: block;
-		height: 44px;
+		height: 46px;
 		width: auto;
+		max-width: 100%;
 	}
 	/* Phones: the PPPP V2 logo instead of the long banner. */
 	.short {
