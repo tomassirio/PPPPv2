@@ -1,4 +1,4 @@
-<!-- The avatar in the top bar opens this menu: who you are, light/dark (sun/moon), keys to play with (keyboard devices), Pokédex banners (wide desktops), Admin (admins only; Play when
+<!-- The avatar in the top bar opens this menu: who you are, light/dark (sun/moon), Keys: arrows or WASD (keyboard devices), Pokédex banners (wide desktops), Admin (admins only; Play when
      already on /admin), Sign out. -->
 <script lang="ts">
 	import { page } from '$app/state';
@@ -6,7 +6,6 @@
 	import { setTheme, theme } from '#lib/theme.svelte.ts';
 	import { dexBanners, setDexBanners } from '#lib/dex.svelte.ts';
 	import { keys, setKeyScheme } from '#lib/keys.svelte.ts';
-	import { KEY_LABELS } from '#lib/play.ts';
 
 	let { me }: { me: Me } = $props();
 
@@ -97,18 +96,24 @@
 				</div>
 			</div>
 
-			<div class="keys-row">
-				<div class="row">
-					<span id="keys-label">Keys</span>
-					<div class="toggle text" role="group" aria-labelledby="keys-label">
-						<button type="button" aria-pressed={keys.scheme === 'arrows'} onclick={() => setKeyScheme('arrows')}>Arrows</button>
-						<button type="button" aria-pressed={keys.scheme === 'wasd'} onclick={() => setKeyScheme('wasd')}>WASD</button>
-					</div>
+			<!-- Mouse clicks drop focus, so the WASD/Enter keys that follow go to the game, not this toggle. -->
+			<div class="row keys-row">
+				<span id="keys-label">Keys</span>
+				<div class="toggle" role="group" aria-labelledby="keys-label">
+					{#each [['arrows', 'Arrow keys, Z and X', '↑↓'], ['wasd', 'W A S D, K and J', 'WASD']] as [scheme, label, text] (scheme)}
+						<button
+							type="button"
+							class="keys-btn"
+							aria-pressed={keys.scheme === scheme}
+							aria-label={label}
+							title={label}
+							onclick={(e) => {
+								setKeyScheme(scheme as 'arrows' | 'wasd');
+								if (e.detail > 0) e.currentTarget.blur();
+							}}>{text}</button
+						>
+					{/each}
 				</div>
-				<p class="legend">
-					<kbd>{keys.scheme === 'wasd' ? 'WASD' : '↑←↓→'}</kbd> move · <kbd>{KEY_LABELS[keys.scheme].a}</kbd> A · <kbd>{KEY_LABELS[keys.scheme].b}</kbd> B ·
-					<kbd>Enter</kbd> Start · <kbd>Shift</kbd> Select
-				</p>
 			</div>
 
 			{#if !page.url.pathname.startsWith('/admin')}
@@ -132,34 +137,22 @@
 
 <style>
 	/* Keys only matter with a keyboard and mouse. */
-	.keys-row {
+	.row.keys-row {
 		display: none;
 	}
 	@media (hover: hover) and (pointer: fine) {
-		.keys-row {
-			display: block;
+		.row.keys-row {
+			display: flex;
 		}
 	}
-	.toggle.text button {
+	/* Same size as the theme buttons, a word instead of an icon. */
+	.toggle .keys-btn {
 		width: auto;
-		padding: 0 10px;
-		font-size: 12px;
-		font-weight: 600;
-	}
-	.legend {
-		margin: 0;
-		padding: 0 10px 6px;
-		font-size: 12px;
-		line-height: 22px;
-		color: var(--muted);
-	}
-	.legend kbd {
-		font: 600 11px var(--font-ui, inherit);
-		padding: 1px 5px;
-		border-radius: 4px;
-		border: 1px solid var(--border-strong);
-		background: var(--bg);
-		color: var(--text);
+		min-width: 32px;
+		padding: 0 8px;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.02em;
 	}
 	/* Only where /play shows the banners (its wide media query); elsewhere the option would do nothing. */
 	.row.dex-row {

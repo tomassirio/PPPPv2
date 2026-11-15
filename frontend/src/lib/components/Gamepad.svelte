@@ -127,6 +127,7 @@
 						stroke-linejoin="round"
 						aria-hidden="true"><path d={d.path}></path></svg
 					>
+					{#if keys.scheme === 'wasd'}<kbd class="cap" aria-hidden="true">{KEY_LABELS.wasd[d.b]}</kbd>{/if}
 				</button>
 			{/each}
 			<div class="hub"></div>
@@ -138,7 +139,7 @@
 			onpointerleave={() => release('b')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('b')}
-				>B</button
+				>B<kbd class="cap" aria-hidden="true">{KEY_LABELS[keys.scheme].b}</kbd></button
 			>
 			<button type="button" class="round pixel" class:held={down.has('a')} aria-label="A button" aria-keyshortcuts={KEY_LABELS[keys.scheme].a} onpointerdown={(e) => pointerDown(e, 'a')}
 			onpointerup={() => release('a')}
@@ -146,7 +147,7 @@
 			onpointerleave={() => release('a')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('a')}
-				>A</button
+				>A<kbd class="cap" aria-hidden="true">{KEY_LABELS[keys.scheme].a}</kbd></button
 			>
 		</div>
 	</div>
@@ -157,7 +158,7 @@
 			onpointerleave={() => release('select')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('select')}
-			>SELECT</button
+			>SELECT<kbd class="cap" aria-hidden="true">Shift</kbd></button
 		>
 		<button type="button" class="pill" class:held={down.has('start')} aria-label="Start" aria-keyshortcuts="Enter" onpointerdown={(e) => pointerDown(e, 'start')}
 			onpointerup={() => release('start')}
@@ -165,7 +166,7 @@
 			onpointerleave={() => release('start')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('start')}
-			>START</button
+			>START<kbd class="cap" aria-hidden="true">Enter</kbd></button
 		>
 	</div>
 </div>
@@ -260,6 +261,34 @@
 		font-size: 12px;
 		font-weight: 700;
 		letter-spacing: 0.08em;
+	}
+	/* Which keyboard key presses each button, as a small key cap on its corner (keyboard and mouse only). */
+	.dir,
+	.round,
+	.pill {
+		position: relative;
+	}
+	.cap {
+		display: none;
+		position: absolute;
+		top: -7px;
+		right: -7px;
+		min-width: 18px;
+		padding: 1px 4px;
+		box-sizing: border-box;
+		border-radius: 4px;
+		border: 1px solid var(--border-strong);
+		background: var(--panel);
+		color: var(--text);
+		font: 600 10px/14px var(--font-ui, system-ui, sans-serif);
+		letter-spacing: 0;
+		text-align: center;
+		pointer-events: none;
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.cap {
+			display: block;
+		}
 	}
 	/* The Pibtendo oval from the sign-in handheld, embossed in the shell's own colour. */
 	/* Floats in the shell's top padding, between the d-pad and A/B: adds no height to the pad. */
