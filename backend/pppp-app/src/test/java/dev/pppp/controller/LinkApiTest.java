@@ -59,6 +59,7 @@ class LinkApiTest {
     @Autowired MockMvc mvc;
     @Autowired PlayerConsoles consoles;
     @Autowired LinkService link;
+    @Autowired dev.pppp.service.game.ProgressTracker tracker;
 
     /** Every test starts with all three consoles open, nobody ready, nothing pending, nobody linked. */
     @BeforeEach
@@ -215,6 +216,10 @@ class LinkApiTest {
         assertThat(consoles.isAwake(ASH)).isTrue();
         assertThat(consoles.isAwake(GARY)).isTrue();
         assertThat(consoles.linkedWith(GARY)).isEqualTo(ASH);
+        for (String id : new String[] {ASH, GARY}) { // both ends, not only whoever's game the tracker read
+            assertThat(tracker.achievements(id).achievements()).filteredOn(a -> a.id().equals("plugged-in"))
+                    .singleElement().satisfies(a -> assertThat(a.unlockedAt()).isNotNull());
+        }
         offer(SAM, GARY, "TRADE").andExpect(status().isConflict()); // already linked
         as(GARY, delete("/api/v1/link/session"), null).andExpect(status().isOk());
     }

@@ -4,6 +4,9 @@ import dev.pppp.exception.NotFoundException;
 import dev.pppp.model.Achievement;
 import dev.pppp.model.GameSummary;
 import dev.pppp.model.LiveEvent;
+import org.springframework.context.event.EventListener;
+import java.util.HashSet;
+import dev.pppp.model.LinkState;
 import dev.pppp.model.PlayerAchievements;
 import dev.pppp.model.PlayerProfile;
 import dev.pppp.model.Progress;
@@ -207,6 +210,64 @@ public class ProgressTracker {
                 "id", id, "name", name(id), "points", Achievements.points(id), "at", at))));
         feed.forEach(e -> events.publishEvent(new LiveEvent("PROGRESS", e)));
         return true;
+    }
+
+    /**
+     * A link cable went in: each Pib is the other's partner from this moment, whether or not a reading of their game
+     * gets confirmed during the session (sessions can be a few seconds), and the link achievements that need only
+     * that (Plugged In, Social Butterfly) unlock for both at once.
+     */
+    @EventListener
+    public void onLink(LiveEvent event) {
+        if (!"LINK_SESSION".equals(event.type()) || !(event.payload() instanceof LinkState.SessionEvent s)
+                || !"STARTED".equals(s.status())) return;
+        linked(s.a(), s.b());
+        linked(s.b(), s.a());
+    }
+
+    /**
+     * Partners recorded only on one side before links were recorded at plug-in time: give the other side theirs
+     * (and its link achievements). Runs once at start-up; a no-op when every pair is already mutual.
+     */
+    @EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void backfillPartners() {
+        for (String userId : repo.ranking()) {
+            TrainerLog log = repo.log(userId);
+            if (log != null) log.partners().forEach(p -> linked(p, userId));
+        }
+    }
+
+    private synchronized void linked(String userId, String partner) {
+        TrainerLog was = logs.computeIfAbsent(userId, repo::log);
+        if (was == null) was = TrainerLog.EMPTY;
+        if (was.partners().contains(partner)) return;
+        Set<String> partners = new HashSet<>(was.partners());
+        partners.add(partner);
+        TrainerLog now = new TrainerLog(was.contacts(), was.hatched(), Set.copyOf(partners), was.trades(),
+                was.crossVersion(), was.eliteFour(), was.linkWins(), was.linkLosses());
+        repo.saveLog(userId, now);
+        logs.put(userId, now);
+        unlock(userId, Achievements.earnedFromLog(now));
+        events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
+    }
+
+    /** Unlocks these achievements for the player (those not unlocked yet), keeping their Trainer Score. */
+    private void unlock(String userId, List<String> ids) {
+        Map<String, Long> had = unlocked.computeIfAbsent(userId, repo::achievements);
+        long at = System.currentTimeMillis();
+        Map<String, Long> fresh = new LinkedHashMap<>();
+        ids.stream().filter(id -> !had.containsKey(id)).forEach(id -> fresh.put(id, at));
+        if (fresh.isEmpty()) return;
+        Map<String, Long> all = new HashMap<>(had);
+        all.putAll(fresh);
+        TrainerScore score = trainers.computeIfAbsent(userId, repo::trainer);
+        List<ScoreEvent> feed = new ArrayList<>();
+        fresh.keySet().forEach(id -> feed.add(new ScoreEvent(userId, "ACHIEVEMENT", name(id), Achievements.points(id), at)));
+        repo.rate(userId, score, fresh, rank(score, all), feed);
+        unlocked.put(userId, all);
+        fresh.keySet().forEach(id -> events.publishEvent(new LiveEvent("ACHIEVEMENT_UNLOCKED", Map.of("user", userId,
+                "id", id, "name", name(id), "points", Achievements.points(id), "at", at))));
+        feed.forEach(e -> events.publishEvent(new LiveEvent("PROGRESS", e)));
     }
 
     /** Updates and stores the player's {@link TrainerLog} with this reading. */

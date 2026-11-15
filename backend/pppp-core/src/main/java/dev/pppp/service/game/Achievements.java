@@ -250,6 +250,15 @@ public final class Achievements {
         return out;
     }
 
+    /** Link achievements told from the TrainerLog alone (no save needed): unlocked for both Pibs as the cable goes in. */
+    static final List<String> FROM_LOG = List.of("plugged-in", "social-butterfly", "first-trade", "cross-version", "link-champion");
+
+    /** The {@link #FROM_LOG} achievements this log earns. */
+    static List<String> earnedFromLog(TrainerLog log) {
+        Moment m = new Moment(null, null, log, null);
+        return FROM_LOG.stream().filter(id -> RULES.get(id).earned().test(m)).toList();
+    }
+
     /** {@link #earned(Moment)} with nothing logged and no battery save read. */
     static List<String> earned(Gen2Save before, Gen2Save now) {
         return earned(new Moment(before, now, TrainerLog.EMPTY, null));
