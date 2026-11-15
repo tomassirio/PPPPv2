@@ -521,6 +521,7 @@
 		background: var(--cart-crystal);
 	}
 	.btn {
+		box-sizing: border-box; /* full-width buttons stay inside their card */
 		height: 38px;
 		padding: 0 14px;
 		border-radius: 8px;
