@@ -12,8 +12,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Admin action: wipes one player's run so they pick a game again. Their console goes away (link cable pulled,
- * lobby and challenges cleared through the idle listeners), and so do their pick, saves, progress, points and
- * activity entries. Their account, role and chat messages stay.
+ * lobby and challenges cleared through the idle listeners), and so do their pick, saves, progress, achievements,
+ * Trainer Score, rank and activity entries (ProgressRepository.delete). Their account, role and chat messages stay.
  */
 @Service
 public class PlayerResetService {
@@ -39,7 +39,7 @@ public class PlayerResetService {
 
     /** NotFoundException when the player never picked a game and has nothing on the scoreboard. */
     public void reset(String adminId, String userId) {
-        if (players.game(userId) == null && !progress.scores().containsKey(userId)) {
+        if (players.game(userId) == null && !progress.ranking().contains(userId)) {
             throw new NotFoundException("No run to reset for " + userId);
         }
         // ponytail: a progress poll already in flight can still write one award after this; reset again if seen.

@@ -12,7 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import dev.pppp.TestRedis;
 import dev.pppp.emulator.TestRom;
+import dev.pppp.model.Progress;
 import dev.pppp.service.PlayerConsoles;
+import dev.pppp.service.game.ProgressTracker;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -55,6 +58,8 @@ class PlayerApiTest {
 
     @Autowired MockMvc mvc;
     @Autowired PlayerConsoles consoles;
+    @Autowired ProgressTracker tracker;
+    @Autowired StringRedisTemplate redis;
 
     private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder req, String body) {
         return req.with(PIB).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body);
@@ -93,12 +98,18 @@ class PlayerApiTest {
         consoles.open(who);
         consoles.idle(who);
         assertThat(DATA.resolve("saves/" + who + "/test.state")).isNotEmptyFile();
+        tracker.record(who, Progress.EMPTY, ScoreboardApiTest.save(0b1)); // achievements and a Trainer Score
+        assertThat(redis.hasKey("pibs:achievements:" + who)).isTrue();
+        assertThat(redis.hasKey("pibs:trainer:" + who)).isTrue();
 
         mvc.perform(delete("/api/v1/admin/players/" + who).with(player).with(csrf())).andExpect(status().isForbidden());
         mvc.perform(delete("/api/v1/admin/players/" + who).with(ADMIN).with(csrf())).andExpect(status().isNoContent());
 
         assertThat(consoles.running()).doesNotContain(who);
         assertThat(DATA.resolve("saves/" + who)).doesNotExist();
+        assertThat(redis.keys("pibs:*" + who + "*")).isEmpty();
+        assertThat(redis.opsForZSet().score("pibs:scoreboard", who)).isNull();
+        mvc.perform(get("/api/v1/achievements").with(player)).andExpect(jsonPath("$.unlocked").value(0));
         mvc.perform(get("/api/v1/me/game").with(player)).andExpect(jsonPath("$.game").doesNotExist());
         mvc.perform(get("/api/v1/scoreboard").with(player))
                 .andExpect(jsonPath("$[?(@.userId=='" + who + "')]").isEmpty());

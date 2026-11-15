@@ -3,6 +3,7 @@ package dev.pppp.service.game;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -12,6 +13,7 @@ import dev.pppp.model.LiveEvent;
 import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
 import dev.pppp.model.ScoreRow;
+import dev.pppp.model.TrainerScore;
 import dev.pppp.repository.ProgressRepository;
 import dev.pppp.service.CartridgeService;
 import dev.pppp.service.PlayerConsoles;
@@ -19,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +39,10 @@ class ProgressTrackerTest {
     CartridgeService cartridges = mock(CartridgeService.class);
     ProgressRepository repo = mock(ProgressRepository.class);
     Map<String, Progress> stored = new HashMap<>(); // pibs:progress
-    Map<String, Integer> points = new HashMap<>(); // pibs:scoreboard
+    Map<String, Map<String, Long>> achieved = new HashMap<>(); // pibs:achievements
+    Map<String, TrainerScore> trainers = new HashMap<>(); // pibs:trainer
+    Map<String, Long> ranks = new HashMap<>(); // pibs:scoreboard
+    List<ScoreEvent> feed = new ArrayList<>(); // pibs:events
     List<Object> published = new ArrayList<>();
 
     @BeforeEach
@@ -53,12 +59,24 @@ class ProgressTrackerTest {
         when(consoles.game(ASH)).thenReturn("red");
         when(consoles.readBytes(eq(ASH), anyInt(), anyInt())).thenAnswer(i -> ram.ram().bytes());
         when(repo.progress(any())).thenAnswer(i -> stored.getOrDefault(i.<String>getArgument(0), Progress.EMPTY));
-        when(repo.scores()).thenAnswer(i -> points);
+        when(repo.ranking()).thenAnswer(i -> ranks.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())).map(Map.Entry::getKey).toList());
+        when(repo.achievements(any())).thenAnswer(i -> new HashMap<>(achieved.getOrDefault(i.<String>getArgument(0), Map.of())));
+        when(repo.trainer(any())).thenAnswer(i -> trainers.getOrDefault(i.<String>getArgument(0), TrainerScore.ZERO));
         doAnswer(i -> {
             stored.put(i.getArgument(0), i.getArgument(1));
-            points.merge(i.getArgument(0), i.<List<ScoreEvent>>getArgument(2).stream().mapToInt(ScoreEvent::points).sum(), Integer::sum);
+            ranks.putIfAbsent(i.getArgument(0), 0L);
+            feed.addAll(i.getArgument(2));
             return null;
         }).when(repo).award(any(), any(), any());
+        doAnswer(i -> {
+            String user = i.getArgument(0);
+            trainers.put(user, i.getArgument(1));
+            achieved.computeIfAbsent(user, u -> new HashMap<>()).putAll(i.getArgument(2));
+            ranks.put(user, i.getArgument(3));
+            feed.addAll(i.getArgument(4));
+            return null;
+        }).when(repo).rate(any(), any(), any(), anyLong(), any());
     }
 
     ProgressTracker tracker() {
@@ -101,9 +119,9 @@ class ProgressTrackerTest {
         tracker.poll();
         assertThat(scored()).containsExactly("CAUGHT Bulbasaur +10", "SEEN Bulbasaur +2", "BADGE Boulder +100",
                 "BADGE Thunder +100", "SEEN Pidgey +2", "LEVEL 10 +5", "LEVEL 20 +5");
-        assertThat(points).containsEntry(ASH, 224);
-        assertThat(published.getLast()).isEqualTo(new LiveEvent("SCOREBOARD_CHANGED",
-                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true))));
+        assertThat(ProgressTracker.points(stored.get(ASH))).isEqualTo(224);
+        assertThat(published.getLast()).isEqualTo(new LiveEvent("SCOREBOARD_CHANGED", // Red has no Trainer Score
+                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true, 0, "Youngster", "F", 0, 0))));
     }
 
     @Test
@@ -180,32 +198,150 @@ class ProgressTrackerTest {
         assertThat(ProgressTracker.score(ASH, after, after, 7)).isEmpty();
     }
 
-    /** Crystal's layout with synthetic RAM; the addresses themselves come from pokecrystal.sym. */
+    /** Crystal's layout with synthetic RAM; the addresses themselves come from pokecrystal11.sym. */
     @Test
     void readsGenerationTwo() {
-        byte[] rom = new byte[0x14 * 0x4000 + 0x3384 + 2510];
-        System.arraycopy("PM_CRYSTAL\0BYTE".getBytes(), 0, rom, 0x134, 15);
+        var crystal = new Gen2Ram(Gen2Ram.CRYSTAL);
         byte[] chikorita = PokemonRedTest.encode("CHIKORITA");
-        System.arraycopy(chikorita, 0, rom, 0x14 * 0x4000 + 0x3384 + 151 * 10, chikorita.length);
-        GameProfile<?> any = GameProfile.forRom(rom);
+        System.arraycopy(chikorita, 0, crystal.rom, crystal.at.romNames() + 151 * 10, chikorita.length);
+        GameProfile<?> any = GameProfile.forRom(crystal.rom);
         assertThat(any).isInstanceOf(PokemonGen2.class);
-        var crystal = (PokemonGen2) any;
-        assertThat(crystal.ramStart()).isEqualTo(0xD47D);
+        var profile = (PokemonGen2) any;
+        assertThat(profile.ramStart()).isEqualTo(0xD47B);
 
-        byte[] mem = new byte[crystal.ramLength()];
-        assertThat(crystal.read(new Ram(0xD47D, mem))).isNull(); // no player name: not in play
-        byte[] name = PokemonRedTest.encode("KRIS");
-        System.arraycopy(name, 0, mem, 0, name.length);
-        mem[0xDCD7 - 0xD47D] = 1; // wPartyCount, then wPartySpecies
-        mem[0xDCD8 - 0xD47D] = (byte) 152;
-        mem[0xDCD9 - 0xD47D] = (byte) 0xFF;
-        mem[0xDCDF - 0xD47D] = (byte) 152; // wPartyMon1Species
-        mem[0xDCFE - 0xD47D] = 14; // wPartyMon1Level
-        mem[0xD857 - 0xD47D] = 0b10001; // Zephyr, Mineral
-        mem[0xD858 - 0xD47D] = 0b1; // Boulder
-        mem[0xDE99 - 0xD47D + 18] = (byte) 0x80; // #152 caught, not flagged seen
-        mem[0xD95E - 0xD47D] = 1;
-        assertThat(crystal.read(new Ram(0xD47D, mem))).isEqualTo(new Progress(Set.of("Zephyr", "Mineral", "Boulder"),
-                Set.of("Chikorita"), Set.of("Chikorita"), 14, true));
+        assertThat(profile.read(new Ram(0xD47B, new byte[profile.ramLength()]))).isNull(); // no player name: not in play
+        crystal.mon(0, 152, 14, Gen2Ram.PLAYER_ID);
+        crystal.badges(0b10001, 0b1); // Zephyr, Mineral; Boulder
+        crystal.caught(152); // not flagged seen
+        crystal.hallOfFame(1);
+        assertThat(profile.progress(profile.read(crystal.ram()))).isEqualTo(new Progress(
+                Set.of("Zephyr", "Mineral", "Boulder"), Set.of("Chikorita"), Set.of("Chikorita"), 14, true));
+    }
+
+    // ---- Gen 2: achievements and Trainer Score through the tracker ----
+
+    Gen2Ram gold = new Gen2Ram(Gen2Ram.GOLD);
+
+    ProgressTracker goldTracker() throws Exception {
+        when(cartridges.require("gold")).thenReturn(Files.write(dir.resolve("gold.gbc"), gold.rom));
+        when(consoles.game(ASH)).thenReturn("gold");
+        when(consoles.readBytes(eq(ASH), anyInt(), anyInt())).thenAnswer(i -> gold.ram().bytes());
+        return tracker();
+    }
+
+    void twice(ProgressTracker tracker) {
+        tracker.poll();
+        tracker.poll();
+    }
+
+    List<String> unlockedEvents() {
+        return published.stream().map(e -> (LiveEvent) e).filter(e -> e.type().equals("ACHIEVEMENT_UNLOCKED"))
+                .map(e -> (String) ((Map<?, ?>) e.payload()).get("id")).toList();
+    }
+
+    @Test
+    void unlocksEachAchievementOnceEvenAfterARestartOrANewGame() throws Exception {
+        var tracker = goldTracker();
+        twice(tracker); // a new game: nothing
+        assertThat(unlockedEvents()).isEmpty();
+        assertThat(achieved).isEmpty();
+
+        gold.event(26, true); // EVENT_GOT_A_POKEMON_FROM_ELM
+        gold.mon(0, 155, 5, Gen2Ram.PLAYER_ID); // Cyndaquil
+        gold.caught(155);
+        gold.badges(0b1, 0);
+        tracker.poll();
+        assertThat(unlockedEvents()).isEmpty(); // seen once: could be mid-write
+        tracker.poll();
+        assertThat(unlockedEvents()).containsExactly("new-bark-beginnings", "zephyr-badge");
+        assertThat(published).contains(new LiveEvent("ACHIEVEMENT_UNLOCKED", Map.of("user", ASH,
+                "id", "zephyr-badge", "name", "Zephyr Badge", "points", 3, "at", achieved.get(ASH).get("zephyr-badge"))));
+        assertThat(feed).filteredOn(e -> e.type().equals("ACHIEVEMENT")).extracting(ScoreEvent::detail, ScoreEvent::points)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("New Bark Beginnings", 1),
+                        org.assertj.core.groups.Tuple.tuple("Zephyr Badge", 3));
+        twice(tracker);
+        assertThat(unlockedEvents()).hasSize(2); // unchanged: nothing more
+
+        tracker = tracker(); // backend restart: only Redis remembers
+        twice(tracker);
+        assertThat(unlockedEvents()).hasSize(2);
+
+        gold.newGame(); // the player started over and earns the same things again
+        twice(tracker);
+        gold.event(26, true);
+        gold.badges(0b11, 0);
+        twice(tracker);
+        assertThat(unlockedEvents()).containsExactly("new-bark-beginnings", "zephyr-badge", "hive-badge");
+        assertThat(achieved.get(ASH)).containsOnlyKeys("new-bark-beginnings", "zephyr-badge", "hive-badge");
+        assertThat(tracker.scoreboard().getFirst()).extracting(ScoreRow::achievementPoints, ScoreRow::achievementsUnlocked)
+                .containsExactly(7, 3);
+    }
+
+    @Test
+    void theTrainerScoreFollowsTheSaveDownAsWellAsUp() throws Exception {
+        var tracker = goldTracker();
+        gold.mon(0, 150, 100, 0x9999); // a traded Lv 100 Mewtwo: team 25, collection 150 * 100 / 6020 = 2
+        gold.mon(1, 129, 100, Gen2Ram.PLAYER_ID); // Lv 100 Magikarp: 5 more strength, team still 26
+        gold.caught(150, 129);
+        gold.coins(9999);
+        twice(tracker);
+        TrainerScore high = trainers.get(ASH);
+        assertThat(high).isEqualTo(new TrainerScore(44, "Youngster", "F", 0, 2, 2, 26, 0, 14, 0));
+        // Ranked by score, then achievement points: Kanto's Strongest 25, High Roller 5, Level Up 5, Centurion 25.
+        assertThat(ranks.get(ASH)).isEqualTo(44 * 10_000L + 60);
+        assertThat(tracker.scoreboard().getFirst()).extracting(ScoreRow::trainerScore, ScoreRow::title, ScoreRow::grade)
+                .containsExactly(44, "Youngster", "F");
+
+        gold.partySize(1); // Magikarp went to the box, the coins were spent
+        gold.coins(0);
+        twice(tracker);
+        assertThat(trainers.get(ASH).score()).isEqualTo(29); // team 25, side 0
+        assertThat(achieved.get(ASH)).containsKeys("kantos-strongest", "high-roller", "level-up", "centurion");
+    }
+
+    @Test
+    void aTitleChangeGoesToTheFeed() throws Exception {
+        var tracker = goldTracker();
+        gold.badges(0xFF, 0xFF); // 120
+        twice(tracker);
+        assertThat(feed).filteredOn(e -> e.type().equals("TITLE")).extracting(ScoreEvent::detail)
+                .containsExactly("Bug Catcher (E)");
+        assertThat(scored()).contains("TITLE Bug Catcher (E) +0");
+    }
+
+    @Test
+    void momentAchievementsNeedTheMomentItself() throws Exception {
+        var tracker = goldTracker();
+        gold.mon(0, 160, 50, Gen2Ram.PLAYER_ID); // Feraligatr alone
+        gold.balls(1); // MASTER_BALL
+        gold.hours(5);
+        twice(tracker);
+        gold.hallOfFame(1);
+        twice(tracker);
+        assertThat(unlockedEvents()).contains("champion-of-johto", "solo-run", "self-control", "speedrunner", "mono-type");
+
+        // Seen only after the fact (a restart fell between): the Hall of Fame counts, the moment does not.
+        published.clear();
+        achieved.clear();
+        tracker = tracker();
+        twice(tracker);
+        assertThat(unlockedEvents()).contains("champion-of-johto").doesNotContain("solo-run", "self-control", "speedrunner");
+    }
+
+    @Test
+    void redAtMtSilver() throws Exception {
+        var tracker = goldTracker();
+        gold.mon(0, 20, 60, Gen2Ram.PLAYER_ID); // Raticate
+        gold.event(1890, true); // EVENT_RED_IN_MT_SILVER: set at the start of every game
+        twice(tracker);
+        gold.hallOfFame(1);
+        gold.event(68, true); // EVENT_BEAT_ELITE_FOUR
+        gold.event(1890, false); // the Hall of Fame lets him appear
+        twice(tracker);
+        assertThat(unlockedEvents()).doesNotContain("the-silent-summit");
+        gold.event(1890, true); // beaten: he disappears
+        twice(tracker);
+        assertThat(unlockedEvents()).contains("the-silent-summit", "rattata-rules", "low-level");
+        assertThat(trainers.get(ASH).story()).isEqualTo(80);
     }
 }
