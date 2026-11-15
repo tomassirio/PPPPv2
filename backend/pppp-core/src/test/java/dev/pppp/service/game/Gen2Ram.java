@@ -7,13 +7,17 @@ package dev.pppp.service.game;
 final class Gen2Ram {
     record At(String header, int id, int hours, int coins, int badges, int tmsHms, int numItems, int numKeyItems,
               int numBalls, int numPcItems, int hof, int events, int phone, int party, int caught, int unown,
-              int romNames, int romBase) {}
+              int romNames, int romBase, int minutes, int mapGroup, int nicknames, int itemNames, int moveNames,
+              int landmarks, int mapGroups) {}
 
     static final At GOLD = new At("POKEMON_GLDAAUE", 0xD1A1, 0xD1EB, 0xD57A, 0xD57C, 0xD57E, 0xD5B7, 0xD5E1, 0xD5FC,
-            0xD616, 0xD683, 0xD7B7, 0xD9C6, 0xDA22, 0xDBE4, 0xDC24, 0x6C * 0x4000 + 0x0B74, 0x14 * 0x4000 + 0x1B0B);
+            0xD616, 0xD683, 0xD7B7, 0xD9C6, 0xDA22, 0xDBE4, 0xDC24, 0x6C * 0x4000 + 0x0B74, 0x14 * 0x4000 + 0x1B0B,
+            0xD1ED, 0xDA00, 0xDB8C, 0x6C * 0x4000, 0x6C * 0x4000 + 0x1574, 0x24 * 0x4000 + 0x2382,
+            0x25 * 0x4000 + 0x00ED);
     static final At CRYSTAL = new At("PM_CRYSTAL\0BYTE", 0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD892, 0xD8BC,
             0xD8D7, 0xD8F1, 0xD95E, 0xDA72, 0xDC7C, 0xDCD7, 0xDE99, 0xDED9, 0x14 * 0x4000 + 0x3384,
-            0x14 * 0x4000 + 0x1424);
+            0x14 * 0x4000 + 0x1424, 0xD4C6, 0xDCB5, 0xDE41, 0x72 * 0x4000, 0x72 * 0x4000 + 0x1F29,
+            0x72 * 0x4000 + 0x28C3, 0x25 * 0x4000);
     static final int PLAYER_ID = 0x1234;
     /** pret type ids (constants/type_constants.asm). */
     static final int NORMAL = 0x00, FLYING = 0x02, WATER = 0x15, FIRE = 0x14, GRASS = 0x16, PSYCHIC = 0x18, DRAGON = 0x1A;
@@ -24,7 +28,7 @@ final class Gen2Ram {
 
     Gen2Ram(At at) {
         this.at = at;
-        rom = new byte[at.romNames + 251 * 10];
+        rom = new byte[0x200000]; // 2 MB, as the real ones
         System.arraycopy(at.header.getBytes(), 0, rom, 0x134, 15);
         for (int dex = 1; dex <= 251; dex++) {
             rom[at.romBase + (dex - 1) * 0x20] = (byte) dex; // BASE_DEX_NO
@@ -67,6 +71,66 @@ final class Gen2Ram {
         put(base + 6, (byte) (ot >> 8), (byte) ot);
         if (dvs.length == 2) put(base + 0x15, (byte) dvs[0], (byte) dvs[1]);
         set(base + 0x1F, level);
+        hp(slot, 2 * level + 10, 2 * level + 10);
+    }
+
+    /** party_struct HP and max HP, big-endian. */
+    void hp(int slot, int hp, int max) {
+        int base = at.party + 8 + slot * 0x30;
+        put(base + 0x22, (byte) (hp >> 8), (byte) hp, (byte) (max >> 8), (byte) max);
+    }
+
+    void status(int slot, int status) {
+        set(at.party + 8 + slot * 0x30 + 0x20, status);
+    }
+
+    void item(int slot, int item) {
+        set(at.party + 8 + slot * 0x30 + 1, item);
+    }
+
+    void moves(int slot, int... moves) {
+        for (int i = 0; i < moves.length; i++) set(at.party + 8 + slot * 0x30 + 2 + i, moves[i]);
+    }
+
+    void nickname(int slot, String name) {
+        byte[] b = PokemonRedTest.encode(name);
+        System.arraycopy(b, 0, mem, at.nicknames + slot * 11 - at.id, b.length);
+    }
+
+    void minutes(int n) {
+        set(at.minutes, n);
+    }
+
+    /** Writes a species name into the ROM's PokemonNames (10 bytes each, padded with the terminator). */
+    void speciesName(int dex, String name) {
+        byte[] b = PokemonRedTest.encode(name);
+        System.arraycopy(b, 0, rom, at.romNames + (dex - 1) * 10, b.length);
+    }
+
+    /** Rewrites a ROM name list ("@"-terminated names, ids 1..count); ids not given are named "X". */
+    void nameList(int offset, int count, java.util.Map<Integer, String> names) {
+        for (int id = 1; id <= count; id++) {
+            byte[] b = PokemonRedTest.encode(names.getOrDefault(id, "X")); // ends in 0x50
+            System.arraycopy(b, 0, rom, offset, b.length);
+            offset += b.length;
+        }
+    }
+
+    /**
+     * Puts the player on map group.number, whose header gives this landmark; the landmark's name goes to the
+     * end of its bank (raw bytes, so 0x1F line breaks can be written). Map headers go to the end of their bank.
+     */
+    void location(int group, int number, int landmark, byte[] name) {
+        set(at.mapGroup, group);
+        set(at.mapGroup + 1, number);
+        int bank = at.mapGroups / 0x4000 * 0x4000, headers = 0x7000;
+        rom[at.mapGroups + (group - 1) * 2] = (byte) headers;
+        rom[at.mapGroups + (group - 1) * 2 + 1] = (byte) (headers >> 8);
+        rom[bank - 0x4000 + headers + (number - 1) * 9 + 5] = (byte) landmark;
+        int names = at.landmarks / 0x4000 * 0x4000, at7 = 0x7F00;
+        System.arraycopy(name, 0, rom, names - 0x4000 + at7, name.length);
+        rom[at.landmarks + landmark * 4 + 2] = (byte) at7;
+        rom[at.landmarks + landmark * 4 + 3] = (byte) (at7 >> 8);
     }
 
     void egg(int slot, int species) {

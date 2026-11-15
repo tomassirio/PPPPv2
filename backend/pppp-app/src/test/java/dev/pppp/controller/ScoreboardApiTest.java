@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import dev.pppp.TestRedis;
 import dev.pppp.emulator.TestRom;
+import dev.pppp.model.PartyMon;
 import dev.pppp.model.Progress;
 import dev.pppp.service.PlayerConsoles;
 import dev.pppp.service.game.Gen2Save;
@@ -61,11 +62,17 @@ class ScoreboardApiTest {
     @Autowired PlayerConsoles consoles;
     @Autowired ProgressTracker tracker;
     @Autowired StringRedisTemplate redis;
+    @Autowired dev.pppp.repository.ProgressRepository progressRepo;
 
     /** A Gold/Silver/Crystal save with these Johto badge bits, the starter received and nothing else. */
     static Gen2Save save(int johtoBadges) {
-        return new Gen2Save(1, johtoBadges, 0, 0, false, true, false, false, new BitSet(), new BitSet(), 0, List.of(),
-                Set.of(), 0, 0, 0, 0, 0);
+        return save(johtoBadges, null, List.of());
+    }
+
+    /** The same, at 12:05 play time, standing at location with this party. */
+    static Gen2Save save(int johtoBadges, String location, List<PartyMon> party) {
+        return new Gen2Save(1, johtoBadges, 0, 0, false, true, false, false, new BitSet(), new BitSet(), party.size(),
+                List.of(), Set.of(), 0, 0, 0, 0, 12, 5, location, party);
     }
 
     @Test
@@ -168,5 +175,58 @@ class ScoreboardApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value("ash@x.y"))
                 .andExpect(jsonPath("$.unlocked").value(3));
+    }
+
+    @Test
+    @Order(3)
+    void aPibsProfile() throws Exception {
+        RequestPostProcessor misty = user("misty@x.y").roles("PLAYER");
+        mvc.perform(get("/api/v1/players/brock@x.y/profile")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/players/brock@x.y/profile").with(misty)).andExpect(status().isNotFound());
+
+        var quagsire = new PartyMon(195, "Quagsire", "MUDDY", 34, 30, 91, "PSN", "Leftovers",
+                List.of("Surf", "Earthquake"), true, false, List.of("water", "ground"));
+        var egg = new PartyMon(175, "Egg", null, 5, 12, 12, null, null, List.of(), false, true, List.of());
+        tracker.record("brock@x.y", new Progress(Set.of(), Set.of("Onix"), Set.of("Onix", "Geodude"), 14, false),
+                save(0b1, "Ecruteak City", List.of(quagsire, egg)));
+
+        mvc.perform(get("/api/v1/players/Brock@x.y/profile").with(misty)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.row.userId").value("brock@x.y"))
+                .andExpect(jsonPath("$.row.location").value("Ecruteak City"))
+                .andExpect(jsonPath("$.row.playTime").value("12:05"))
+                .andExpect(jsonPath("$.row.johtoBadges").value(1))
+                .andExpect(jsonPath("$.row.kantoBadges").value(0))
+                .andExpect(jsonPath("$.row.party.length()").value(2))
+                .andExpect(jsonPath("$.row.party[0].species").value(195))
+                .andExpect(jsonPath("$.row.party[0].hpPercent").value(33))
+                .andExpect(jsonPath("$.row.party[0].status").value("PSN"))
+                .andExpect(jsonPath("$.row.party[0].shiny").value(true))
+                .andExpect(jsonPath("$.row.party[1].egg").value(true))
+                .andExpect(jsonPath("$.party[0].name").value("Quagsire"))
+                .andExpect(jsonPath("$.party[0].nickname").value("MUDDY"))
+                .andExpect(jsonPath("$.party[0].hp").value(30))
+                .andExpect(jsonPath("$.party[0].maxHp").value(91))
+                .andExpect(jsonPath("$.party[0].item").value("Leftovers"))
+                .andExpect(jsonPath("$.party[0].moves[1]").value("Earthquake"))
+                .andExpect(jsonPath("$.party[0].types[1]").value("ground"))
+                .andExpect(jsonPath("$.party[1].nickname").doesNotExist())
+                .andExpect(jsonPath("$.achievements.length()").value(52))
+                .andExpect(jsonPath("$.achievements[0].id").value("new-bark-beginnings"))
+                .andExpect(jsonPath("$.achievements[0].unlocked").value(true))
+                .andExpect(jsonPath("$.achievements[0].progress").doesNotExist())
+                .andExpect(jsonPath("$.achievements[?(@.id == 'field-researcher')].progress").value(org.hamcrest.Matchers.contains(1)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'field-researcher')].goal").value(org.hamcrest.Matchers.contains(50)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'field-researcher')].unlocked").value(org.hamcrest.Matchers.contains(false)))
+                .andExpect(jsonPath("$.stats.caught").value(1))
+                .andExpect(jsonPath("$.stats.seen").value(2))
+                .andExpect(jsonPath("$.stats.playTime").value("12:05"))
+                .andExpect(jsonPath("$.stats.trades").doesNotExist())
+                .andExpect(jsonPath("$.recent.length()").value(6)) // Onix caught, 2 seen, Lv 10, 2 achievements
+                .andExpect(jsonPath("$.recent[0].user").value("brock@x.y"))
+                .andExpect(jsonPath("$.recent[0].type").value("ACHIEVEMENT"))
+                .andExpect(jsonPath("$.recent[?(@.user != 'brock@x.y')]").isEmpty());
+        assertThat(redis.opsForHash().keys("pibs:trainer:brock@x.y")).contains("card", "score");
+        // A restarted backend reads the card back from Redis.
+        assertThat(progressRepo.card("brock@x.y").party()).containsExactly(quagsire, egg);
     }
 }

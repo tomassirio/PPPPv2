@@ -1,7 +1,10 @@
 package dev.pppp.repository;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
+import dev.pppp.model.TrainerCard;
 import dev.pppp.model.TrainerScore;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,7 +28,8 @@ import org.springframework.stereotype.Repository;
  * The scoreboard's Redis keys: "pibs:progress:{userId}", a hash {badges, caught, seen ('|'-joined names), level,
  * hallOfFame} of everything already awarded; "pibs:achievements:{userId}", a hash of achievement id -> unlock time
  * (epoch ms); "pibs:trainer:{userId}", a hash of the latest Trainer Score {score, title, grade, story, pokedex,
- * collection, team, keyItems, side, rarities}; "pibs:scoreboard", the ranking: a sorted set of user ids by
+ * collection, team, keyItems, side, rarities} and card (JSON {@link TrainerCard}: party, location, playTime,
+ * badge bitmasks); "pibs:scoreboard", the ranking: a sorted set of user ids by
  * trainer score x 10,000 + achievement points (every player who picked a game is a member, from 0);
  * "pibs:events", the activity stream {user, type, detail, points, at} capped at ~10,000 entries.
  */
@@ -34,9 +38,11 @@ public class ProgressRepository {
     static final String SCOREBOARD = "pibs:scoreboard", EVENTS = "pibs:events";
 
     private final StringRedisTemplate redis;
+    private final ObjectMapper json;
 
-    public ProgressRepository(StringRedisTemplate redis) {
+    public ProgressRepository(StringRedisTemplate redis, ObjectMapper json) {
         this.redis = redis;
+        this.json = json;
     }
 
     /** What the player was already awarded for; EMPTY when nothing is stored. */
@@ -72,23 +78,31 @@ public class ProgressRepository {
         return out;
     }
 
+    /** The card stored with the Trainer Score (JSON field "card"); EMPTY when none or unreadable. */
+    public TrainerCard card(String userId) {
+        Object v = redis.opsForHash().get(trainerKey(userId), "card");
+        if (v == null) return TrainerCard.EMPTY;
+        try {
+            return json.readValue(v.toString(), TrainerCard.class);
+        } catch (JsonProcessingException e) {
+            return TrainerCard.EMPTY;
+        }
+    }
+
+    /** Stores the card; drops the older "party" field ("155:12,16:5"), which the card replaces. */
+    public void saveCard(String userId, TrainerCard card) {
+        try {
+            redis.opsForHash().put(trainerKey(userId), "card", json.writeValueAsString(card));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
+        redis.opsForHash().delete(trainerKey(userId), "party");
+    }
+
     /** The player's latest Trainer Score; ZERO when none is stored. */
-    /** The party stored with the Trainer Score ("155:12,16:5"), empty when none. */
-    public java.util.List<dev.pppp.model.ScoreRow.Member> party(String userId) {
-        Object v = redis.opsForHash().get(trainerKey(userId), "party");
-        if (v == null || v.toString().isEmpty()) return java.util.List.of();
-        return java.util.Arrays.stream(v.toString().split(",")).map(m -> m.split(":"))
-                .map(m -> new dev.pppp.model.ScoreRow.Member(Integer.parseInt(m[0]), Integer.parseInt(m[1]))).toList();
-    }
-
-    public void saveParty(String userId, java.util.List<dev.pppp.model.ScoreRow.Member> party) {
-        redis.opsForHash().put(trainerKey(userId), "party", String.join(",",
-                party.stream().map(m -> m.species() + ":" + m.level()).toList()));
-    }
-
     public TrainerScore trainer(String userId) {
         Map<Object, Object> h = redis.opsForHash().entries(trainerKey(userId));
-        if (h.isEmpty()) return TrainerScore.ZERO;
+        if (!h.containsKey("score")) return TrainerScore.ZERO; // the card can be there before a score
         return new TrainerScore(i(h, "score"), (String) h.get("title"), (String) h.get("grade"), i(h, "story"),
                 i(h, "pokedex"), i(h, "collection"), i(h, "team"), i(h, "keyItems"), i(h, "side"), i(h, "rarities"));
     }
@@ -149,11 +163,21 @@ public class ProgressRepository {
     public List<ScoreEvent> newest(int limit) {
         List<MapRecord<String, Object, Object>> records =
                 redis.opsForStream().reverseRange(EVENTS, Range.unbounded(), Limit.limit().count(limit));
-        return records == null ? List.of() : records.stream().map(r -> {
-            Map<Object, Object> f = r.getValue();
-            return new ScoreEvent((String) f.get("user"), (String) f.get("type"), (String) f.get("detail"),
-                    Integer.parseInt((String) f.get("points")), Long.parseLong((String) f.get("at")));
-        }).toList();
+        return records == null ? List.of() : records.stream().map(ProgressRepository::event).toList();
+    }
+
+    /** The player's newest activity entries. */
+    public List<ScoreEvent> newest(String userId, int limit) {
+        // ponytail: scans the whole stream (capped at ~10,000) per profile view; page through it if that shows.
+        List<MapRecord<String, Object, Object>> records = redis.opsForStream().reverseRange(EVENTS, Range.unbounded());
+        return records == null ? List.of() : records.stream().filter(r -> userId.equals(r.getValue().get("user")))
+                .limit(limit).map(ProgressRepository::event).toList();
+    }
+
+    private static ScoreEvent event(MapRecord<String, Object, Object> r) {
+        Map<Object, Object> f = r.getValue();
+        return new ScoreEvent((String) f.get("user"), (String) f.get("type"), (String) f.get("detail"),
+                Integer.parseInt((String) f.get("points")), Long.parseLong((String) f.get("at")));
     }
 
     private static Set<String> names(Object joined) {

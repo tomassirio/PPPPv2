@@ -51,10 +51,16 @@ class Gen2AchievementsTest {
                         new Gen2Save.Mon(130, 30, true, true, Gen2Ram.WATER, Gen2Ram.FLYING),
                         new Gen2Save.Mon(155, 21, false, false, Gen2Ram.NORMAL, Gen2Ram.NORMAL)),
                 Set.of(Gen2Save.FIRE_STONE, Gen2Save.SUN_STONE, Gen2Save.BICYCLE, Gen2Save.SQUIRTBOTTLE,
-                        Gen2Save.MASTER_BALL, Gen2Save.MOON_STONE), 3, 1234, 3, 2, 12);
+                        Gen2Save.MASTER_BALL, Gen2Save.MOON_STONE), 3, 1234, 3, 2, 12, 0, null, List.of());
         for (Gen2Ram.At at : new Gen2Ram.At[] {Gen2Ram.GOLD, Gen2Ram.CRYSTAL}) {
             var g = sample(at);
-            assertThat(g.profile().read(g.ram())).as(at.header()).isEqualTo(expected);
+            var read = g.profile().read(g.ram());
+            assertThat(read.members()).hasSize(3); // the party detail has its own test (Gen2PartyTest)
+            assertThat(read).as(at.header()).isEqualTo(new Gen2Save(expected.playerId(), expected.johtoBadges(),
+                    expected.kantoBadges(), expected.hallOfFame(), expected.redBeaten(), expected.gotStarter(),
+                    expected.radioTowerCleared(), expected.gotMasterBall(), expected.caught(), expected.seen(),
+                    expected.partyCount(), expected.party(), expected.items(), expected.hms(), expected.coins(),
+                    expected.unownForms(), expected.phoneContacts(), expected.playHours(), 0, null, read.members()));
         }
     }
 
@@ -149,7 +155,7 @@ class Gen2AchievementsTest {
         Set<Integer> items = Set.of(Gen2Save.MASTER_BALL, Gen2Save.RAINBOW_WING, Gen2Save.SILVER_WING,
                 Gen2Save.BICYCLE, Gen2Save.SQUIRTBOTTLE, Gen2Save.CARD_KEY, Gen2Save.FIRE_STONE, Gen2Save.WATER_STONE,
                 Gen2Save.THUNDERSTONE, Gen2Save.LEAF_STONE, Gen2Save.MOON_STONE, Gen2Save.SUN_STONE, Gen2Save.COIN_CASE);
-        var save = new Gen2Save(1, 0xFF, 0xFF, 1, true, true, true, true, all, all, 6, legends, items, 7, 9999, 26, 10, 99);
+        var save = new Gen2Save(1, 0xFF, 0xFF, 1, true, true, true, true, all, all, 6, legends, items, 7, 9999, 26, 10, 99, 0, null, List.of());
         // Side tops out at 26 + 15 + 14: the contest, eggs and the Battle Tower cannot be read.
         assertThat(TrainerScoring.score(save)).isEqualTo(
                 new TrainerScore(200 + 250 + 150 + 142 + 100 + 55 + 30, "Pokémon Master", "S+", 200, 250, 150, 142, 100,

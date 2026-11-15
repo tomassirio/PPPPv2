@@ -272,17 +272,19 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
             else if (c >= 0xA0 && c <= 0xB9) sb.append((char) ('a' + c - 0xA0));
             else if (c >= 0xF6) sb.append((char) ('0' + c - 0xF6));
             else sb.append(switch (c) {
-                case 0x7F -> ' ';
-                case 0xE0 -> '\'';
-                case 0xE3 -> '-';
-                case 0xE6 -> '?';
-                case 0xE7 -> '!';
-                case 0xE8 -> '.';
-                case 0xEF -> '♂';
-                case 0xF5 -> '♀';
-                case 0xF4 -> ',';
-                case 0xBA -> 'é';
-                default -> '?';
+                case 0x7F, 0x1F -> " "; // 0x1F: the line break of Gen 2 landmark names ("¯" in pret's charmap)
+                case 0x54 -> "POKé";
+                case 0xD4 -> "'s"; // Gen 2 ("DIGLETT'S CAVE" in Gold/Silver)
+                case 0xE0 -> "'";
+                case 0xE3 -> "-";
+                case 0xE6 -> "?";
+                case 0xE7 -> "!";
+                case 0xE8 -> ".";
+                case 0xEF -> "♂";
+                case 0xF5 -> "♀";
+                case 0xF4 -> ",";
+                case 0xBA -> "é";
+                default -> "?";
             });
         }
         return sb.toString();

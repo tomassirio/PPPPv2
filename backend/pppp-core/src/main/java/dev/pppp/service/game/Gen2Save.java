@@ -1,5 +1,6 @@
 package dev.pppp.service.game;
 
+import dev.pppp.model.PartyMon;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
@@ -18,12 +19,15 @@ import java.util.Set;
  * @param hms           how many of HM01-HM07 are held
  * @param unownForms    Unown forms registered in the Unown Dex
  * @param phoneContacts numbers registered in the Pokégear
- * @param playHours     in-game clock hours
+ * @param playHours     in-game clock hours; playMinutes its minutes
+ * @param location      the landmark the player is at ("Route 42"), null when unknown
+ * @param members       the whole party for the profile, eggs included, in order
  */
 public record Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallOfFame, boolean redBeaten,
                        boolean gotStarter, boolean radioTowerCleared, boolean gotMasterBall, BitSet caught,
                        BitSet seen, int partyCount, List<Mon> party, Set<Integer> items, int hms, int coins,
-                       int unownForms, int phoneContacts, int playHours) {
+                       int unownForms, int phoneContacts, int playHours, int playMinutes, String location,
+                       List<PartyMon> members) {
 
     /**
      * A hatched party member. ownCatch: its original trainer id is the player's. type1/type2 are pret type ids

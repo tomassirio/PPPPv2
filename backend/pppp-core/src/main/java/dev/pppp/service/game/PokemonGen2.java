@@ -1,6 +1,7 @@
 package dev.pppp.service.game;
 
 import dev.pppp.model.GameSummary;
+import dev.pppp.model.PartyMon;
 import dev.pppp.model.Progress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.IntStream;
 
 /**
  * Pokémon Gold, Silver and Crystal (English releases): the scoreboard counters, badges, the Pokédex for the side
@@ -32,12 +34,17 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     /**
      * Bus addresses (bank 1) and ROM offsets per release. Fixed neighbours: wPlayerName = wPlayerID + 2,
      * wKantoBadges = wJohtoBadges + 1, the bag after wTMsHMs (below), wPartySpecies = wPartyCount + 1,
-     * wPartyMons = wPartyCount + 8, wPokedexSeen = wPokedexCaught + 32.
+     * wPartyMons = wPartyCount + 8, wPartyMonNicknames = wPartyCount + $16A, wMapGroup = wPartyCount - $22
+     * (wMapNumber right after), wGameTimeMinutes = wGameTimeHours + 2, wPokedexSeen = wPokedexCaught + 32.
+     * ROM: ItemNames and MoveNames are lists of "@"-terminated names; Landmarks (data/maps/landmarks.asm) is
+     * x, y and a pointer to the name, 4 bytes per landmark, names in the same bank; MapGroupPointers
+     * (data/maps/maps.asm) points into its own bank at each group's map headers.
      */
     private record Layout(int playerId, int playHours, int coins, int badges, int tmsHms, int hallOfFame,
                           int eventFlags, int phoneList, int partyCount, int dexCaught, int unownDex, int romNames,
                           int romBaseData, int picPointers, int unownPicPointers, int monPalettes, int badgeGfx,
-                          int predefPals, boolean crystal) {}
+                          int predefPals, int itemNames, int moveNames, int landmarks, int numLandmarks,
+                          int mapGroups, boolean crystal) {}
 
     /** ROM offset of bank:address (address in the switchable $4000-$7fff window). */
     private static int rom(int bank, int address) {
@@ -63,6 +70,11 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             rom(0x02, 0x6D3D), // PokemonPalettes
             rom(0x09, 0x622F), // BadgeGFX
             rom(0x02, 0x6265), // PredefPals
+            rom(0x6C, 0x4000), // ItemNames
+            rom(0x6C, 0x5574), // MoveNames
+            rom(0x24, 0x6382), // Landmarks
+            95, // NUM_LANDMARKS (constants/landmark_constants.asm: SPECIAL_MAP .. FAST_SHIP)
+            rom(0x25, 0x40ED), // MapGroupPointers
             false),
             CRYSTAL = new Layout(0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD95E, 0xDA72, 0xDC7C, 0xDCD7, 0xDE99,
                     0xDED9, // same order as above
@@ -73,10 +85,19 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                     rom(0x02, 0x68CE), // PokemonPalettes
                     rom(0x09, 0x6043), // BadgeGFX
                     rom(0x02, 0x5DF6), // PredefPals
+                    rom(0x72, 0x4000), // ItemNames
+                    rom(0x72, 0x5F29), // MoveNames
+                    rom(0x72, 0x68C3), // Landmarks
+                    96, // NUM_LANDMARKS: Crystal adds BATTLE_TOWER after LIGHTHOUSE, so later ids differ from Gold's
+                    rom(0x25, 0x4000), // MapGroupPointers
                     true);
 
     private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
-            MON_SIZE = 0x30, MON_ID = 0x06, MON_DVS = 0x15, MON_LEVEL = 0x1F, // party_struct
+            MON_SIZE = 0x30, MON_ITEM = 0x01, MON_MOVES = 0x02, MON_ID = 0x06, MON_DVS = 0x15, MON_LEVEL = 0x1F,
+            MON_STATUS = 0x20, MON_HP = 0x22, MON_MAXHP = 0x24, NUM_MOVES = 4, // party_struct (big-endian HP)
+            PARTY_NICKNAMES = 0x16A, MAP_GROUP = -0x22, // from wPartyCount, see Layout
+            NUM_ITEMS = 0xFF, NUM_ATTACKS = 251, ITEM_NAME_LENGTH = 13, // item_constants, move_constants, text_constants
+            NUM_MAP_GROUPS = 26, MAP_HEADER_SIZE = 9, MAP_LOCATION = 5, // map_constants.asm; the "map" macro
             BASE_DATA_SIZE = 0x20, BASE_TYPES = 0x07, // constants/pokemon_data_constants.asm
             NUM_TMS = 50, NUM_HMS = 7, // add_tm / add_hm in item_constants.asm
             MAX_ITEMS = 20, MAX_KEY_ITEMS = 25, MAX_BALLS = 12, MAX_PC_ITEMS = 50, // item_data_constants.asm
@@ -127,6 +148,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     private final Map<Integer, byte[]> icons = new ConcurrentHashMap<>(), badgePngs = new ConcurrentHashMap<>();
     private final String[] names = new String[DEX_SIZE + 1]; // species id = Pokédex number in this generation
     private final int[][] types = new int[DEX_SIZE + 1][]; // {type1, type2}; -1s when the base data did not check out
+    private final String[] itemNames, moveNames, landmarkNames; // by id; [0] (none, SPECIAL_MAP) is null
 
     /** By header title and game code (0x134, 0x13F), which also tells the English release from the others. */
     static PokemonGen2 forRom(byte[] rom) {
@@ -147,6 +169,31 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             boolean ok = base + BASE_DATA_SIZE <= rom.length && (rom[base] & 0xFF) == i;
             types[i] = ok ? new int[] {rom[base + BASE_TYPES] & 0xFF, rom[base + BASE_TYPES + 1] & 0xFF} : new int[] {-1, -1};
         }
+        itemNames = nameList(rom, at.itemNames, NUM_ITEMS);
+        moveNames = nameList(rom, at.moveNames, NUM_ATTACKS);
+        landmarkNames = new String[at.numLandmarks];
+        for (int i = 1; i < at.numLandmarks && at.landmarks + i * 4 + 4 <= rom.length; i++) {
+            int name = rom(at.landmarks / 0x4000, u16le(rom, at.landmarks + i * 4 + 2));
+            if (name + 20 <= rom.length) {
+                landmarkNames[i] = PokemonRed.titleCase(PokemonRed.text(rom, name, 20)).replace(" Of ", " of ");
+            }
+        }
+    }
+
+    /** A list of "@"-terminated names (pret list_start / li) as title case, by id from 1. */
+    private static String[] nameList(byte[] rom, int at, int count) {
+        String[] out = new String[count + 1];
+        for (int id = 1; id <= count && at + ITEM_NAME_LENGTH <= rom.length; id++) {
+            int end = at;
+            while (end - at < ITEM_NAME_LENGTH && rom[end] != 0x50) end++;
+            out[id] = PokemonRed.titleCase(PokemonRed.text(rom, at, end - at));
+            at = end + 1;
+        }
+        return out;
+    }
+
+    private static int u16le(byte[] rom, int at) {
+        return (rom[at] & 0xFF) | (rom[at + 1] & 0xFF) << 8;
     }
 
     @Override
@@ -171,13 +218,20 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         if (count > 6 || ram.u8(species + count) != 0xFF) return null;
         int playerId = ram.u16(at.playerId);
         List<Gen2Save.Mon> party = new ArrayList<>();
+        List<PartyMon> members = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             int mon = mons + i * MON_SIZE, id = ram.u8(mon), level = ram.u8(mon + MON_LEVEL);
-            if (ram.u8(species + i) == EGG) continue; // an egg is listed as EGG, its struct holds the species
+            int hp = ram.u16(mon + MON_HP), maxHp = ram.u16(mon + MON_MAXHP);
+            boolean egg = ram.u8(species + i) == EGG; // an egg is listed as EGG, its struct holds the species
             // A member mid-write: try again next second.
-            if (id < 1 || id > DEX_SIZE || id != ram.u8(species + i) || level < 1 || level > 100) return null;
-            party.add(new Gen2Save.Mon(id, level, shiny(ram.u8(mon + MON_DVS), ram.u8(mon + MON_DVS + 1)),
-                    ram.u16(mon + MON_ID) == playerId, types[id][0], types[id][1]));
+            if (id < 1 || id > DEX_SIZE || hp > maxHp) return null;
+            if (!egg && (id != ram.u8(species + i) || level < 1 || level > 100)) return null;
+            boolean shiny = shiny(ram.u8(mon + MON_DVS), ram.u8(mon + MON_DVS + 1));
+            if (!egg) {
+                party.add(new Gen2Save.Mon(id, level, shiny, ram.u16(mon + MON_ID) == playerId, types[id][0],
+                        types[id][1]));
+            }
+            members.add(member(ram, mon, at.partyCount + PARTY_NICKNAMES + i * NAME_LENGTH, egg, shiny));
         }
         // The bag and PC lists end in -1 right after their last entry (engine/menus/intro_menu.asm .InitList).
         Set<Integer> items = new HashSet<>();
@@ -203,7 +257,80 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 event(ram, EVENT_BEAT_ELITE_FOUR) && event(ram, EVENT_RED_IN_MT_SILVER),
                 event(ram, EVENT_GOT_A_POKEMON_FROM_ELM), event(ram, EVENT_CLEARED_RADIO_TOWER),
                 event(ram, EVENT_GOT_MASTER_BALL_FROM_ELM), caught, seen, count, List.copyOf(party), Set.copyOf(items),
-                hms, coins, unown.cardinality(), phone, ram.u16(at.playHours));
+                hms, coins, unown.cardinality(), phone, ram.u16(at.playHours), ram.u8(at.playHours + 2),
+                location(ram), List.copyOf(members));
+    }
+
+    /** A party member for the profile: the struct at mon, its nickname at nick. */
+    private PartyMon member(Ram ram, int mon, int nick, boolean egg, boolean shiny) {
+        int id = ram.u8(mon), hp = ram.u16(mon + MON_HP), item = ram.u8(mon + MON_ITEM);
+        String nickname = PokemonRed.text(ram.slice(nick, NAME_LENGTH), 0, NAME_LENGTH);
+        List<String> moves = new ArrayList<>();
+        for (int i = 0; i < NUM_MOVES; i++) {
+            int move = ram.u8(mon + MON_MOVES + i);
+            if (move > 0 && move <= NUM_ATTACKS) moves.add(moveNames[move]);
+        }
+        List<String> typeNames = egg ? List.of() : IntStream.of(types[id]).distinct().mapToObj(PokemonGen2::typeName)
+                .filter(java.util.Objects::nonNull).toList();
+        return new PartyMon(id, egg ? "Egg" : names[id],
+                egg || nickname.isEmpty() || nickname.equalsIgnoreCase(names[id]) ? null : nickname,
+                ram.u8(mon + MON_LEVEL), hp, ram.u16(mon + MON_MAXHP), egg ? null : status(ram.u8(mon + MON_STATUS), hp),
+                item == 0 ? null : itemNames[item], List.copyOf(moves), shiny, egg, typeNames);
+    }
+
+    /** The status byte (constants/battle_constants.asm: SLP counter in bits 0-2, PSN 3, BRN 4, FRZ 5, PAR 6). */
+    static String status(int s, int hp) {
+        if (hp == 0) return "FNT";
+        if ((s & 0x07) != 0) return "SLP";
+        if ((s & 0x08) != 0) return "PSN";
+        if ((s & 0x10) != 0) return "BRN";
+        if ((s & 0x20) != 0) return "FRZ";
+        if ((s & 0x40) != 0) return "PAR";
+        return null;
+    }
+
+    /** pret constants/type_constants.asm, lower case; null for the unused ids. */
+    static String typeName(int type) {
+        return switch (type) {
+            case 0x00 -> "normal";
+            case 0x01 -> "fighting";
+            case 0x02 -> "flying";
+            case 0x03 -> "poison";
+            case 0x04 -> "ground";
+            case 0x05 -> "rock";
+            case 0x07 -> "bug";
+            case 0x08 -> "ghost";
+            case 0x09 -> "steel";
+            case 0x14 -> "fire";
+            case 0x15 -> "water";
+            case 0x16 -> "grass";
+            case 0x17 -> "electric";
+            case 0x18 -> "psychic";
+            case 0x19 -> "ice";
+            case 0x1A -> "dragon";
+            case 0x1B -> "dark";
+            default -> null;
+        };
+    }
+
+    /**
+     * The landmark of the map the player is on, as GetWorldMapLocation reads it: the map header's location byte
+     * (MapGroupPointers[wMapGroup - 1] + (wMapNumber - 1) * 9 + 5). Null for SPECIAL_MAP (0: Pokémon Center 2F,
+     * the link rooms) or a group out of range (between maps).
+     */
+    private String location(Ram ram) {
+        int group = ram.u8(at.partyCount + MAP_GROUP), number = ram.u8(at.partyCount + MAP_GROUP + 1);
+        if (group < 1 || group > NUM_MAP_GROUPS || number < 1) return null;
+        int header = rom(at.mapGroups / 0x4000, u16le(rom, at.mapGroups + (group - 1) * 2))
+                + (number - 1) * MAP_HEADER_SIZE + MAP_LOCATION;
+        if (header < 0 || header >= rom.length) return null;
+        int landmark = rom[header] & 0xFF;
+        return landmark < landmarkNames.length ? landmarkNames[landmark] : null;
+    }
+
+    /** wGameTimeHours:wGameTimeMinutes as "H:MM"; null when the minutes are not a clock's (mid-write). */
+    static String playTime(Gen2Save s) {
+        return s.playMinutes() >= 60 ? null : String.format("%d:%02d", s.playHours(), s.playMinutes());
     }
 
     /**
@@ -264,7 +391,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 new GameSummary.Counter("Badges", s.badges().size(), BADGE_NAMES.length),
                 new GameSummary.Counter("Pokédex", s.caught().size(), DEX_SIZE),
                 new GameSummary.Counter("Seen", s.seen().size(), DEX_SIZE)), List.of(), badges,
-                collection(state), null);
+                collection(state), state == null ? null : playTime(state));
     }
 
     /** The Pokédex for the side banners; names only of what has been seen (seen includes caught). */

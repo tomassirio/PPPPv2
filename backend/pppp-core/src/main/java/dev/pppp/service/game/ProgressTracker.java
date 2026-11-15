@@ -5,9 +5,11 @@ import dev.pppp.model.Achievement;
 import dev.pppp.model.GameSummary;
 import dev.pppp.model.LiveEvent;
 import dev.pppp.model.PlayerAchievements;
+import dev.pppp.model.PlayerProfile;
 import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
 import dev.pppp.model.ScoreRow;
+import dev.pppp.model.TrainerCard;
 import dev.pppp.model.TrainerScore;
 import dev.pppp.repository.ProgressRepository;
 import dev.pppp.service.CartridgeService;
@@ -19,6 +21,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,7 +69,7 @@ public class ProgressTracker {
     private final Map<String, Map<String, Long>> unlocked = new ConcurrentHashMap<>(); // pibs:achievements, likewise
     private final Map<String, TrainerScore> trainers = new ConcurrentHashMap<>(); // pibs:trainer, likewise
     private final Map<String, Gen2Save> saves = new ConcurrentHashMap<>(); // the last confirmed save per running console
-    private final Map<String, List<ScoreRow.Member>> parties = new ConcurrentHashMap<>(); // pibs:trainer party, read once
+    private final Map<String, TrainerCard> cards = new ConcurrentHashMap<>(); // pibs:trainer card, read once
     private Set<String> online = Set.of(); // poll thread only
 
     public ProgressTracker(PlayerConsoles consoles, CartridgeService cartridges, ProgressRepository repo,
@@ -118,7 +121,7 @@ public class ProgressTracker {
      */
     public synchronized void record(String userId, Progress now, Gen2Save save) {
         boolean changed = award(userId, now);
-        if (save != null) changed |= rate(userId, saves.put(userId, save), save) | party(userId, save);
+        if (save != null) changed |= rate(userId, saves.put(userId, save), save) | card(userId, save);
         if (changed) events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
@@ -134,13 +137,24 @@ public class ProgressTracker {
         return !scored.isEmpty();
     }
 
-    /** Stores the party when it changed (shown on the scoreboard); true when it did. */
-    private boolean party(String userId, Gen2Save save) {
-        List<ScoreRow.Member> now = save.party().stream().map(m -> new ScoreRow.Member(m.species(), m.level())).toList();
-        if (now.equals(parties.computeIfAbsent(userId, repo::party))) return false;
-        repo.saveParty(userId, now);
-        parties.put(userId, now);
-        return true;
+    /**
+     * Stores the card (party, location, play time, badges) when it changed; true when the scoreboard shows the
+     * change. The play time alone changes every minute, so it is stored but not pushed; HP is pushed as the
+     * scoreboard shows it (a percentage), and only from a confirmed reading like everything else.
+     */
+    private boolean card(String userId, Gen2Save save) {
+        TrainerCard now = new TrainerCard(save.members(), save.location(), PokemonGen2.playTime(save),
+                save.johtoBadges(), save.kantoBadges());
+        TrainerCard was = cards.computeIfAbsent(userId, repo::card);
+        if (now.equals(was)) return false;
+        repo.saveCard(userId, now);
+        cards.put(userId, now);
+        return !members(now).equals(members(was)) || !Objects.equals(now.location(), was.location())
+                || now.johtoBadges() != was.johtoBadges() || now.kantoBadges() != was.kantoBadges();
+    }
+
+    private static List<ScoreRow.Member> members(TrainerCard card) {
+        return card.party().stream().map(ScoreRow.Member::of).toList();
     }
 
     /** Unlocks what the save earns for the first time and stores its Trainer Score; true when either changed. */
@@ -211,7 +225,7 @@ public class ProgressTracker {
         unlocked.remove(userId);
         trainers.remove(userId);
         saves.remove(userId);
-        parties.remove(userId);
+        cards.remove(userId);
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
@@ -223,9 +237,10 @@ public class ProgressTracker {
             Progress p = awarded.computeIfAbsent(userId, repo::progress);
             TrainerScore t = trainers.computeIfAbsent(userId, repo::trainer);
             Map<String, Long> a = unlocked.computeIfAbsent(userId, repo::achievements);
+            TrainerCard c = cards.computeIfAbsent(userId, repo::card);
             rows.add(new ScoreRow(userId, points(p), p.badges().size(), p.caught().size(), p.seen().size(),
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
-                    a.size(), parties.computeIfAbsent(userId, repo::party)));
+                    a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges()));
         }
         return rows;
     }
@@ -241,6 +256,31 @@ public class ProgressTracker {
     public PlayerAchievements achievementsOf(String userId) {
         if (!repo.ranking().contains(userId)) throw new NotFoundException("No player " + userId);
         return achievements(userId);
+    }
+
+    /**
+     * A player's page: their scoreboard row, party, achievements, stats and newest activity; NotFoundException
+     * when they are not on the scoreboard. Progress towards an achievement only where the stored counts give it.
+     */
+    public PlayerProfile playerProfile(String userId) {
+        ScoreRow row = scoreboard().stream().filter(r -> r.userId().equals(userId)).findFirst()
+                .orElseThrow(() -> new NotFoundException("No player " + userId));
+        TrainerCard card = cards.computeIfAbsent(userId, repo::card);
+        Map<String, Long> a = unlocked.computeIfAbsent(userId, repo::achievements);
+        List<PlayerProfile.Entry> entries = Achievements.catalogue().stream().map(x -> {
+            Integer goal = switch (x.id()) { // the counts in Achievements' rules
+                case "field-researcher" -> 50;
+                case "dex-holder" -> 100;
+                case "back-to-kanto" -> 8;
+                default -> null;
+            };
+            Integer progress = goal == null ? null
+                    : Math.min(goal, x.id().equals("back-to-kanto") ? Integer.bitCount(card.kantoBadges()) : row.caught());
+            return new PlayerProfile.Entry(x.id(), x.name(), x.description(), x.points(), a.containsKey(x.id()),
+                    progress, goal);
+        }).toList();
+        return new PlayerProfile(row, card.party(), entries,
+                new PlayerProfile.Stats(row.caught(), row.seen(), card.playTime()), repo.newest(userId, 10));
     }
 
     /** The activity feed, newest first. */
