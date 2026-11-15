@@ -18,7 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class LinkController {
     /** kind: TRADE, BATTLE or null (not ready). */
     public record ReadyRequest(String kind) {}
-    public record ChallengeRequest(String userId) {}
+    /** kind: TRADE or BATTLE (null: what they are ready for). */
+    public record ChallengeRequest(String userId, String kind) {}
 
     private final LinkService link;
 
@@ -37,10 +38,11 @@ public class LinkController {
         return state(auth);
     }
 
-    /** 409 when the other player is not ready or either side is busy. */
+    /** To one Pib, ready or not. 400 without a kind for someone not in the lobby; 409 when either side is busy. */
     @PostMapping("/challenges")
     public LinkState challenge(@RequestBody ChallengeRequest req, Authentication auth) {
-        link.challenge(CurrentUser.id(auth), req.userId() == null ? null : req.userId().toLowerCase());
+        link.challenge(CurrentUser.id(auth), req.userId() == null ? null : req.userId().toLowerCase(),
+                req.kind() == null ? null : req.kind().toUpperCase(java.util.Locale.ROOT));
         return state(auth);
     }
 

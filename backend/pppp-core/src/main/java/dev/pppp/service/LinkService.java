@@ -80,13 +80,19 @@ public class LinkService {
         if (c != null && !c.kind().equals(kind)) close(c, "CANCELLED");
     }
 
-    public synchronized void challenge(String from, String to) {
+    /**
+     * Offers a trade or a battle to one Pib, whether or not they are in the lobby. kind: TRADE or BATTLE, or null to
+     * take what they are ready for. Either console may be asleep: accepting wakes both.
+     */
+    public synchronized void challenge(String from, String to, String kind) {
         if (to == null || from.equals(to)) throw new IllegalArgumentException("Challenge someone else");
         sweep();
-        String kind = lobby.kind(to);
-        if (kind == null) throw new IllegalStateException(name(to) + " is not ready");
+        if (kind == null) kind = lobby.kind(to);
+        if (kind == null) throw new IllegalArgumentException("Pick a trade or a battle");
+        if (!KINDS.contains(kind)) throw new IllegalArgumentException("kind must be TRADE or BATTLE");
+        if (consoles.game(to) == null) throw new IllegalStateException(name(to) + " has not picked a game yet");
         if (sessions.containsKey(from)) throw new IllegalStateException("You are already linked");
-        if (!consoles.isAwake(from)) throw new IllegalStateException("Open your Game Boy first");
+        if (sessions.containsKey(to)) throw new IllegalStateException(name(to) + " is linked with someone else");
         if (challenges.containsKey(to)) throw new IllegalStateException(name(to) + " already has a challenge waiting");
         if (challenges.values().stream().anyMatch(c -> c.from().equals(from))) {
             throw new IllegalStateException("You already challenged someone");
@@ -101,6 +107,11 @@ public class LinkService {
         sweep();
         Challenge c = challenges.get(userId);
         if (c == null) throw new IllegalStateException("No challenge waiting");
+        // Either side may have been on another page: both consoles wake up and both browsers go to /play.
+        // ponytail: a console woken here with nobody watching only parks when a screen socket closes; add an idle
+        // timeout if Pibs accept and never open /play.
+        consoles.open(c.from());
+        consoles.open(userId);
         consoles.link(c.from(), userId);
         close(c, "ACCEPTED");
         for (String id : List.of(c.from(), userId)) { // both are busy now: out of the lobby, other challenges off

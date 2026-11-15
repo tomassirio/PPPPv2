@@ -99,10 +99,12 @@
 	const top = $derived(
 		profile?.party.filter((m) => !m.egg).reduce<Profile['party'][number] | null>((best, m) => (!best || m.level > best.level ? m : best), null)
 	);
-	// Offer trade / Challenge: only while they wait in the lobby for that, and nobody involved is busy.
+	// Offer trade / Challenge: to this Pib directly, whenever neither of you is busy.
 	const ready = $derived(link.state?.lobby.find((p) => p.userId === id)?.kind);
 	const busy = $derived(!!(link.state?.session || link.state?.outgoing || link.state?.incoming));
 	const waiting = $derived(link.state?.outgoing?.to === id ? link.state.outgoing : null);
+	// They are in a link session with someone (anyone can be offered a link otherwise).
+	const theyBusy = $derived(!!link.state?.links?.some((l) => l.a === id || l.b === id));
 
 	const badgeArt = import.meta.glob('../../../lib/assets/badges/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 	const art = (name: string, i: number) => badgeArt[`../../../lib/assets/badges/${name.toLowerCase()}.png`] ?? `/api/v1/game/badges/${i}.png`;
@@ -278,20 +280,20 @@
 							<button
 								type="button"
 								class="btn primary grow"
-								disabled={ready !== 'TRADE' || busy}
-								title={ready === 'TRADE' ? '' : 'Offer a trade once they are ready to trade'}
-								onclick={() => act('POST', '/link/challenges', { userId: id })}>Offer trade</button
+								disabled={busy || theyBusy}
+								onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'TRADE' })}>Offer trade</button
 							>
 							<button
 								type="button"
 								class="btn grow"
-								disabled={ready !== 'BATTLE' || busy}
-								title={ready === 'BATTLE' ? '' : 'Challenge them once they are ready to battle'}
-								onclick={() => act('POST', '/link/challenges', { userId: id })}>Challenge</button
+								disabled={busy || theyBusy}
+								onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}>Challenge to battle</button
 							>
 						</div>
 						{#if waiting}<span class="muted xs" role="status">Waiting for {nameOf(id)} to answer… {left(waiting.expiresAt)} s</span>{/if}
-						{#if !ready && !busy}<span class="muted xs">{nameOf(id)} isn't waiting for a link right now.</span>{/if}
+						{#if theyBusy}<span class="muted xs">{nameOf(id)} is linked with someone right now.</span>
+						{:else if ready}<span class="muted xs">{nameOf(id)} is ready to {ready === 'TRADE' ? 'trade' : 'battle'}.</span>
+						{:else if !busy}<span class="muted xs">{nameOf(id)} sees your offer wherever they are, for a minute.</span>{/if}
 						{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
 					{:else}
 						<a class="btn primary wide" href="/play">Find someone to link with</a>

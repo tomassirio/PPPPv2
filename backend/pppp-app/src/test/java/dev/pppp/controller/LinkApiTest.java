@@ -85,6 +85,10 @@ class LinkApiTest {
         return as(from, post("/api/v1/link/challenges"), "{\"userId\":\"" + to + "\"}");
     }
 
+    private ResultActions offer(String from, String to, String kind) throws Exception {
+        return as(from, post("/api/v1/link/challenges"), "{\"userId\":\"" + to + "\",\"kind\":\"" + kind + "\"}");
+    }
+
     private void linkAshAndSam() throws Exception {
         ready(SAM, "TRADE").andExpect(status().isOk());
         challenge(ASH, SAM).andExpect(status().isOk());
@@ -118,7 +122,7 @@ class LinkApiTest {
         ready(SAM, "TRADE");
         ready(ASH, "BATTLE");
         challenge(ASH, ASH).andExpect(status().isBadRequest());
-        challenge(ASH, GARY).andExpect(status().isConflict()); // not ready
+        challenge(ASH, GARY).andExpect(status().isBadRequest()); // not in the lobby and no kind picked
         as(SAM, post("/api/v1/link/challenges/accept"), null).andExpect(status().isConflict()); // nothing waiting
 
         challenge(ASH, SAM).andExpect(status().isOk())
@@ -192,5 +196,26 @@ class LinkApiTest {
         link.sweep();
         assertThat(consoles.linkedWith(ASH)).isNull();
         as(ASH, get("/api/v1/link"), null).andExpect(jsonPath("$.session").doesNotExist());
+    }
+
+    @Test
+    void anyPibCanBeOfferedATradeOrBattleDirectlyAndAcceptingWakesBothConsoles() throws Exception {
+        consoles.idle(ASH); // both on other pages: consoles asleep, nobody in the lobby
+        consoles.idle(GARY);
+        offer(ASH, GARY, "DANCE").andExpect(status().isBadRequest());
+        offer(ASH, "nobody@x.y", "TRADE").andExpect(status().isConflict()); // no game picked
+        offer(ASH, GARY, "battle").andExpect(status().isOk())
+                .andExpect(jsonPath("$.outgoing.to").value(GARY))
+                .andExpect(jsonPath("$.outgoing.kind").value("BATTLE"));
+        as(GARY, get("/api/v1/link"), null).andExpect(jsonPath("$.incoming.from").value(ASH))
+                .andExpect(jsonPath("$.incoming.kind").value("BATTLE"));
+
+        as(GARY, post("/api/v1/link/challenges/accept"), null).andExpect(status().isOk())
+                .andExpect(jsonPath("$.session.peer").value(ASH));
+        assertThat(consoles.isAwake(ASH)).isTrue();
+        assertThat(consoles.isAwake(GARY)).isTrue();
+        assertThat(consoles.linkedWith(GARY)).isEqualTo(ASH);
+        offer(SAM, GARY, "TRADE").andExpect(status().isConflict()); // already linked
+        as(GARY, delete("/api/v1/link/session"), null).andExpect(status().isOk());
     }
 }

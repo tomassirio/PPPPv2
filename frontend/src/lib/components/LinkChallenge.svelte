@@ -1,5 +1,6 @@
 <!-- An incoming link-cable challenge: who, the three steps, Accept/Decline and the time left. Inline in the Link
-     cable card on desktop; sheet: a bottom sheet over the game on phones (each shows only at its own size). -->
+     cable card on desktop; sheet: a bottom sheet over the game on phones (each shows only at its own size);
+     floating (pages besides /play): a card in the corner on desktop, the bottom sheet on phones. -->
 <script lang="ts">
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
@@ -7,7 +8,7 @@
 	import { act, CHALLENGE_MS, left, link, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 
-	let { sheet = false }: { sheet?: boolean } = $props();
+	let { sheet = false, floating = false }: { sheet?: boolean; floating?: boolean } = $props();
 	$effect(() => watchLink());
 	$effect(() => watchBoard());
 
@@ -19,7 +20,7 @@
 </script>
 
 <!-- Always in the DOM so screen readers announce a challenge when it arrives. The countdown is kept out of the live text. -->
-<div class="live" class:sheet aria-live="assertive">
+<div class="live" class:sheet class:float={floating} aria-live="assertive">
 	{#if c}
 		{#if sheet}<div class="scrim"></div>{/if}
 		<div class="challenge" role="group" aria-labelledby="challenge-h-{sheet ? 's' : 'i'}">
@@ -177,6 +178,23 @@
 	}
 	.sheet {
 		display: none;
+	}
+	/* Other pages: a card in the bottom-right corner (phones get the bottom sheet below). */
+	.live.float {
+		display: block;
+	}
+	.float .challenge {
+		position: fixed;
+		right: max(24px, env(safe-area-inset-right));
+		bottom: max(24px, env(safe-area-inset-bottom));
+		z-index: 41;
+		width: min(400px, calc(100vw - 32px));
+		box-sizing: border-box;
+		padding: 16px 18px;
+		border: 1px solid var(--link);
+		border-radius: 16px;
+		background: var(--panel);
+		box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
 	}
 	/* Phones: a bottom sheet over everything, the game dimmed behind it; the inline copy hides. */
 	@media (max-width: 760px), (orientation: landscape) and (max-height: 520px) {
