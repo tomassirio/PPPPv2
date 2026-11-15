@@ -228,7 +228,7 @@
 		</header>
 
 		<div class="stage">
-			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner from={1} to={76} /></aside>
+			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner half={1} /></aside>
 		<main>
 			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null}>
 				{#if link.state?.session}
@@ -293,7 +293,7 @@
 				<div class="pane chat-pane" class:d-off={sideTab !== 'chat'} class:p-off={tab !== 'chat'}><Chat /></div>
 			</section>
 		</main>
-			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, second half"><PokedexBanner from={77} to={151} /></aside>
+			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, second half"><PokedexBanner half={2} /></aside>
 		</div>
 		{#if page.url.searchParams.has('debug')}<ViewportDebug />{/if}
 	</div>
@@ -486,7 +486,7 @@
 	.tabs .rail-picker {
 		display: none;
 	}
-	/* Pokédex side banners only where the side margins are wide enough (see the wide media query). */
+	/* Pokédex side banners on desktop only (see the media query after the desktop one). */
 	.stage {
 		display: contents;
 	}
@@ -564,10 +564,11 @@
 			min-height: 0;
 		}
 	}
-	/* Wide enough for the Pokédex as two banners, 1-76 left and 77-151 right. Each gets at least 210px: 4 cells
-	   across at the size the height allows (19 rows) on a typical desktop. The columns shrink toward their 1100px
-	   minimum to make room; the banners grow into whatever margin is left. */
-	@media (min-width: 1520px) and (min-height: 600px) {
+	/* The Pokédex as two banners, first half left and second half right, on every desktop: the zoom (uiZoom) makes
+	   the page at least REF_W = 1728px wide in its own px, so a 1440px window has the same room as a 1728px one.
+	   Each banner gets at least 210px (for 126 entries, 5 columns of ~29px cells at the reference height); the
+	   three columns shrink toward their minimum (~1290px) to make room, the banners grow into any margin left. */
+	@media (min-width: 1100px) and (min-height: 600px) {
 		.dex {
 			display: block;
 		}

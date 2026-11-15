@@ -29,7 +29,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   come from `ProgressTracker.summary/icon(userId)`, the same confirmed reading it scores; a change goes out as
   `GAME_STATE {user, state}` to everyone and the browser keeps its own (`game.svelte.ts`). Panels: `GameStatus.svelte`,
   `PokedexBanner.svelte`; `GameToasts.svelte` shows the player's own `PROGRESS` events. Only `PokemonRed` has a party
-  box; `PokemonGen2`'s summary is counters only. `/api/v1/public/teaser` is `{online, players}`. Admin has a
+  box; `PokemonGen2`'s summary has counters, the 16 badges and the 251-entry Pokédex (no party). `/api/v1/public/teaser` is `{online, players}`. Admin has a
   read-only Players table (from the scoreboard).
 - Done: achievements and Trainer Score (design: https://claude.ai/artifact/GTd7t2WnQNqZzdwLdxngtJ). `PokemonGen2`
   reads a `Gen2Save` (party DVs/OT/types, bag + PC items, HMs, event flags, coins, Unown Dex, phone list, play time;
@@ -42,6 +42,12 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   {user, id, name, points, at}. `GET /api/v1/achievements`, `GET /api/v1/players/{userId}/achievements`.
   `EmulatorHost.readBytes` returns null for D000-DFFF while a CGB game has another WRAM bank in. Boxes (SRAM),
   Bug Contest, eggs hatched, Battle Tower are not read. No UI yet.
+- Done: Gen 2 art from the player's ROM (`Gen2Pic`: pret's LZ, front pics padded to 56x56 as PadFrontpic, normal
+  palette; Unown as A). `/api/v1/game/icons/{1-251}.png` and `/api/v1/game/badges/{index}.png` (the 8 Johto badges
+  from the trainer card's BadgeGFX + PREDEFPAL_CGB_BADGE; the ROM has no Kanto badge art, so those use v1's
+  `assets/badges/*.png`). Every ROM address in `PokemonGen2.Layout`, cited from pret's .sym/.map files. "Your run"
+  shows badge sprites (greyed out until earned); `PokedexBanner half={1|2}` splits the dex in two (1-126 / 127-251)
+  and picks its column count to fit; the banners show on every desktop size (the zoom gives >= 1728px of room).
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, chart renames for deploy, README
   (still describes v1).

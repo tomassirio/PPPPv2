@@ -1,22 +1,38 @@
-<!-- A side banner of the Pokédex (numbers from..to): unseen = silhouette with "?", seen = sprite, caught = sprite
-     plus a Poké Ball. Sprites come from the ROM via /api/v1/game/icons/{n}.png. Fills its container. -->
+<!-- A side banner with one half of the Pokédex (1-76 / 77-151 for Red, 1-126 / 127-251 for Gold/Silver/Crystal):
+     unseen = silhouette with "?", seen = sprite, caught = sprite plus a Poké Ball. Sprites come from the ROM via
+     /api/v1/game/icons/{n}.png. Fills its container, with as many columns as make the cells biggest. -->
 <script lang="ts">
 	import { game, watchGame } from '#lib/game.svelte.ts';
 
-	let { from, to }: { from: number; to: number } = $props();
-	const columns = 4;
+	let { half }: { half: 1 | 2 } = $props();
+	const GAP = 4;
 
 	$effect(() => watchGame());
 
 	const dex = $derived(game.summary?.collection);
 	const seen = $derived(new Set(dex?.seen));
 	const owned = $derived(new Set(dex?.owned));
-	const numbers = $derived(dex ? Array.from({ length: Math.min(to, dex.size) - from + 1 }, (_, i) => from + i) : []);
+	const from = $derived(half === 1 ? 1 : Math.ceil((dex?.size ?? 0) / 2) + 1);
+	const to = $derived(half === 1 ? Math.ceil((dex?.size ?? 0) / 2) : (dex?.size ?? 0));
+	const numbers = $derived(Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i));
 	const pad = (n: number) => String(n).padStart(3, '0');
+
+	let w = $state(0);
+	let h = $state(0);
+	const columns = $derived.by(() => {
+		let best = 4;
+		let cell = 0;
+		for (let c = 2; c <= 12; c++) {
+			const rows = Math.ceil(numbers.length / c);
+			const size = Math.min((w - (c - 1) * GAP) / c, (h - (rows - 1) * GAP) / rows);
+			if (size > cell) [best, cell] = [c, size];
+		}
+		return best;
+	});
 </script>
 
 {#if dex?.size}
-	<div class="fit">
+	<div class="fit" bind:clientWidth={w} bind:clientHeight={h}>
 	<ol class="banner" aria-label="Pokédex {from} to {to}" style:--rows={Math.ceil(numbers.length / columns)} style:--cols={columns}>
 		{#each numbers as n (n)}
 			{@const name = dex.names[n - 1]}
@@ -42,7 +58,7 @@
 {/if}
 
 <style>
-	/* .fit is the size container: square cells, 4 across, as big as its height allows; no tiles. */
+	/* .fit is the size container: square cells, as big as the space allows; no tiles. */
 	.fit {
 		container-type: size;
 		height: 100%;
@@ -53,7 +69,7 @@
 		padding: 0;
 		list-style: none;
 		display: grid;
-		--gap: 4px;
+		--gap: 4px; /* GAP in the script */
 		--cell: min(
 			calc((100cqw - (var(--cols) - 1) * var(--gap)) / var(--cols)),
 			calc((100cqh - (var(--rows) - 1) * var(--gap)) / var(--rows))
