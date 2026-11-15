@@ -73,27 +73,29 @@
 		{#if mine?.trainerName}<span class="trainer"><span class="muted xs">Trainer</span> <b class="pixel">{mine.trainerName}</b></span>{/if}
 	</div>
 	{#if mine}
-		<!-- Three separate numbers: uncapped points, place on the board, and the capped rating's grade and title. -->
-		<dl class="stats">
-			<div class="stat">
-				<dt>Points</dt>
-				<dd><span class="big">{score(mine).toLocaleString('en')}</span></dd>
+		<!-- Two ratings kept apart: uncapped points (and the rank they give), and the capped 0–1000 rating behind grade and title. -->
+		<div class="summary">
+			<div class="top">
+				<div class="figure">
+					<span class="big">{score(mine).toLocaleString('en')}</span>
+					<span class="unit">points</span>
+				</div>
+				<div class="place" class:first={rank === 0}>
+					<span class="pos pixel">#{rank + 1}</span>
+					<span class="unit">of {board.rows.length} {board.rows.length === 1 ? 'Pib' : 'Pibs'}</span>
+				</div>
 			</div>
-			<div class="stat">
-				<dt>Rank</dt>
-				<dd><span class="big pixel">#{rank + 1}</span> <span class="muted xs">of {board.rows.length}</span></dd>
+			<div class="rating">
+				<div class="grade-line">
+					<GradeChip grade={mine.grade} rating={mine.trainerScore} size={12} />
+					<b class="title">{mine.title}</b>
+					<span class="unit">{mine.trainerScore} / 1000</span>
+				</div>
+				<span class="meter" role="meter" aria-label="Trainer rating" aria-valuemin="0" aria-valuemax="1000" aria-valuenow={mine.trainerScore}
+					><b style:width="{Math.max(1, Math.min(100, mine.trainerScore / 10))}%"></b></span
+				>
 			</div>
-			<div class="stat rating">
-				<dt>Rating</dt>
-				<dd>
-					<span class="grade-line"><GradeChip grade={mine.grade} rating={mine.trainerScore} size={12} /> <b class="ell">{mine.title}</b></span>
-					<span class="meter" role="meter" aria-label="Trainer rating" aria-valuemin="0" aria-valuemax="1000" aria-valuenow={mine.trainerScore}
-						><b style:width="{Math.min(100, mine.trainerScore / 10)}%"></b></span
-					>
-					<span class="muted xs">{mine.trainerScore} / 1000</span>
-				</dd>
-			</div>
-		</dl>
+		</div>
 	{/if}
 	{#if party.length || mine}
 		<div class="line"><span class="muted">Party</span></div>
@@ -105,9 +107,9 @@
 						{#if m.shiny}<span class="shiny" title="Shiny">✦</span>{/if}
 					</span>
 					<span class="info">
-						<span class="line"><b class="ell">{m.name}</b>{#if !m.egg}<span class="xs muted lv">Lv {m.level}</span>{/if}</span>
+						<b class="name" title={m.name}>{m.name}</b>
 						<span class="line xs"
-							><span class="muted ell">{m.sub}</span>{#if m.status}<span class="st st-{m.status}">{m.status}</span>{/if}</span
+							><span class="muted ell">{#if !m.egg}Lv {m.level}{/if}{#if m.sub}{m.egg ? '' : ' · '}{m.sub}{/if}</span>{#if m.status}<span class="st st-{m.status}">{m.status}</span>{/if}</span
 						>
 						{#if m.hp != null && !m.egg}
 							<span class="hpbar" role="meter" aria-label="HP" aria-valuemin="0" aria-valuemax="100" aria-valuenow={m.hp}
@@ -219,51 +221,56 @@
 		font-size: 10px;
 		margin-left: 4px;
 	}
-	.stats {
-		margin: 0;
-		display: grid;
-		grid-template-columns: auto auto minmax(0, 1fr);
-		gap: 8px;
-	}
-	.stat {
-		padding: 10px 12px;
-		border-radius: 10px;
+	.summary {
+		border-radius: 12px;
 		background: var(--sunk);
 		border: 1px solid var(--border);
+		overflow: hidden;
+	}
+	.top {
+		display: flex;
+		align-items: stretch;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 12px 14px;
+	}
+	.figure,
+	.place {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 2px;
 		min-width: 0;
 	}
-	.stat dt {
-		font-size: 11px;
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--muted);
+	.place {
+		align-items: flex-end;
+		justify-content: center;
 	}
-	.stat dd {
-		margin: 0;
-		display: flex;
-		align-items: baseline;
-		gap: 6px;
-		flex-wrap: wrap;
-		min-width: 0;
-	}
-	.stat .big {
-		font-size: 22px;
-		font-weight: 700;
-		line-height: 1.1;
+	.big {
+		font-size: 30px;
+		font-weight: 800;
+		line-height: 1;
+		letter-spacing: -0.01em;
 		font-variant-numeric: tabular-nums;
 	}
-	.stat .big.pixel {
-		font-size: 16px;
-		font-weight: 400;
+	.pos {
+		font-size: 18px;
+		line-height: 1.2;
+		color: var(--text);
 	}
-	.rating dd {
+	.place.first .pos {
+		color: var(--accent-text);
+	}
+	.unit {
+		font-size: 12px;
+		color: var(--muted);
+		white-space: nowrap;
+	}
+	.rating {
+		display: flex;
 		flex-direction: column;
-		align-items: stretch;
-		gap: 5px;
+		gap: 8px;
+		padding: 10px 14px 12px;
+		border-top: 1px solid var(--border);
 	}
 	.grade-line {
 		display: flex;
@@ -271,8 +278,16 @@
 		gap: 8px;
 		min-width: 0;
 	}
+	.title {
+		flex: 1;
+		min-width: 0;
+		font-size: 14px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 	.meter {
-		height: 5px;
+		height: 6px;
 		border-radius: 3px;
 		background: var(--border);
 		overflow: hidden;
@@ -358,6 +373,11 @@
 		font-size: 11px;
 		font-weight: 700;
 		color: var(--accent-text);
+	}
+	.name {
+		font-size: 14px;
+		line-height: 18px;
+		white-space: nowrap; /* names are 10 letters at most: shown whole */
 	}
 	.info {
 		flex: 1;
@@ -480,8 +500,8 @@
 			padding: 16px;
 			gap: 12px;
 		}
-		.stat .big {
-			font-size: 20px;
+		.big {
+			font-size: 26px;
 		}
 		/* Compact on the Scores tab: Kanto's row only once it starts. */
 		.later {
