@@ -1,6 +1,6 @@
 {
-	"name": "Pibs&PibettesPlayPokemon",
-	"short_name": "PPPP",
+	"name": "Pibs&PibettesPlayPokemonV2",
+	"short_name": "PPPPv2",
 	"description": "Play Pokémon together on one shared Game Boy.",
 	"start_url": "/play",
 	"scope": "/",

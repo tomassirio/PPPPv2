@@ -1,8 +1,10 @@
-# PPP (PibsPlayPokemon)
+# Pibs&PibettesPlayPokemonV2 (PPPPv2)
 
-v2 of PPPP: every Pib gets a private Game Boy (Pokémon Gold, Silver or Crystal, picked once), a shared
+The sequel to PPPP: every Pib gets a private Game Boy (Pokémon Gold, Silver or Crystal, picked once), a shared
 scoreboard fed by RAM-read progress events, and a link cable between any two players.
-Started as a copy of PPPP v1 (commit 420d8c2), so package and module names still say `pppp`.
+Started as a copy of PPPP v1 (commit 420d8c2). Java package `dev.pppp`, the Maven modules and the `PPPP_*` env vars
+keep the v1 names on purpose; the product, Docker images, Helm releases (`ppppv2-backend`, `ppppv2-frontend`) and the
+data volume (`ppppv2-data-pvc`) are named for v2, so both can run on the same cluster.
 
 Design doc: https://claude.ai/artifact/W6kDXEHSaUafTTw8GUa4Fs (read with the Claude Docs tools, not web fetch).
 Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
@@ -32,10 +34,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Next: admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, chart renames for deploy, README
   (still describes v1).
-- No deploy workflow yet: v1's Helm release names would overwrite PPPP on the cluster. Rename the charts first.
+- No deploy workflow yet. The charts are renamed; the cluster still needs the `ppppv2-data-pvc` volume and a workflow.
 
 ## Local run (next to a running PPPP v1 dev stack)
-- Backend, from `backend/` after `mvn clean package -DskipTests`: `SERVER_PORT=8082 PPPP_DATA_DIR=<abs>/PPP/data
+- Backend, from `backend/` after `mvn clean package -DskipTests`: `SERVER_PORT=8082 PPPP_DATA_DIR=<abs>/PPPPv2/data
   PPPP_DEV_LOGIN=true SPRING_DATA_REDIS_DATABASE=1 java -jar pppp-app/target/pppp-app-*.jar` (Redis db 1 keeps its
   keys apart from v1's db 0 on the same local Redis).
 - Frontend: `PPPP_BACKEND=http://127.0.0.1:8082 npm run dev -- --host 127.0.0.1 --port 5174`. Open it as

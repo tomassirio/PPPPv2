@@ -27,8 +27,8 @@
 	import ViewportDebug from '#lib/components/ViewportDebug.svelte';
 	import PokeballRain from '#lib/components/PokeballRain.svelte';
 	import { page } from '$app/state';
-	import banner from '#lib/assets/banner.webp';
-	import ppppLogo from '#lib/assets/pppp-logo.png';
+	import banner from '#lib/assets/banner-v2.png';
+	import ppppLogo from '#lib/assets/ppppv2-logo.png';
 
 	type Tab = 'play' | 'party' | 'chat';
 	let tab = $state<Tab>('play');
@@ -184,8 +184,8 @@
 	<div class="page play-root" class:big={bigScreen} style:zoom={uiZoom === 1 ? null : uiZoom} style:--page-h={uiZoom === 1 ? null : `${pageH}px`} style:--plate={currentShell.value.shell} style:--plate-ink={inkFor(currentShell.value.shell)}>
 		<header>
 			<div class="brand">
-				<img class="logo" src={banner} alt="Pibs&amp;PibettesPlayPokemon" width="924" height="111" />
-				<img class="short" src={ppppLogo} alt="PPPP" width="240" height="103" />
+				<img class="logo" src={banner} alt="Pibs&amp;PibettesPlayPokemon V2" width="1024" height="196" />
+				<img class="short" src={ppppLogo} alt="PPPP V2" width="480" height="174" />
 			</div>
 			<div class="user">
 				<Presence />
@@ -288,13 +288,13 @@
 	}
 	.logo {
 		display: block;
-		height: 36px;
+		height: 44px;
 		width: auto;
 	}
-	/* Phones: the PPPP logo instead of the long banner. */
+	/* Phones: the PPPP V2 logo instead of the long banner. */
 	.short {
 		display: none;
-		height: 32px;
+		height: 36px;
 		width: auto;
 	}
 	main {

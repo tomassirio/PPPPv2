@@ -1,6 +1,6 @@
 spring:
   application:
-    name: pppp
+    name: ppppv2
   data:
     redis:
       host: ${REDIS_HOST:localhost}

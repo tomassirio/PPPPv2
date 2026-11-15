@@ -14,8 +14,8 @@
     <artifactId>pppp-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>pppp</name>
-    <description>Pibs&amp;PibettesPlayPokemon backend</description>
+    <name>ppppv2</name>
+    <description>Pibs&amp;PibettesPlayPokemonV2 backend</description>
 
     <modules>
         <module>pppp-emulator</module>

@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/tomassirio/pppp-backend
+  repository: ghcr.io/tomassirio/ppppv2-backend
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -24,7 +24,7 @@ application:
 # NAS-backed PVC created by turing-pi-server's storage chart.
 # ROMs, battery saves and save states live under data/, Redis AOF under redis/.
 persistence:
-  existingClaim: pppp-data-pvc
+  existingClaim: ppppv2-data-pvc
 
 redis:
   image: redis:7-alpine
