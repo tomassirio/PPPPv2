@@ -42,3 +42,7 @@ export function onOpen(handler: () => void): () => void {
 	ensureSource();
 	return () => openHandlers.delete(handler);
 }
+
+// Holds live state and event subscriptions: hot-swapping it in dev would leave a fresh copy with no listeners
+// while the page keeps the old one, so a change here reloads the page instead.
+import.meta.hot?.decline();

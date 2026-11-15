@@ -2,18 +2,27 @@
 
 export type Button = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'start' | 'select';
 
-const KEYS: Record<string, Button> = {
+/** arrows: arrow keys, Z = A, X = B. wasd: W A S D, K = A, J = B (the arrow keys still move too). */
+export type KeyScheme = 'arrows' | 'wasd';
+
+const COMMON: Record<string, Button> = {
 	ArrowUp: 'up',
 	ArrowDown: 'down',
 	ArrowLeft: 'left',
 	ArrowRight: 'right',
-	z: 'a',
-	Z: 'a',
-	x: 'b',
-	X: 'b',
 	Enter: 'start',
 	Shift: 'select',
 	Backspace: 'select'
+};
+const KEYS: Record<KeyScheme, Record<string, Button>> = {
+	arrows: { ...COMMON, z: 'a', Z: 'a', x: 'b', X: 'b' },
+	wasd: { ...COMMON, w: 'up', W: 'up', a: 'left', A: 'left', s: 'down', S: 'down', d: 'right', D: 'right', k: 'a', K: 'a', j: 'b', J: 'b' }
+};
+
+/** The keys shown on the pad's buttons (aria-keyshortcuts) and in the keyboard card. */
+export const KEY_LABELS: Record<KeyScheme, Record<Button, string>> = {
+	arrows: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', a: 'Z', b: 'X', start: 'Enter', select: 'Shift' },
+	wasd: { up: 'W', down: 'S', left: 'A', right: 'D', a: 'K', b: 'J', start: 'Enter', select: 'Shift' }
 };
 
 export type KeyLike = {
@@ -34,12 +43,12 @@ export function notForShortcuts(e: KeyLike): boolean {
 }
 
 /** The pad button for a keydown, or null when it should be left alone (typing, shortcuts, held keys). */
-export function keyToButton(e: KeyLike): Button | null {
+export function keyToButton(e: KeyLike, scheme: KeyScheme = 'arrows'): Button | null {
 	if (notForShortcuts(e)) return null;
 	const tag = (e.target as HTMLElement | null)?.tagName;
 	// Enter on a focused button or link already activates it.
 	if (e.key === 'Enter' && (tag === 'BUTTON' || tag === 'A')) return null;
-	return KEYS[e.key] ?? null;
+	return KEYS[scheme][e.key] ?? null;
 }
 
 /** Reconnect delay: 0.5 s doubling up to 30 s. */

@@ -1,7 +1,9 @@
-<!-- D-pad, A/B, Start/Select. Click/tap/keyboard -> POST /api/v1/me/inputs (the player's own console). Keys: arrows, Z=A, X=B, Enter=Start, Shift/Backspace=Select. -->
+<!-- D-pad, A/B, Start/Select. Click/tap/keyboard -> POST /api/v1/me/inputs (the player's own console). Keys: arrows
+     with Z=A, X=B, or WASD with K=A, J=B (picked in the keyboard card); Enter=Start, Shift/Backspace=Select. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
-	import { afterArrowRelease, keyToButton, type Button } from '#lib/play.ts';
+	import { afterArrowRelease, keyToButton, KEY_LABELS, type Button } from '#lib/play.ts';
+	import { keys, setKeyScheme } from '#lib/keys.svelte.ts';
 	import { shellVars } from '#lib/shells.ts';
 	import { currentShell } from '#lib/shell.svelte.ts';
 	import ShellPicker from './ShellPicker.svelte';
@@ -11,7 +13,6 @@
 	const shell = $derived(currentShell.value);
 	const vars = $derived(shellVars(shell));
 
-	let lastPress = $state('');
 	let status = $state('');
 
 	let statusError = $state(false);
@@ -28,11 +29,9 @@
 	/** walk: a held direction, pressed by the server long enough to chain steps (see PlayerConsoles.press). */
 	async function send(command: string, walk = false) {
 		if (!walk) konamiPress(command);
-		lastPress = command.toUpperCase();
 		inFlight = true;
 		try {
 			await api('POST', '/me/inputs', walk ? { command, repeat: 1, walk } : { command, repeat: 1 });
-			say('Sent', false);
 		} catch (e) {
 			if (!(e instanceof ApiError)) return say('Network error, try again');
 			say(e.status === 400 ? e.detail : `Not sent: ${e.detail}`);
@@ -78,7 +77,7 @@
 	$effect(() => stopRepeat); // leaving the page
 
 	function onkeydown(e: KeyboardEvent) {
-		const b = keyToButton(e);
+		const b = keyToButton(e, keys.scheme);
 		if (!b) {
 			if (e.repeat && repeating) e.preventDefault(); // auto-repeat of the held arrow: no page scroll
 			return;
@@ -172,7 +171,7 @@
 					class:held={held === d.b}
 					style:grid-area={d.area}
 					aria-label={d.label}
-					aria-keyshortcuts={d.key}
+					aria-keyshortcuts={KEY_LABELS[keys.scheme][d.b]}
 					onpointerdown={(e) => pressDir(e, d.b)}
 					onpointerup={releaseDir}
 					onpointercancel={releaseDir}
@@ -196,10 +195,10 @@
 			<div class="hub"></div>
 		</div>
 		<div class="ab">
-			<button type="button" class="round pixel b" class:held={held === 'b'} aria-label="B button" aria-keyshortcuts="X" onclick={(e) => tap(e, 'b')}
+			<button type="button" class="round pixel b" class:held={held === 'b'} aria-label="B button" aria-keyshortcuts={KEY_LABELS[keys.scheme].b} onclick={(e) => tap(e, 'b')}
 				>B</button
 			>
-			<button type="button" class="round pixel" class:held={held === 'a'} aria-label="A button" aria-keyshortcuts="Z" onclick={(e) => tap(e, 'a')}
+			<button type="button" class="round pixel" class:held={held === 'a'} aria-label="A button" aria-keyshortcuts={KEY_LABELS[keys.scheme].a} onclick={(e) => tap(e, 'a')}
 				>A</button
 			>
 		</div>
@@ -214,25 +213,34 @@
 	</div>
 </div>
 
-<section class="controls panel" style={vars} class:idle={!lastPress && !status} aria-label="Controls">
+<section class="controls panel" class:quiet={!status} style={vars} aria-label="Controls">
 	<div class="head">
 		<h2 class="keys-only">Keyboard</h2>
-		<p class="last" class:empty={!lastPress && !status} role="status" aria-live="polite">
-			{#if lastPress}<span class="muted label-wide">Last press</span><span class="muted label-phone">You</span><strong
-					class="chip pixel">{lastPress}</strong
-				>{/if}
+		<span class="scheme keys-only" role="group" aria-label="Keys to move">
+			<button type="button" aria-pressed={keys.scheme === 'arrows'} onclick={() => setKeyScheme('arrows')}>Arrows</button>
+			<button type="button" aria-pressed={keys.scheme === 'wasd'} onclick={() => setKeyScheme('wasd')}>WASD</button>
+		</span>
+		<p class="last" role="status" aria-live="polite">
 			{#if status}<span class:error={statusError} class:muted={!statusError}>{status}</span>{/if}
 		</p>
 	</div>
 	<div class="keys keys-only">
-		<div class="cluster" role="img" aria-label="Arrow keys move">
-			<kbd style:grid-area="up">↑</kbd><kbd style:grid-area="left">←</kbd><kbd style:grid-area="down">↓</kbd><kbd
-				style:grid-area="right">→</kbd
-			>
-		</div>
+		{#if keys.scheme === 'wasd'}
+			<div class="cluster" role="img" aria-label="W A S D move">
+				<kbd style:grid-area="up">W</kbd><kbd style:grid-area="left">A</kbd><kbd style:grid-area="down">S</kbd><kbd
+					style:grid-area="right">D</kbd
+				>
+			</div>
+		{:else}
+			<div class="cluster" role="img" aria-label="Arrow keys move">
+				<kbd style:grid-area="up">↑</kbd><kbd style:grid-area="left">←</kbd><kbd style:grid-area="down">↓</kbd><kbd
+					style:grid-area="right">→</kbd
+				>
+			</div>
+		{/if}
 		<ul class="map">
-			<li><kbd>Z</kbd><span class="mini round pixel">A</span></li>
-			<li><kbd>X</kbd><span class="mini round pixel">B</span></li>
+			<li><kbd>{KEY_LABELS[keys.scheme].a}</kbd><span class="mini round pixel">A</span></li>
+			<li><kbd>{KEY_LABELS[keys.scheme].b}</kbd><span class="mini round pixel">B</span></li>
 			<li><kbd>Enter</kbd><span class="mini pill">START</span></li>
 			<li><kbd>Shift</kbd><span class="mini pill">SELECT</span></li>
 		</ul>
@@ -352,9 +360,6 @@
 			display: none; /* the pad is split around the screen there */
 		}
 	}
-	.label-phone {
-		display: none;
-	}
 	.picker-corner {
 		position: absolute;
 		top: 10px;
@@ -395,13 +400,31 @@
 		color: var(--danger);
 		font-weight: 600;
 	}
-	.chip {
-		padding: 4px 7px;
+	.scheme {
+		gap: 2px;
+		padding: 2px;
 		border-radius: 6px;
 		background: var(--bg);
 		border: 1px solid var(--border);
-		font-size: 9px;
-		line-height: 1;
+	}
+	.scheme button {
+		height: 22px;
+		padding: 0 8px;
+		border: none;
+		border-radius: 4px;
+		background: transparent;
+		color: var(--muted);
+		font: 600 11px var(--body-font);
+		cursor: pointer;
+	}
+	.scheme button[aria-pressed='true'] {
+		background: var(--panel);
+		color: var(--text);
+		box-shadow: 0 0 0 1px var(--border-strong);
+	}
+	.scheme button:focus-visible {
+		outline: 2px solid var(--accent-text);
+		outline-offset: 1px;
 	}
 	.keys {
 		display: flex;
@@ -478,23 +501,17 @@
 		display: inline-flex;
 		align-items: center;
 	}
-	/* Keyboard parts only where there is a keyboard and mouse; phones keep just the last press. */
+	/* Keyboard parts only where there is a keyboard and mouse; phones keep just the error line. */
 	.keys-only {
 		display: none;
-	}
-	/* Phones: the row keeps its space before the first press, so nothing moves or resizes when it fills in. */
-	.controls.idle {
-		visibility: hidden;
 	}
 	@media (hover: hover) and (pointer: fine) and (min-width: 761px) {
 		h2.keys-only {
 			display: block;
 		}
-		.keys.keys-only {
+		.keys.keys-only,
+		.scheme.keys-only {
 			display: flex;
-		}
-		.controls.idle {
-			visibility: visible;
 		}
 	}
 	@media (max-width: 400px) {
@@ -518,82 +535,21 @@
 		}
 	}
 	@media (max-width: 760px) {
-		/* Phones: no card, a centred line under the pad; the pressed button as a mini button in the shell's
-		   colours. */
+		/* Phones: no card, only a centred error line under the pad when a press fails. */
 		.controls {
 			padding: 0;
 			border: none;
 			background: none;
 			box-shadow: none;
+			align-items: center;
 		}
-		.head {
-			min-height: 30px;
-			justify-content: center;
+		.controls.quiet {
+			display: none;
 		}
 		.last {
 			margin: 0;
-			gap: 10px;
-		}
-		.last .muted:first-child {
-			font-size: 10px;
-			font-weight: 600;
-			letter-spacing: 0.1em;
-			text-transform: uppercase;
-		}
-		.chip {
-			padding: 7px 12px;
-			border: none;
-			border-radius: 999px;
-			background: var(--pill);
-			color: var(--pill-ink);
-			font-size: 10px;
-		}
-		/* One compact row, side by side: YOU [chip] | IN GAME [chip] (photo). The game screen matters most. */
-		.controls {
-			display: flex;
-			flex-direction: row; /* the card is a column on desktop */
-			flex-wrap: nowrap;
-			justify-content: center;
-			align-items: center;
-			gap: 0;
-			min-height: 26px; /* the height of a filled row, also while still empty */
-		}
-		.head {
-			display: contents;
-		}
-		.controls .chip {
-			padding: 4px 9px;
-			font-size: 9px;
-		}
-		.last {
-			display: flex;
-			align-items: center;
-			gap: 6px;
-			margin: 0;
-			padding: 0 10px;
-			min-height: 26px;
 			font-size: 12px;
-			white-space: nowrap;
 		}
-		.last.empty {
-			display: none;
-		}
-		/* "Sent" would not fit; errors still show. */
-		.last > span.muted:not(.label-phone):not(.label-wide) {
-			display: none;
-		}
-		.label-wide {
-			display: none;
-		}
-		.label-phone {
-			display: inline;
-			font-size: 10px;
-			font-weight: 600;
-			letter-spacing: 0.1em;
-			text-transform: uppercase;
-			white-space: nowrap;
-		}
-
 	}
 	/* Short phones: a tighter pad so it fits under the screen without scrolling. */
 	@media (max-width: 760px) and (max-height: 760px) {

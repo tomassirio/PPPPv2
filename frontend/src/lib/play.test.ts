@@ -11,6 +11,13 @@ describe('play helpers', () => {
 		expect(keyToButton({ key: 'z', target: { tagName: 'INPUT' } as never })).toBeNull();
 		expect(keyToButton({ key: 'Enter', target: { tagName: 'BUTTON' } as never })).toBeNull();
 		expect(keyToButton({ key: 'x', target: { tagName: 'BUTTON' } as never })).toBe('b');
+		expect(keyToButton({ key: 'w' })).toBeNull(); // arrows scheme: letters do not move
+		expect(keyToButton({ key: 'w' }, 'wasd')).toBe('up');
+		expect(keyToButton({ key: 'A' }, 'wasd')).toBe('left');
+		expect(keyToButton({ key: 'k' }, 'wasd')).toBe('a');
+		expect(keyToButton({ key: 'j' }, 'wasd')).toBe('b');
+		expect(keyToButton({ key: 'z' }, 'wasd')).toBeNull();
+		expect(keyToButton({ key: 'ArrowDown' }, 'wasd')).toBe('down');
 	});
 
 	it('backs off exponentially with a cap', () => {

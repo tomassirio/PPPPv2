@@ -31,3 +31,7 @@ export function initialsOf(user: string): string {
 	const words = (pictures.names[user] ?? '').split(/\s+/).filter(Boolean);
 	return (words.length > 1 ? words[0][0] + words.at(-1)![0] : (words[0] ?? shortUser(user)).slice(0, 2)).toUpperCase();
 }
+
+// Holds live state and event subscriptions: hot-swapping it in dev would leave a fresh copy with no listeners
+// while the page keeps the old one, so a change here reloads the page instead.
+import.meta.hot?.decline();
