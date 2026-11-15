@@ -255,6 +255,12 @@ public class ProgressTracker {
         return profile == null ? null : profile.icon(id);
     }
 
+    /** PNG of a badge of the player's summary (by its index), drawn from their cartridge, or null. */
+    public byte[] badge(String userId, int index) {
+        GameProfile<?> profile = profile(userId);
+        return profile == null ? null : profile.badge(index);
+    }
+
     /** PNG sprite sheet of the player character in the player's game, or null. */
     public byte[] playerSprite(String userId) {
         GameProfile<?> profile = profile(userId);

@@ -59,6 +59,36 @@ class Gen2AchievementsTest {
     }
 
     @Test
+    void summaryHasTheBadgesInEarningOrderAndThePokedex() {
+        var g = sample(Gen2Ram.CRYSTAL);
+        byte[] gyarados = PokemonRedTest.encode("GYARADOS");
+        System.arraycopy(gyarados, 0, g.rom, Gen2Ram.CRYSTAL.romNames() + 129 * 10, gyarados.length);
+        g.badges(0b0001_0001, 0b1000_0000); // Zephyr, Mineral; Earth
+        var profile = g.profile();
+        var summary = profile.summary(profile.read(g.ram()));
+
+        assertThat(summary.badges()).extracting(b -> b.name()).containsExactly("Zephyr", "Hive", "Plain", "Fog",
+                "Storm", "Mineral", "Glacier", "Rising", "Boulder", "Cascade", "Thunder", "Rainbow", "Soul", "Marsh",
+                "Volcano", "Earth");
+        assertThat(summary.badges()).extracting(b -> b.earned()).containsExactly(true, false, false, false, false,
+                true, false, false, false, false, false, false, false, false, false, true);
+        assertThat(summary.badges().get(4).place()).isEqualTo("Cianwood Gym");
+        var dex = summary.collection();
+        assertThat(dex.size()).isEqualTo(251);
+        assertThat(dex.owned()).containsExactly(130, 155);
+        assertThat(dex.seen()).containsExactly(16, 130, 155); // caught counts as seen
+        assertThat(dex.names()).hasSize(251);
+        assertThat(dex.names().get(129)).isEqualTo("Gyarados");
+        assertThat(dex.names().get(0)).isNull(); // unseen: not given away
+
+        var empty = profile.summary(null);
+        assertThat(empty.collection().size()).isEqualTo(251);
+        assertThat(empty.collection().seen()).isEmpty();
+        assertThat(empty.badges()).hasSize(16).noneMatch(b -> b.earned());
+        assertThat(profile.icon(1)).isNull(); // the synthetic ROM ends before the pictures: null, no exception
+    }
+
+    @Test
     void readingsThatAreNotASaveCountForNothing() {
         var g = sample(Gen2Ram.CRYSTAL);
         var profile = g.profile();

@@ -8,11 +8,14 @@ import java.util.BitSet;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Pokémon Gold, Silver and Crystal (English releases): the scoreboard counters, achievements and Trainer Score,
- * with no party box. Its state is a {@link Gen2Save}.
+ * Pokémon Gold, Silver and Crystal (English releases): the scoreboard counters, badges, the Pokédex for the side
+ * banners, achievements and Trainer Score, with no party box. Its state is a {@link Gen2Save}. Pokémon front pics
+ * and the Johto badges are drawn from the ROM ({@link #icon}, {@link #badge}).
  *
  * <p>Sources, all pret ("symbols" branch for the .sym files, master otherwise): WRAM addresses are the symbols of
  * pokegold.sym (pokesilver.sym agrees on all of WRAM) and pokecrystal11.sym (pokecrystal.sym agrees on all of
@@ -33,7 +36,13 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
      */
     private record Layout(int playerId, int playHours, int coins, int badges, int tmsHms, int hallOfFame,
                           int eventFlags, int phoneList, int partyCount, int dexCaught, int unownDex, int romNames,
-                          int romBaseData) {}
+                          int romBaseData, int picPointers, int unownPicPointers, int monPalettes, int badgeGfx,
+                          int predefPals, boolean crystal) {}
+
+    /** ROM offset of bank:address (address in the switchable $4000-$7fff window). */
+    private static int rom(int bank, int address) {
+        return bank * 0x4000 + address - 0x4000;
+    }
 
     private static final Layout GOLD_SILVER = new Layout(
             0xD1A1, // wPlayerID
@@ -47,12 +56,24 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             0xDA22, // wPartyCount
             0xDBE4, // wPokedexCaught
             0xDC24, // wUnownDex
-            0x6C * 0x4000 + 0x0B74, // PokemonNames, 6c:4b74
-            0x14 * 0x4000 + 0x1B0B), // BaseData, 14:5b0b
+            rom(0x6C, 0x4B74), // PokemonNames
+            rom(0x14, 0x5B0B), // BaseData
+            rom(0x12, 0x4000), // PokemonPicPointers
+            rom(0x1F, 0x4000), // UnownPicPointers
+            rom(0x02, 0x6D3D), // PokemonPalettes
+            rom(0x09, 0x622F), // BadgeGFX
+            rom(0x02, 0x6265), // PredefPals
+            false),
             CRYSTAL = new Layout(0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD95E, 0xDA72, 0xDC7C, 0xDCD7, 0xDE99,
                     0xDED9, // same order as above
-                    0x14 * 0x4000 + 0x3384, // PokemonNames, 14:7384
-                    0x14 * 0x4000 + 0x1424); // BaseData, 14:5424
+                    rom(0x14, 0x7384), // PokemonNames
+                    rom(0x14, 0x5424), // BaseData
+                    rom(0x48, 0x4000), // PokemonPicPointers
+                    rom(0x49, 0x4000), // UnownPicPointers
+                    rom(0x02, 0x68CE), // PokemonPalettes
+                    rom(0x09, 0x6043), // BadgeGFX
+                    rom(0x02, 0x5DF6), // PredefPals
+                    true);
 
     private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
             MON_SIZE = 0x30, MON_ID = 0x06, MON_DVS = 0x15, MON_LEVEL = 0x1F, // party_struct
@@ -73,8 +94,37 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     /** Bit order of wJohtoBadges, then wKantoBadges (pokecrystal constants/engine_flags.asm). */
     private static final String[] BADGE_NAMES = {"Zephyr", "Hive", "Plain", "Fog", "Mineral", "Storm", "Glacier", "Rising",
             "Boulder", "Cascade", "Thunder", "Rainbow", "Soul", "Marsh", "Volcano", "Earth"};
+    /**
+     * The summary's badges: bit numbers above in the order they are earned (Chuck's Storm Badge before Jasmine's
+     * Mineral Badge, whose medicine comes from Cianwood), with their gyms (pret maps/*Gym*.asm; Blaine is on the
+     * Seafoam Islands in Gen 2).
+     */
+    private static final int[] BADGE_ORDER = {0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+    private static final String[] GYMS = {"Violet Gym", "Azalea Gym", "Goldenrod Gym", "Ecruteak Gym", "Olivine Gym",
+            "Cianwood Gym", "Mahogany Gym", "Blackthorn Gym", "Pewter Gym", "Cerulean Gym", "Vermilion Gym",
+            "Celadon Gym", "Fuchsia Gym", "Saffron Gym", "Seafoam Gym", "Viridian Gym"}; // by bit, as BADGE_NAMES
+    /**
+     * Pictures. PokemonPicPointers / UnownPicPointers (data/pokemon/pic_pointers.asm, unown_pic_pointers.asm): 6
+     * bytes per species / Unown letter, the front pic first as bank, address (dba_pic). BASE_PIC_SIZE: offset 17 of
+     * the base data, $55/$66/$77 (constants/pokemon_data_constants.asm). PokemonPalettes (data/pokemon/
+     * palettes.asm): 8 bytes per species from 0 (a dummy), the normal palette's two middle colours then the
+     * shiny one's; the game adds white and black (LoadPalette_White_Col1_Col2_Black). UNOWN_A: Unown is drawn as
+     * its letter (GetFrontpicPointer), A for the Pokédex banner.
+     */
+    private static final int PIC_POINTER_SIZE = 6, BASE_PIC_SIZE = 17, PALETTE_SIZE = 8, UNOWN = 201, UNOWN_A = 1;
+    /**
+     * Badges: BadgeGFX (engine/menus/trainer_card.asm, gfx/trainer_card/badges.png) is plain 2bpp, 4 tiles per
+     * Johto badge in wJohtoBadges bit order (top-left, top-right, bottom-left, bottom-right:
+     * TrainerCard_JohtoBadgesOAM, .facing1), drawn as objects with OBJ palette 0. _CGB_TrainerCard
+     * (engine/gfx/cgb_layouts.asm) loads 8 leader palettes into wBGPals1 and then PREDEFPAL_CGB_BADGE (36th, from 0,
+     * in constants/scgb_constants.asm) right after, into wOBPals1 palette 0. PredefPals: 8 bytes per palette
+     * (GetPredefPal). The trainer card has no Kanto badges: the ROM holds no art for them.
+     */
+    private static final int BADGE_BYTES = 4 * 16, PREDEFPAL_CGB_BADGE = 36;
 
     private final Layout at;
+    private final byte[] rom;
+    private final Map<Integer, byte[]> icons = new ConcurrentHashMap<>(), badgePngs = new ConcurrentHashMap<>();
     private final String[] names = new String[DEX_SIZE + 1]; // species id = Pokédex number in this generation
     private final int[][] types = new int[DEX_SIZE + 1][]; // {type1, type2}; -1s when the base data did not check out
 
@@ -89,6 +139,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
 
     private PokemonGen2(byte[] rom, Layout at) {
         this.at = at;
+        this.rom = rom;
         for (int i = 1; i <= DEX_SIZE; i++) {
             String name = PokemonRed.titleCase(PokemonRed.text(rom, at.romNames + (i - 1) * 10, 10));
             names[i] = name.isEmpty() ? "#" + i : name;
@@ -206,10 +257,78 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     @Override
     public GameSummary summary(Gen2Save state) {
         Progress s = state == null ? Progress.EMPTY : progress(state);
+        int bits = state == null ? 0 : state.johtoBadges() | state.kantoBadges() << 8;
+        List<GameSummary.Badge> badges = new ArrayList<>();
+        for (int bit : BADGE_ORDER) badges.add(new GameSummary.Badge(BADGE_NAMES[bit], GYMS[bit], (bits & 1 << bit) != 0));
         return new GameSummary("Pokémon Gold, Silver or Crystal", List.of(
                 new GameSummary.Counter("Badges", s.badges().size(), BADGE_NAMES.length),
                 new GameSummary.Counter("Pokédex", s.caught().size(), DEX_SIZE),
-                new GameSummary.Counter("Seen", s.seen().size(), DEX_SIZE)), List.of(), List.of(),
-                new GameSummary.Collection(0, List.of(), List.of(), List.of()), null);
+                new GameSummary.Counter("Seen", s.seen().size(), DEX_SIZE)), List.of(), badges,
+                collection(state), null);
+    }
+
+    /** The Pokédex for the side banners; names only of what has been seen (seen includes caught). */
+    private GameSummary.Collection collection(Gen2Save state) {
+        BitSet seen = state == null ? new BitSet() : state.seen(), caught = state == null ? new BitSet() : state.caught();
+        List<String> shown = new ArrayList<>(DEX_SIZE);
+        for (int i = 1; i <= DEX_SIZE; i++) shown.add(seen.get(i) ? names[i] : null);
+        return new GameSummary.Collection(DEX_SIZE, seen.stream().boxed().toList(), caught.stream().boxed().toList(),
+                shown);
+    }
+
+    /** The front pic of Pokédex number id (Unown as A) in its normal colours, 56x56, from the ROM; null if unreadable. */
+    @Override
+    public byte[] icon(int id) {
+        if (id < 1 || id > DEX_SIZE) return null;
+        return cached(icons, id, () -> {
+            int table = id == UNOWN ? at.unownPicPointers + (UNOWN_A - 1) * PIC_POINTER_SIZE
+                    : at.picPointers + (id - 1) * PIC_POINTER_SIZE;
+            int pic = rom(picBank(rom[table] & 0xFF), (rom[table + 1] & 0xFF) | (rom[table + 2] & 0xFF) << 8);
+            int base = at.romBaseData + (id - 1) * BASE_DATA_SIZE;
+            if ((rom[base] & 0xFF) != id) return null; // not the base data we expect
+            int pal = at.monPalettes + id * PALETTE_SIZE;
+            int[] argb = {0xFFFFFFFF, Gen2Pic.rgb(rom, pal), Gen2Pic.rgb(rom, pal + 2), 0xFF000000};
+            return Gen2Pic.png(Gen2Pic.frontpic(Gen2Pic.decompress(rom, pic), rom[base + BASE_PIC_SIZE] & 0xF), argb);
+        });
+    }
+
+    /**
+     * FixPicBank (engine/gfx/load_pics.asm) turns the pointer table's bank byte into the real bank. Gold/Silver:
+     * $13 -> "Pics 12" ($1f), $14 -> "Pics 13" ($20), $1f -> "Pics 14" ($2e), others as they are. Crystal:
+     * PicsBanks[a - (BANK("Pics 1") - PICS_FIX)], and Pics 1-24 are banks $48-$5f in a row, so a + PICS_FIX ($36).
+     * Banks from pret's pokegold.map, pokesilver.map, pokecrystal11.map.
+     */
+    private int picBank(int stored) {
+        if (at.crystal) return stored + 0x36;
+        return switch (stored) {
+            case 0x13 -> 0x1F;
+            case 0x14 -> 0x20;
+            case 0x1F -> 0x2E;
+            default -> stored;
+        };
+    }
+
+    /** A Johto badge (n = its place in the summary's badges, 0-7) from the trainer card's art; null for Kanto. */
+    @Override
+    public byte[] badge(int n) {
+        if (n < 0 || n >= BADGE_ORDER.length || BADGE_ORDER[n] >= 8) return null;
+        return cached(badgePngs, n, () -> {
+            int pal = at.predefPals + PREDEFPAL_CGB_BADGE * PALETTE_SIZE;
+            int[] argb = {0, Gen2Pic.rgb(rom, pal + 2), Gen2Pic.rgb(rom, pal + 4), Gen2Pic.rgb(rom, pal + 6)};
+            return GenOnePic.sheet(rom, at.badgeGfx + BADGE_ORDER[n] * BADGE_BYTES, 1, argb);
+        });
+    }
+
+    /** Draws once per cartridge; a ROM that does not decode (a bad dump, a hack) gives null rather than a 500. */
+    private static byte[] cached(Map<Integer, byte[]> cache, int key, java.util.function.Supplier<byte[]> draw) {
+        byte[] png = cache.get(key);
+        if (png != null) return png;
+        try {
+            png = draw.get();
+        } catch (RuntimeException e) {
+            return null;
+        }
+        if (png != null) cache.put(key, png);
+        return png;
     }
 }

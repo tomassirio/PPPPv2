@@ -66,7 +66,7 @@ final class GenOnePic {
         return encode(img);
     }
 
-    private static byte[] encode(BufferedImage img) {
+    static byte[] encode(BufferedImage img) {
         var out = new ByteArrayOutputStream();
         try {
             ImageIO.write(img, "png", out);
@@ -77,7 +77,7 @@ final class GenOnePic {
     }
 
     /** Colour-0 pixels connected to the border: the background, drawn transparent. */
-    private static boolean[][] outside(int[][] px) {
+    static boolean[][] outside(int[][] px) {
         int h = px.length, w = px[0].length;
         boolean[][] out = new boolean[h][w];
         java.util.ArrayDeque<int[]> todo = new java.util.ArrayDeque<>();

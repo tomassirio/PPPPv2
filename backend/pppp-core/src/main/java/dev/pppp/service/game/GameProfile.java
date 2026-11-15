@@ -42,6 +42,11 @@ public interface GameProfile<S> {
         return null;
     }
 
+    /** PNG of the badge at that index of {@link GameSummary#badges()}, or null (no art in the ROM). Request threads. */
+    default byte[] badge(int index) {
+        return null;
+    }
+
     /** PNG sprite sheet of the player walking around, or null. Called from request threads. */
     default byte[] playerSprite() {
         return null;

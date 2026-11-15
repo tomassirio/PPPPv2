@@ -41,6 +41,12 @@ class GameController {
         return png(tracker.icon(CurrentUser.id(auth), id), "No icon " + id);
     }
 
+    /** A badge of the caller's game by its index in the summary's badges, drawn from their ROM (404: no art there). */
+    @GetMapping("/game/badges/{index}.png")
+    ResponseEntity<byte[]> badge(@PathVariable int index, Authentication auth) {
+        return png(tracker.badge(CurrentUser.id(auth), index), "No badge art " + index);
+    }
+
     /** Private cache: the same URL is another picture for a player with another game. */
     private static ResponseEntity<byte[]> png(byte[] png, String missing) {
         if (png == null) throw new NotFoundException(missing);

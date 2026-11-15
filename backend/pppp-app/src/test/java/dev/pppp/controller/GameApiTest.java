@@ -55,6 +55,7 @@ class GameApiTest {
     void noGameDataBeforeAPickOrForACartridgeWithoutAProfile() throws Exception {
         mvc.perform(get("/api/v1/game/state")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/game/icons/25.png")).andExpect(status().isUnauthorized()); // sprites are per player now
+        mvc.perform(get("/api/v1/game/badges/0.png")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/game/state").with(PIB)).andExpect(status().isNoContent()); // nothing picked
 
         mvc.perform(put("/api/v1/me/game").with(PIB).with(csrf()).contentType(MediaType.APPLICATION_JSON)
@@ -63,6 +64,7 @@ class GameApiTest {
         mvc.perform(get("/api/v1/game/state").with(PIB)).andExpect(status().isNoContent());
         mvc.perform(get("/api/v1/game/icons/25.png").with(PIB)).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/game/icons/player.png").with(PIB)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/game/badges/0.png").with(PIB)).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/game-events").with(PIB)).andExpect(status().isNotFound()); // v1's shared history is gone
     }
 
