@@ -1,4 +1,4 @@
-// The Konami code on /play: the player's own presses (taps or keys, not held-walk repeats) are matched here.
+// The Konami code on /play: the player's own presses (each key or finger going down once) are matched here.
 const CODE = ['up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'b', 'a'];
 let typed: string[] = [];
 

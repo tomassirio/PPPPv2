@@ -1,8 +1,11 @@
-<!-- D-pad, A/B, Start/Select. Click/tap/keyboard -> POST /api/v1/me/inputs (the player's own console). Keys: arrows
+<!-- D-pad, A/B, Start/Select. Keys and fingers hold buttons down on the player's own console over /ws/input
+     (#lib/input.ts) until let go; a click without a pointer, or a closed socket, sends one press (POST /me/inputs). Keys: arrows
      with Z=A, X=B, or WASD with K=A, J=B (picked in the keyboard card); Enter=Start, Shift/Backspace=Select. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
-	import { afterArrowRelease, keyToButton, KEY_LABELS, type Button } from '#lib/play.ts';
+	import { keyToButton, KEY_LABELS, type Button } from '#lib/play.ts';
+	import { sendKey, useInput } from '#lib/input.ts';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { keys, setKeyScheme } from '#lib/keys.svelte.ts';
 	import { shellVars } from '#lib/shells.ts';
 	import { currentShell } from '#lib/shell.svelte.ts';
@@ -24,96 +27,52 @@
 		statusTimer = setTimeout(() => (status = ''), 3000);
 	}
 
-	let inFlight = false;
-
-	/** walk: a held direction, pressed by the server long enough to chain steps (see PlayerConsoles.press). */
-	async function send(command: string, walk = false) {
-		if (!walk) konamiPress(command);
-		inFlight = true;
+	/** One press (held a few frames, then released): the fallback when the input socket is not open. */
+	async function send(command: string) {
 		try {
-			await api('POST', '/me/inputs', walk ? { command, repeat: 1, walk } : { command, repeat: 1 });
+			await api('POST', '/me/inputs', { command, repeat: 1 });
 		} catch (e) {
 			if (!(e instanceof ApiError)) return say('Network error, try again');
 			say(e.status === 400 ? e.detail : `Not sent: ${e.detail}`);
-		} finally {
-			inFlight = false;
 		}
 	}
-
-	/** The button the keyboard is holding, drawn pressed like a click or tap. */
-	let held = $state<Button | null>(null);
-	let heldTimer: ReturnType<typeof setTimeout> | undefined;
 
 	/*
-	 * Held direction: a tap first (turn, or one tile when already facing that way, as in the game); if still held
-	 * after WALK_AFTER_MS, walk presses every WALK_MS. The server holds those a bit longer than a step with no
-	 * release, so they chain into smooth walking. One press in flight at a time. The browser's own key
-	 * auto-repeat is ignored.
+	 * Held buttons: a key or a finger stays down on the Game Boy until it lets go (sendKey over /ws/input), so
+	 * holding a direction walks smoothly. Taps that come as clicks without a pointer (Enter or Space on a focused
+	 * pad button) go out as a single press instead.
 	 */
-	const WALK_AFTER_MS = 180;
-	const WALK_MS = 320;
-	const ARROWS: Button[] = ['up', 'down', 'left', 'right'];
-	let repeating: Button | null = null;
-	let repeatTimer: ReturnType<typeof setTimeout> | undefined;
-	/** Arrow keys currently down, oldest first: releasing the newest goes back to walking the previous one. */
-	let heldArrows: Button[] = [];
+	const down = new SvelteSet<Button>();
+	$effect(() => useInput());
 
-	function startRepeat(b: Button, delay = WALK_AFTER_MS) {
-		stopRepeat();
-		repeating = b;
-		const tick = () => {
-			if (repeating !== b) return;
-			if (!inFlight) send(b, true);
-			repeatTimer = setTimeout(tick, WALK_MS);
-		};
-		repeatTimer = setTimeout(tick, delay);
+	function press(b: Button) {
+		if (down.has(b)) return;
+		down.add(b);
+		konamiPress(b);
+		if (!sendKey(b, true)) send(b); // socket not open yet: at least a tap
 	}
 
-	function stopRepeat() {
-		clearTimeout(repeatTimer);
-		repeating = null;
+	function release(b: Button) {
+		if (!down.delete(b)) return;
+		sendKey(b, false);
 	}
 
-	$effect(() => stopRepeat); // leaving the page
+	function releaseAll() {
+		for (const b of [...down]) release(b);
+	}
+	$effect(() => releaseAll); // leaving the page
 
 	function onkeydown(e: KeyboardEvent) {
-		const b = keyToButton(e, keys.scheme);
-		if (!b) {
-			if (e.repeat && repeating) e.preventDefault(); // auto-repeat of the held arrow: no page scroll
-			return;
-		}
-		e.preventDefault();
-		held = b;
-		clearTimeout(heldTimer);
-		const walking = repeating !== null; // already walking: a new direction walks straight away
-		if (ARROWS.includes(b)) heldArrows = [...heldArrows.filter((x) => x !== b), b];
-		if (ARROWS.includes(b)) {
-			if (walking) startRepeat(b, 0);
-			else {
-				send(b);
-				startRepeat(b);
-			}
-		} else {
-			send(b);
-			heldTimer = setTimeout(() => (held = null), 1000); // in case the keyup never arrives (focus lost)
-		}
+		const b = keyToButton({ key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, target: e.target }, keys.scheme);
+		if (!b) return;
+		e.preventDefault(); // no page scroll, also for the browser's auto-repeat of a held key
+		if (!e.repeat) press(b);
 	}
 
 	function onkeyup(e: KeyboardEvent) {
-		if (e.key.startsWith('Arrow')) {
-			const b = e.key.slice(5).toLowerCase() as Button;
-			heldArrows = heldArrows.filter((x) => x !== b);
-			const next = afterArrowRelease(heldArrows, repeating, b);
-			if (next === 'keep') return; // let go of an arrow already switched away from: keep walking
-			if (next) {
-				startRepeat(next, 0); // still holding another arrow: keep walking that way
-				held = next;
-				return;
-			}
-			if (repeating) stopRepeat(); // even if focus moved into a text field meanwhile
-		}
-		clearTimeout(heldTimer);
-		heldTimer = setTimeout(() => (held = null), 120); // a quick tap still shows
+		// Let go even if focus moved into a text field meanwhile.
+		const b = keyToButton({ key: e.key }, keys.scheme);
+		if (b) release(b);
 	}
 
 	/** A short buzz for touch presses (Android; ignored where unsupported, e.g. iPhone). */
@@ -121,32 +80,10 @@
 		if ((e as PointerEvent).pointerType === 'touch') navigator.vibrate?.(12);
 	}
 
-	function tap(e: MouseEvent, b: Button) {
-		buzz(e);
-		send(b);
-	}
-
-	/* D-pad by pointer: the press goes out on touch-down; holding repeats like a held arrow key.
-	   Keyboard activation of the focused button still arrives as a click with detail 0. */
-	function pressDir(e: PointerEvent, b: Button) {
+	function pointerDown(e: PointerEvent, b: Button) {
 		if (e.button !== 0) return;
 		buzz(e);
-		held = b;
-		send(b);
-		startRepeat(b);
-	}
-
-	function releaseDir() {
-		if (held && ARROWS.includes(held)) {
-			stopRepeat();
-			held = null;
-		}
-	}
-
-	function onblur() {
-		heldArrows = [];
-		stopRepeat();
-		held = null;
+		press(b);
 	}
 
 	const dpad: { b: Button; label: string; path: string; area: string; key: string }[] = [
@@ -157,7 +94,7 @@
 	];
 </script>
 
-<svelte:window {onkeydown} {onkeyup} {onblur} />
+<svelte:window {onkeydown} {onkeyup} onblur={releaseAll} />
 
 <div class="shell" style={vars}>
 	<div class="picker-corner"><ShellPicker /></div>
@@ -168,14 +105,14 @@
 				<button
 					type="button"
 					class="dir"
-					class:held={held === d.b}
+					class:held={down.has(d.b)}
 					style:grid-area={d.area}
 					aria-label={d.label}
 					aria-keyshortcuts={KEY_LABELS[keys.scheme][d.b]}
-					onpointerdown={(e) => pressDir(e, d.b)}
-					onpointerup={releaseDir}
-					onpointercancel={releaseDir}
-					onpointerleave={releaseDir}
+					onpointerdown={(e) => pointerDown(e, d.b)}
+					onpointerup={() => release(d.b)}
+					onpointercancel={() => release(d.b)}
+					onpointerleave={() => release(d.b)}
 					oncontextmenu={(e) => e.preventDefault()}
 					onclick={(e) => e.detail === 0 && send(d.b)}
 				>
@@ -195,19 +132,39 @@
 			<div class="hub"></div>
 		</div>
 		<div class="ab">
-			<button type="button" class="round pixel b" class:held={held === 'b'} aria-label="B button" aria-keyshortcuts={KEY_LABELS[keys.scheme].b} onclick={(e) => tap(e, 'b')}
+			<button type="button" class="round pixel b" class:held={down.has('b')} aria-label="B button" aria-keyshortcuts={KEY_LABELS[keys.scheme].b} onpointerdown={(e) => pointerDown(e, 'b')}
+			onpointerup={() => release('b')}
+			onpointercancel={() => release('b')}
+			onpointerleave={() => release('b')}
+			oncontextmenu={(e) => e.preventDefault()}
+			onclick={(e) => e.detail === 0 && send('b')}
 				>B</button
 			>
-			<button type="button" class="round pixel" class:held={held === 'a'} aria-label="A button" aria-keyshortcuts={KEY_LABELS[keys.scheme].a} onclick={(e) => tap(e, 'a')}
+			<button type="button" class="round pixel" class:held={down.has('a')} aria-label="A button" aria-keyshortcuts={KEY_LABELS[keys.scheme].a} onpointerdown={(e) => pointerDown(e, 'a')}
+			onpointerup={() => release('a')}
+			onpointercancel={() => release('a')}
+			onpointerleave={() => release('a')}
+			oncontextmenu={(e) => e.preventDefault()}
+			onclick={(e) => e.detail === 0 && send('a')}
 				>A</button
 			>
 		</div>
 	</div>
 	<div class="meta">
-		<button type="button" class="pill" class:held={held === 'select'} aria-label="Select" aria-keyshortcuts="Shift" onclick={(e) => tap(e, 'select')}
+		<button type="button" class="pill" class:held={down.has('select')} aria-label="Select" aria-keyshortcuts="Shift" onpointerdown={(e) => pointerDown(e, 'select')}
+			onpointerup={() => release('select')}
+			onpointercancel={() => release('select')}
+			onpointerleave={() => release('select')}
+			oncontextmenu={(e) => e.preventDefault()}
+			onclick={(e) => e.detail === 0 && send('select')}
 			>SELECT</button
 		>
-		<button type="button" class="pill" class:held={held === 'start'} aria-label="Start" aria-keyshortcuts="Enter" onclick={(e) => tap(e, 'start')}
+		<button type="button" class="pill" class:held={down.has('start')} aria-label="Start" aria-keyshortcuts="Enter" onpointerdown={(e) => pointerDown(e, 'start')}
+			onpointerup={() => release('start')}
+			onpointercancel={() => release('start')}
+			onpointerleave={() => release('start')}
+			oncontextmenu={(e) => e.preventDefault()}
+			onclick={(e) => e.detail === 0 && send('start')}
 			>START</button
 		>
 	</div>

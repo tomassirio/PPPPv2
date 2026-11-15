@@ -2,14 +2,12 @@ package dev.pppp.service;
 
 import dev.pppp.emulator.Button;
 import dev.pppp.emulator.EmulatorHost;
-import dev.pppp.model.Settings;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,14 +32,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class PlayerConsoles {
     private static final Logger log = LoggerFactory.getLogger(PlayerConsoles.class);
-    private static final Set<Button> DIRECTIONS = EnumSet.of(Button.UP, Button.DOWN, Button.LEFT, Button.RIGHT);
     /** Commands waiting behind the one being pressed; more are dropped, so a held key cannot build a backlog. */
     private static final int MAX_PENDING = 3;
-    /**
-     * A held direction: a bit longer than one 16-frame walking step and no release, so back-to-back walk presses
-     * keep the button down at every step boundary and the player walks smoothly instead of stop-and-go.
-     */
-    static final int WALK_FRAMES = 20;
+    /** A tap (a click, or Enter on a focused pad button): held this long, then released this long, in frames. */
+    private static final int TAP_HOLD = 6, TAP_RELEASE = 2;
 
     private record Console(EmulatorHost host, String cartridgeId, ExecutorService presses, AtomicInteger pending) {}
 
@@ -54,14 +48,11 @@ public class PlayerConsoles {
     private final PlayerRepository players;
     private final CartridgeService cartridges;
     private final CartridgeRepository files;
-    private final SettingsService settings;
 
-    public PlayerConsoles(PlayerRepository players, CartridgeService cartridges, CartridgeRepository files,
-                          SettingsService settings) {
+    public PlayerConsoles(PlayerRepository players, CartridgeService cartridges, CartridgeRepository files) {
         this.players = players;
         this.cartridges = cartridges;
         this.files = files;
-        this.settings = settings;
     }
 
     /** The player's cartridge id, or null before they picked. */
@@ -95,6 +86,7 @@ public class PlayerConsoles {
                 log.warn("Idle listener failed for {}", userId, e);
             }
         }
+        releaseAll(userId);
         unlink(userId); // before pausing: a paused driver would freeze the other player's console too
         consoles.computeIfPresent(userId, (id, c) -> {
             c.host().pause();
@@ -113,23 +105,18 @@ public class PlayerConsoles {
     }
 
     /**
-     * Presses buttons on the player's own console, after whatever they pressed before. command and repeat as in
-     * CommandParser; walk holds a single direction long enough to chain steps.
+     * Taps buttons on the player's own console (each held TAP_HOLD frames), after whatever they tapped before.
+     * command and repeat as in CommandParser. Held keys go through {@link #hold} instead.
      */
-    public void press(String userId, String command, int repeat, boolean walk) {
+    public void press(String userId, String command, int repeat) {
         Console c = consoles.get(userId);
         if (c == null) throw new IllegalStateException("Your console is not running");
         List<Button> steps = CommandParser.parse(command, repeat);
-        if (walk && (steps.size() != 1 || !DIRECTIONS.contains(steps.getFirst()))) {
-            throw new IllegalArgumentException("walk is only for a single direction");
-        }
         if (c.pending().get() > MAX_PENDING) return;
         c.pending().incrementAndGet();
         c.presses().execute(() -> {
             try {
-                Settings.Input s = settings.input();
-                if (walk) c.host().press(steps.getFirst(), WALK_FRAMES, 0);
-                else for (Button b : steps) c.host().press(b, s.holdFrames(), s.releaseFrames());
+                for (Button b : steps) c.host().press(b, TAP_HOLD, TAP_RELEASE);
             } catch (RuntimeException e) {
                 log.debug("Press dropped for {}: {}", userId, e.getMessage());
             } finally {
@@ -137,6 +124,19 @@ public class PlayerConsoles {
             }
         });
     }
+
+    /** Holds or lets go of a button on the player's own console, like a finger on it. No-op without a console. */
+    public void hold(String userId, Button button, boolean down) {
+        Console c = consoles.get(userId);
+        if (c != null) c.host().hold(button, down);
+    }
+
+    /** Lets go of every button the player holds (their input socket closed or their window lost focus). */
+    public void releaseAll(String userId) {
+        Console c = consoles.get(userId);
+        if (c != null) c.host().releaseAll();
+    }
+
 
     /** Called with the player's id when they leave, before their console pauses. */
     public void onIdle(Consumer<String> listener) {

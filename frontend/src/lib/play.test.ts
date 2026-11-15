@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, afterArrowRelease, ago, backoff, hue, keyToButton, ordinal, playerStatus } from './play';
+import { activityText, ago, backoff, hue, keyToButton, ordinal, playerStatus } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -37,19 +37,6 @@ describe('shells', () => {
 		expect(SHELLS[0].id).toBe('original');
 		expect(new Set(SHELLS.map((s) => s.id)).size).toBe(SHELLS.length);
 		expect(shellVars(SHELLS[0])).toContain('--ab:#bc4b51');
-	});
-});
-
-describe('walking with held arrows', () => {
-	it('keeps walking the new direction when the old arrow is let go', () => {
-		// holding UP, pressed LEFT (now walking LEFT), then UP goes up
-		expect(afterArrowRelease(['left'], 'left', 'up')).toBe('keep');
-	});
-	it('goes back to the arrow still held when the walked one is let go', () => {
-		expect(afterArrowRelease(['up'], 'left', 'left')).toBe('up');
-	});
-	it('stops when nothing is held', () => {
-		expect(afterArrowRelease([], 'left', 'left')).toBeNull();
 	});
 });
 

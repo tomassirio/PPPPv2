@@ -83,7 +83,6 @@ class PlayerApiTest {
         consoles.open("pib@x.y"); // what connecting /ws/screen does
         mvc.perform(json(post("/api/v1/me/inputs"), "{\"command\":\"a\"}")).andExpect(status().isAccepted());
         mvc.perform(json(post("/api/v1/me/inputs"), "{\"command\":\"jump\"}")).andExpect(status().isBadRequest());
-        mvc.perform(json(post("/api/v1/me/inputs"), "{\"command\":\"a\",\"walk\":true}")).andExpect(status().isBadRequest());
 
         mvc.perform(get("/api/v1/me/game").with(PIB)).andExpect(jsonPath("$.speed").value(1.0));
         mvc.perform(json(put("/api/v1/me/speed"), "{\"speed\":3}")).andExpect(status().isBadRequest());

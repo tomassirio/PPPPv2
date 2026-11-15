@@ -18,12 +18,15 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -83,6 +86,14 @@ public class EmulatorHost {
     private long frame;
     private final int[] pixels = new int[PIXELS];
     private Press press;
+    /**
+     * Buttons held down from outside (a key or a finger on the pad) -> the frame they first counted on, or -1 until
+     * the next frame starts. A release waits until the button has counted for MIN_HOLD_FRAMES, so a tap shorter
+     * than a frame is still seen by the game.
+     */
+    private final Map<eu.rekawek.coffeegb.core.joypad.Button, Long> held = new ConcurrentHashMap<>();
+    private final Set<eu.rekawek.coffeegb.core.joypad.Button> releasing = ConcurrentHashMap.newKeySet();
+    private static final int MIN_HOLD_FRAMES = 3;
     private StereoPcmConverter pcm;
     private byte[] pcmBytes = new byte[0];
 
@@ -231,6 +242,26 @@ public class EmulatorHost {
 
     public synchronized Status status() {
         return new Status(thread == null ? Power.OFF : Power.ON, cartridgeId, paused, speed);
+    }
+
+    /**
+     * Holds a button down until {@link #hold}(button, false) or {@link #releaseAll}, like a finger on it. Any thread;
+     * takes effect from the next frame. WAIT is ignored.
+     */
+    public void hold(Button button, boolean down) {
+        if (button == Button.WAIT) return;
+        var b = eu.rekawek.coffeegb.core.joypad.Button.valueOf(button.name());
+        if (down) {
+            releasing.remove(b);
+            held.putIfAbsent(b, -1L);
+        } else if (held.containsKey(b)) {
+            releasing.add(b);
+        }
+    }
+
+    /** Lets go of every held button (the player left, or their keys lost focus). */
+    public void releaseAll() {
+        releasing.addAll(held.keySet());
     }
 
     /** Holds the button for holdFrames, releases for releaseFrames, blocking the caller until done. Console must be ON. */
@@ -410,9 +441,24 @@ public class EmulatorHost {
     }
 
     private void beginFrame() {
+        held.replaceAll((b, since) -> since < 0 ? frame : since);
+        for (var b : releasing) {
+            Long since = held.get(b);
+            if (since == null || frame - since >= MIN_HOLD_FRAMES) {
+                held.remove(b);
+                releasing.remove(b);
+            }
+        }
         Press p = press;
-        if (p != null && p.frames == 0 && p.button != null && p.hold > 0) gb.setPressedButtons(Set.of(p.button));
+        Set<eu.rekawek.coffeegb.core.joypad.Button> down = new HashSet<>(held.keySet());
+        if (p != null && p.button != null && p.frames < p.hold) down.add(p.button);
+        if (!down.equals(pressed)) {
+            gb.setPressedButtons(Set.copyOf(down));
+            pressed = down;
+        }
     }
+
+    private Set<eu.rekawek.coffeegb.core.joypad.Button> pressed = Set.of();
 
     private void endFrame() {
         Press p = press;
@@ -428,7 +474,6 @@ public class EmulatorHost {
         }
         if (p != null) {
             p.frames++;
-            if (p.frames == p.hold) gb.setPressedButtons(Set.of());
             if (p.frames >= p.hold + p.release) {
                 press = null;
                 p.done.complete(null);
@@ -437,6 +482,7 @@ public class EmulatorHost {
     }
 
     private void startMachine() {
+        pressed = Set.of(); // a new machine starts with nothing pressed; the next frame applies what is held
         bus = new EventBusImpl(null, "pppp", false);
         pcm = new StereoPcmConverter(AUDIO_SAMPLE_RATE);
         bus.register(this::sound, Sound.SoundSampleEvent.class);

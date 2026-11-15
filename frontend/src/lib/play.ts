@@ -57,16 +57,6 @@ export const backoff = (attempt: number) => Math.min(30_000, 500 * 2 ** attempt)
 /** User ids are e-mails; show the local part. */
 export const shortUser = (id: string) => id.split('@')[0];
 
-/**
- * Walking with held arrows: after `released` goes up, what to walk next. `still` = arrows still held, oldest
- * first; `walking` = the direction being walked. Returns 'keep' (releasing an arrow already switched away from),
- * another direction to walk, or null to stop.
- */
-export function afterArrowRelease(still: Button[], walking: Button | null, released: Button): Button | 'keep' | null {
-	if (walking && walking !== released) return 'keep';
-	return still.at(-1) ?? null;
-}
-
 /** Shapes from ScoreRow / ScoreEvent (GET /scoreboard, /activity; SCOREBOARD_CHANGED, PROGRESS). */
 /** Ranked by trainerScore (0–1000), achievementPoints breaking ties; points is the older per-step tally. */
 export type ScoreRow = {

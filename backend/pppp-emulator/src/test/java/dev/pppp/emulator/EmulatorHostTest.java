@@ -87,6 +87,33 @@ class EmulatorHostTest {
     }
 
     @Test
+    void aHeldButtonStaysDownUntilReleasedAndAQuickTapStillCounts() throws Exception {
+        host.insert("test", TestRom.write(dir), dir.resolve("test.sav"));
+        host.powerOn();
+        host.setSpeed(4.0);
+        host.press(Button.WAIT, 30, 0); // past the boot ROM
+        int before = host.readByte(0xC001);
+
+        host.hold(Button.A, true);
+        host.press(Button.WAIT, 20, 0);
+        assertThat(host.readByte(0xC000)).isEqualTo(1); // still held after 20 frames
+        assertThat(host.readByte(0xC001)).isEqualTo((before + 1) & 0xFF); // one press, not a stutter of them
+        host.hold(Button.A, false);
+        host.press(Button.WAIT, 6, 0);
+        assertThat(host.readByte(0xC000)).isZero();
+
+        host.hold(Button.A, true); // down and up before any frame ran
+        host.hold(Button.A, false);
+        host.press(Button.WAIT, 8, 0);
+        assertThat(host.readByte(0xC001)).isEqualTo((before + 2) & 0xFF);
+
+        host.hold(Button.A, true);
+        host.releaseAll();
+        host.press(Button.WAIT, 8, 0);
+        assertThat(host.readByte(0xC000)).isZero();
+    }
+
+    @Test
     void producesFramesUnlessPaused() throws Exception {
         var frames = new ArrayBlockingQueue<int[]>(100);
         host.onFrame(frames::offer);

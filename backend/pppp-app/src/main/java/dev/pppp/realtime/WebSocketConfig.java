@@ -11,15 +11,18 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 class WebSocketConfig implements WebSocketConfigurer {
     private final ScreenWebSocketHandler screen;
     private final AudioWebSocketHandler audio;
+    private final InputWebSocketHandler input;
 
-    WebSocketConfig(ScreenWebSocketHandler screen, AudioWebSocketHandler audio) {
+    WebSocketConfig(ScreenWebSocketHandler screen, AudioWebSocketHandler audio, InputWebSocketHandler input) {
         this.screen = screen;
         this.audio = audio;
+        this.input = input;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(screen, "/ws/screen");
         registry.addHandler(audio, "/ws/audio");
+        registry.addHandler(input, "/ws/input");
     }
 }

@@ -68,7 +68,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   - `pppp-core`: `model`, `exception`, `service`, `repository`, `job`, `config` — business logic. No web dependencies; Redis access only in `repository`.
   - `pppp-app`: `controller` (+ `ApiExceptionHandler`), `security`, `realtime` (SSE, screen WebSocket), `config`, `PpppApplication`.
   - Dependencies point one way: app -> core -> emulator.
-- Build/test: `cd backend && mvn -q test`. Run: `mvn -q package -DskipTests && java -jar pppp-app/target/pppp-app-*.jar` with the repo-root `.env` exported (`set -a; . ../.env; set +a`). Integration tests live in pppp-app: `@SpringBootTest @DirtiesContext @AutoConfigureMockMvc @Import(TestRedis.class)` (Testcontainers Redis; Docker required). `@DirtiesContext` gives each class its own context and Redis: shared contexts leak settings and consoles between classes.
+- Build/test: `cd backend && mvn -q test`. Run: `mvn -q package -DskipTests && java -jar pppp-app/target/pppp-app-*.jar` with the repo-root `.env` exported (`set -a; . ../.env; set +a`). Integration tests live in pppp-app: `@SpringBootTest @DirtiesContext @AutoConfigureMockMvc @Import(TestRedis.class)` (Testcontainers Redis; Docker required). `@DirtiesContext` gives each class its own context and Redis: shared contexts leak consoles and Redis state between classes.
 - Auth in tests: `.with(user("x@y.z").roles("PLAYER"))` or `oidcLogin()`; mutating calls need `.with(csrf())`.
 - Emulator: Coffee GB, `eu.rekawek.coffeegb:core` from Maven Central.
 
@@ -76,7 +76,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - User id = lower-cased email: `CurrentUser.id(authentication)`.
 - Errors: services throw domain exceptions, `ApiExceptionHandler` alone maps them to ProblemDetail: IllegalArgumentException 400, ForbiddenException 403, NotFoundException 404, IllegalStateException 409, RateLimitedException 429 (chat).
 - Live events to browsers: services publish `new LiveEvent(type, payload)` via `ApplicationEventPublisher`; `LiveEventRelay` forwards to SSE (`/api/v1/events`).
-- Settings: `SettingsService` (Redis JSON, publishes the new record as an ApplicationEvent on save). Admin GET/PUT under `/api/v1/admin/settings/input` (holdFrames, releaseFrames), the only setting left.
+- Input: keys and pad buttons go down and up over `/ws/input` ("down UP" / "up UP", `InputWebSocketHandler` -> `PlayerConsoles.hold` -> `EmulatorHost.hold`), so a held key stays held on the Game Boy; closing the socket or leaving lets go of everything. `POST /api/v1/me/inputs` is only the fallback single tap. No admin input settings.
 - Admin actions announce themselves via `ChatService.postSystem(text)`.
 - Redis keys follow the design doc's key layout table exactly.
 - Keep it small: no interfaces with one implementation, no speculative config.

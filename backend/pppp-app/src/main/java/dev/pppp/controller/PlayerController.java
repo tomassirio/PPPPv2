@@ -23,7 +23,7 @@ public class PlayerController {
     public record MyGame(String game, List<Cartridge> available, Double speed) {}
     public record Speed(double speed) {}
     public record Pick(String cartridgeId) {}
-    public record InputRequest(String command, Integer repeat, Boolean walk) {}
+    public record InputRequest(String command, Integer repeat) {}
 
     private final PlayerConsoles consoles;
     private final CartridgeService cartridges;
@@ -57,8 +57,7 @@ public class PlayerController {
 
     @PostMapping("/api/v1/me/inputs")
     public ResponseEntity<Void> press(@RequestBody InputRequest req, Authentication auth) {
-        consoles.press(CurrentUser.id(auth), req.command(), req.repeat() == null ? 1 : req.repeat(),
-                Boolean.TRUE.equals(req.walk()));
+        consoles.press(CurrentUser.id(auth), req.command(), req.repeat() == null ? 1 : req.repeat());
         return ResponseEntity.accepted().build();
     }
 
