@@ -2,6 +2,7 @@
      playing / offline) · where they are, their party's icons, and score + grade; the signed-in player's row
      highlighted. Each row opens that Pib's profile. Then "Full scoreboard" and the "Latest" feed. Rows from board.svelte.ts. -->
 <script lang="ts">
+	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
@@ -40,7 +41,7 @@
 						</span>
 						<span class="score">
 							<span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span>
-							<span class="grade pixel">{r.grade}</span>
+							<GradeChip grade={r.grade} rating={r.trainerScore} />
 						</span>
 					</a>
 				</li>
@@ -114,8 +115,7 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.you-tag,
-	.grade {
+	.you-tag {
 		flex: none;
 		padding: 3px 6px;
 		border-radius: 4px;
@@ -123,10 +123,6 @@
 		color: var(--accent-text);
 		font-size: 11px;
 		font-weight: 600;
-	}
-	.grade {
-		font-size: 9px;
-		text-align: center;
 	}
 	.status {
 		font-size: 12px;

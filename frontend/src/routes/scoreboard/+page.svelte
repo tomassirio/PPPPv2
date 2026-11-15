@@ -2,6 +2,7 @@
      (rank, avatar, name, status · where · game, party, badges, Pokédex, Trainer Score), filtered by version and sorted
      by a column. Rows open the Pib's profile. Live from board.svelte.ts. -->
 <script lang="ts">
+	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
@@ -58,7 +59,7 @@
 					<a class="card pod" class:first={i === 0} href={href(r.userId)}>
 						<span class="between">
 							<span class="place pixel">{i + 1}</span>
-							<span><span class="pts big">{score(r)}</span> <span class="grade pixel">{r.grade}</span></span>
+							<span><span class="pts big">{score(r)}</span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
 						</span>
 						<span class="row">
 							<Avatar user={r.userId} size={44} />
@@ -100,7 +101,7 @@
 							<span class="small"><b>{r.caught}</b> <span class="muted">caught · {r.seen} seen</span></span>
 							<span class="bar"><b style:width="{(r.caught * 100) / 251}%"></b></span>
 						</span>
-						<span class="num"><span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span> <span class="grade pixel">{r.grade}</span></span>
+						<span class="num"><span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
 					</a>
 				{/each}
 			</div>
@@ -209,13 +210,6 @@
 	}
 	.pts.big {
 		font-size: 20px;
-	}
-	.grade {
-		padding: 3px 5px;
-		border-radius: 4px;
-		background: var(--accent-tint);
-		color: var(--accent-text);
-		font-size: 9px;
 	}
 	.chip {
 		display: inline-flex;

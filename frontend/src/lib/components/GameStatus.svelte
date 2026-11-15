@@ -5,6 +5,7 @@
      from src/lib/assets/badges, others (Gold/Silver/Crystal's Johto 8) drawn from the player's ROM by
      /api/v1/game/badges/{index}.png, a letter in a circle if that fails. Pips only for a profile without named badges. -->
 <script lang="ts">
+	import GradeChip from '#lib/components/GradeChip.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
 	import { hpColor, ordinal, score } from '#lib/play.ts';
@@ -71,7 +72,7 @@
 		<h2 id="run-h">Your run</h2>
 		{#if mine}
 			<span class="score"
-				><span class="pts">{score(mine)}<span class="sr-only"> points, grade</span></span> <span class="grade pixel">{mine.grade}</span>
+				><span class="pts">{score(mine)}<span class="sr-only"> points, grade</span></span> <GradeChip grade={mine.grade} rating={mine.trainerScore} />
 				<span class="muted">{ordinal(rank + 1)}</span></span
 			>
 		{/if}
@@ -206,13 +207,6 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-	}
-	.grade {
-		padding: 4px 6px;
-		border-radius: 4px;
-		background: var(--accent-tint);
-		color: var(--accent-text);
-		font-size: 9px;
 	}
 	.xs {
 		font-size: 12px;

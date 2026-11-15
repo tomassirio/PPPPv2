@@ -3,6 +3,7 @@
      status, moves), achievements, badges, stats and their recent feed. GET /players/{id}/profile, fetched again when
      their scoreboard row changes; an older backend without it gets the scoreboard row and achievement catalogue. -->
 <script lang="ts">
+	import GradeChip from '#lib/components/GradeChip.svelte';
 	import { page } from '$app/state';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -136,7 +137,7 @@
 				{/if}
 				<div class="col end tight">
 					<span class="pts big">{score(row)}<span class="sr-only"> points</span></span>
-					<span class="xs"><span class="grade pixel">{row.grade}</span> <span class="muted">{row.title}</span></span>
+					<span class="xs"><GradeChip grade={row.grade} rating={row.trainerScore} /> <span class="muted">{row.title}</span></span>
 				</div>
 				{#if !you}
 					<div class="col end tight">
@@ -444,13 +445,6 @@
 	}
 	.pts.big {
 		font-size: 26px;
-	}
-	.grade {
-		padding: 3px 5px;
-		border-radius: 4px;
-		background: var(--accent-tint);
-		color: var(--accent-text);
-		font-size: 9px;
 	}
 	.chip {
 		display: inline-flex;
