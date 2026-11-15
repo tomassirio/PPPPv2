@@ -5,10 +5,10 @@
      from src/lib/assets/badges, others (Gold/Silver/Crystal's Johto 8) drawn from the player's ROM by
      /api/v1/game/badges/{index}.png, a letter in a circle if that fails. Pips only for a profile without named badges. -->
 <script lang="ts">
-	import GradeChip from '#lib/components/GradeChip.svelte';
+	import RunSummary from '#lib/components/RunSummary.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
-	import { hpColor, score } from '#lib/play.ts';
+	import { hpColor } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 
@@ -73,29 +73,7 @@
 		{#if mine?.trainerName}<span class="trainer"><span class="muted xs">Trainer</span> <b class="pixel">{mine.trainerName}</b></span>{/if}
 	</div>
 	{#if mine}
-		<!-- Two ratings kept apart: uncapped points (and the rank they give), and the capped 0–1000 rating behind grade and title. -->
-		<div class="summary">
-			<div class="top">
-				<div class="figure">
-					<span class="big">{score(mine).toLocaleString('en')}</span>
-					<span class="unit">points</span>
-				</div>
-				<div class="place" class:first={rank === 0}>
-					<span class="pos pixel">#{rank + 1}</span>
-					<span class="unit">of {board.rows.length} {board.rows.length === 1 ? 'Pib' : 'Pibs'}</span>
-				</div>
-			</div>
-			<div class="rating">
-				<div class="grade-line">
-					<GradeChip grade={mine.grade} rating={mine.trainerScore} size={12} />
-					<b class="title">{mine.title}</b>
-					<span class="unit">{mine.trainerScore} / 1000</span>
-				</div>
-				<span class="meter" role="meter" aria-label="Trainer rating" aria-valuemin="0" aria-valuemax="1000" aria-valuenow={mine.trainerScore}
-					><b style:width="{Math.max(1, Math.min(100, mine.trainerScore / 10))}%"></b></span
-				>
-			</div>
-		</div>
+		<RunSummary row={mine} {rank} total={board.rows.length} />
 	{/if}
 	{#if party.length || mine}
 		<div class="line"><span class="muted">Party</span></div>
@@ -220,82 +198,6 @@
 	.trainer b {
 		font-size: 10px;
 		margin-left: 4px;
-	}
-	.summary {
-		border-radius: 12px;
-		background: var(--sunk);
-		border: 1px solid var(--border);
-		overflow: hidden;
-	}
-	.top {
-		display: flex;
-		align-items: stretch;
-		justify-content: space-between;
-		gap: 12px;
-		padding: 12px 14px;
-	}
-	.figure,
-	.place {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-		min-width: 0;
-	}
-	.place {
-		align-items: flex-end;
-		justify-content: center;
-	}
-	.big {
-		font-size: 30px;
-		font-weight: 800;
-		line-height: 1;
-		letter-spacing: -0.01em;
-		font-variant-numeric: tabular-nums;
-	}
-	.pos {
-		font-size: 18px;
-		line-height: 1.2;
-		color: var(--text);
-	}
-	.place.first .pos {
-		color: var(--accent-text);
-	}
-	.unit {
-		font-size: 12px;
-		color: var(--muted);
-		white-space: nowrap;
-	}
-	.rating {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		padding: 10px 14px 12px;
-		border-top: 1px solid var(--border);
-	}
-	.grade-line {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		min-width: 0;
-	}
-	.title {
-		flex: 1;
-		min-width: 0;
-		font-size: 14px;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.meter {
-		height: 6px;
-		border-radius: 3px;
-		background: var(--border);
-		overflow: hidden;
-	}
-	.meter b {
-		display: block;
-		height: 100%;
-		background: var(--accent);
 	}
 	.xs {
 		font-size: 12px;
@@ -503,9 +405,7 @@
 			padding: 16px;
 			gap: 12px;
 		}
-		.big {
-			font-size: 26px;
-		}
+
 		/* Compact on the Scores tab: Kanto's row only once it starts. */
 		.later {
 			display: none;

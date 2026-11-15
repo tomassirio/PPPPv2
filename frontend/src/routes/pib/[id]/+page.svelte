@@ -3,7 +3,7 @@
      status, moves), achievements, badges, stats and their recent feed. GET /players/{id}/profile, fetched again when
      their scoreboard row changes; an older backend without it gets the scoreboard row and achievement catalogue. -->
 <script lang="ts">
-	import GradeChip from '#lib/components/GradeChip.svelte';
+	import RunSummary from '#lib/components/RunSummary.svelte';
 	import { page } from '$app/state';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -30,7 +30,7 @@
 		versionOf,
 		type CatalogueEntry,
 		type Profile,
-		type ScoreRow, score } from '#lib/play.ts';
+		type ScoreRow } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -132,13 +132,7 @@
 				</div>
 			</div>
 			<div class="row numbers wrap">
-				{#if rank >= 0}
-					<div class="col end tight"><span class="pixel rank">#{rank + 1}</span><span class="muted xs">of {board.rows.length}</span></div>
-				{/if}
-				<div class="col end tight">
-					<span class="pts big">{score(row)}<span class="sr-only"> points</span></span>
-					<span class="xs"><GradeChip grade={row.grade} rating={row.trainerScore} /> <span class="muted">{row.title}</span></span>
-				</div>
+				{#if rank >= 0}<div class="summary-slot"><RunSummary {row} {rank} total={board.rows.length} /></div>{/if}
 				{#if !you}
 					<div class="col end tight">
 						<div class="row tight">
@@ -168,7 +162,6 @@
 			<div class="col">
 				<section class="card" aria-labelledby="party-h">
 					<div class="between"><h2 id="party-h">Party · {profile.party.length} of 6</h2><span class="muted xs">From {you ? 'your' : `${nameOf(id)}’s`} game</span></div>
-					{#if profile.party.length}
 						<ul class="mons">
 							{#each profile.party as m, i (i)}
 								{@const pct = m.maxHp ? Math.round(((m.hp ?? 0) * 100) / m.maxHp) : (row.party?.[i]?.hpPercent ?? null)}
@@ -182,7 +175,7 @@
 												<b>Egg</b>
 												<div class="muted xs">It's making sounds inside</div>
 											{:else}
-												<div class="between"><b class="ell">{m.nickname || m.name}</b><span class="xs">Lv {m.level}</span></div>
+												<div class="between"><b class="mname">{m.nickname || m.name}</b><span class="xs">Lv {m.level}</span></div>
 												<div class="muted xs ell">{m.nickname && m.nickname !== m.name ? `${m.name} · ` : ''}{m.item ?? 'No item'}</div>
 												{#if m.types.length || m.shiny}
 													<div class="types">
@@ -213,10 +206,10 @@
 									{/if}
 								</li>
 							{/each}
+							{#each Array(Math.max(0, 6 - profile.party.length)) as _, i (i)}
+								<li class="mcard empty" aria-hidden="true"><div class="row"><span class="mon"></span><span class="muted small">Empty</span></div></li>
+							{/each}
 						</ul>
-					{:else}
-						<p class="muted small">No party yet.</p>
-					{/if}
 				</section>
 
 				<section class="card" aria-labelledby="ach-h">
@@ -436,9 +429,6 @@
 	.numbers {
 		gap: 24px;
 	}
-	.rank {
-		font-size: 22px;
-	}
 	.pts {
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
@@ -511,6 +501,23 @@
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 12px;
 	}
+	/* Free party slots stay visible: six places, filled or not. */
+	.mcard.empty {
+		background: none;
+		border-style: dashed;
+		justify-content: center;
+	}
+	.mcard.empty .mon {
+		border-radius: 9px;
+		border: 1px dashed var(--border-strong);
+		box-sizing: border-box;
+	}
+	.mname {
+		white-space: nowrap; /* names and nicknames are 10 letters at most: shown whole */
+	}
+	.summary-slot {
+		width: min(340px, 100%);
+	}
 	.mcard {
 		border: 1px solid var(--border);
 		border-radius: 10px;
@@ -524,10 +531,13 @@
 	.mon {
 		position: relative;
 		flex: none;
+		display: grid; /* the sprite centred in its slot */
+		place-items: center;
 		width: 44px;
 		height: 44px;
 	}
 	.mon img {
+		display: block;
 		width: 100%;
 		height: 100%;
 		image-rendering: pixelated;
