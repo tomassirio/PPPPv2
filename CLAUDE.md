@@ -33,15 +33,33 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   read-only Players table (from the scoreboard).
 - Done: achievements and Trainer Score (design: https://claude.ai/artifact/GTd7t2WnQNqZzdwLdxngtJ). `PokemonGen2`
   reads a `Gen2Save` (party DVs/OT/types, bag + PC items, HMs, event flags, coins, Unown Dex, phone list, play time;
-  every address/flag cited from pret in comments). `ProgressTracker.record` unlocks `Achievements` (52, 9 marked
-  unimplemented with the reason; Hall of Fame / Red ones only on the observed moment) into
+  every address/flag cited from pret in comments). `ProgressTracker.record` unlocks `Achievements` (55 in 8 categories,
+  see below; Hall of Fame / Red ones only on the observed moment) into
   `pibs:achievements:{userId}` (id -> unlockedAt, never re-awarded) and rates the save with `TrainerScoring`
   (0-1000, title, grade; live, can drop) into `pibs:trainer:{userId}`. `PowerRating` is the design's 251-entry table.
   `pibs:scoreboard` now ranks by trainerScore x 10,000 + achievement points; `ScoreRow.points` is the older per-step
   tally, computed from `pibs:progress`. Feed types ACHIEVEMENT and TITLE; live `ACHIEVEMENT_UNLOCKED`
   {user, id, name, points, at}. `GET /api/v1/achievements`, `GET /api/v1/players/{userId}/achievements`.
-  `EmulatorHost.readBytes` returns null for D000-DFFF while a CGB game has another WRAM bank in. Boxes (SRAM),
-  Bug Contest, eggs hatched, Battle Tower are not read. No UI yet.
+  `EmulatorHost.readBytes` returns null for D000-DFFF while a CGB game has another WRAM bank in. No UI yet.
+- Done: the rest of the achievements. Rarity from points (1-3 common, 5 uncommon, 10 rare, 25 epic, 50 legendary);
+  a locked legendary is served `hidden: true` with name, description and note null (`Achievement.seenBy`) in
+  `/achievements`, `/players/{id}/achievements` and the profile (whose entries carry category, rarity, hidden).
+  Removed as untellable: Johto Complete (the New Pokédex lists all 251, so it would be 250 Club), Bug Champion, No
+  Shopping. Moments between two confirmed readings: Breeder (egg -> hatched in the same slot), Odd One (that, shiny,
+  knowing Dizzy Punch), Untouchable (Will's room to the Hall of Fame with no party member at 0 HP), trades (a new
+  OT+DVs in the party in TRADE_CENTER / TIME_CAPSULE). Kept in `pibs:history:{userId}` (JSON `TrainerLog`: phone
+  contacts ever seen, eggs hatched, link partners, trades, cross-version, the Elite Four run, link battle record);
+  `ProgressRepository.delete` (player reset) removes it. Battery save: `PlayerConsoles.batterySave` flushes Coffee
+  GB's cartridge RAM to `saves/{user}/{cartridge}.sav` (it is otherwise written only on power off/reset, so the file
+  is stale while the console runs) and reads it back, once a minute (every 5 s in the Battle Tower); a read counts
+  when two in a row agree. `PokemonGen2.sram` reads the PC boxes (sBox is the box wCurBox names; its own sBoxN is
+  stale; Gen 2 has no box in WRAM), sLinkBattleWins/Losses and Crystal's sBattleTowerChallengeState: Living History,
+  Link Champion, Tower Climber. Link achievements (category "Link"): Plugged In, First Trade, Trade Evolution,
+  Cross-Version, Link Champion, Social Butterfly; partners come from `PlayerConsoles.linkedWith` at each reading.
+  Profile `stats` adds {trades, linkWins, linkLosses}. Location: `ScoreRow.location` is "Landmark · Room" inside
+  (room from pret's map constants in `pokegold-maps.txt` / `pokecrystal-maps.txt`, keyed by game, group, number;
+  the map header's environment byte tells inside from out), the landmark outdoors, the room alone in the link rooms
+  and Pokémon Center 2F. `ScoreRow.trainerName` / `TrainerCard.trainerName` = wPlayerName.
 - Done: Gen 2 art from the player's ROM (`Gen2Pic`: pret's LZ, front pics padded to 56x56 as PadFrontpic, normal
   palette; Unown as A). `/api/v1/game/icons/{1-251}.png` and `/api/v1/game/badges/{index}.png` (the 8 Johto badges
   from the trainer card's BadgeGFX + PREDEFPAL_CGB_BADGE; the ROM has no Kanto badge art, so those use v1's

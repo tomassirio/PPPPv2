@@ -105,6 +105,7 @@ class PlayerApiTest {
         tracker.record(who, Progress.EMPTY, ScoreboardApiTest.save(0b1)); // achievements and a Trainer Score
         assertThat(redis.hasKey("pibs:achievements:" + who)).isTrue();
         assertThat(redis.hasKey("pibs:trainer:" + who)).isTrue();
+        redis.opsForValue().set("pibs:history:" + who, "{}"); // what the achievements remember
 
         mvc.perform(delete("/api/v1/admin/players/" + who).with(player).with(csrf())).andExpect(status().isForbidden());
         mvc.perform(delete("/api/v1/admin/players/" + who).with(ADMIN).with(csrf())).andExpect(status().isNoContent());

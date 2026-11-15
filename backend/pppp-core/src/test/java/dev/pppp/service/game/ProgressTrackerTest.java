@@ -65,6 +65,7 @@ class ProgressTrackerTest {
                 .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())).map(Map.Entry::getKey).toList());
         when(repo.achievements(any())).thenAnswer(i -> new HashMap<>(achieved.getOrDefault(i.<String>getArgument(0), Map.of())));
         when(repo.card(any())).thenReturn(TrainerCard.EMPTY);
+        when(repo.log(any())).thenReturn(dev.pppp.model.TrainerLog.EMPTY);
         when(repo.trainer(any())).thenAnswer(i -> trainers.getOrDefault(i.<String>getArgument(0), TrainerScore.ZERO));
         doAnswer(i -> {
             stored.put(i.getArgument(0), i.getArgument(1));
@@ -124,7 +125,7 @@ class ProgressTrackerTest {
                 "BADGE Thunder +100", "SEEN Pidgey +2", "LEVEL 10 +5", "LEVEL 20 +5");
         assertThat(ProgressTracker.points(stored.get(ASH))).isEqualTo(224);
         assertThat(published.getLast()).isEqualTo(new LiveEvent("SCOREBOARD_CHANGED", // Red has no Trainer Score
-                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true, 0, "Youngster", "F", 0, 0, List.of(), null, null, 0, 0))));
+                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true, 0, "Youngster", "F", 0, 0, List.of(), null, null, 0, 0, null))));
     }
 
     @Test

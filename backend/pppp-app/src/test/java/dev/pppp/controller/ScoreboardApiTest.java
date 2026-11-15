@@ -154,7 +154,7 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.trainer.score").value(0))
                 .andExpect(jsonPath("$.trainer.title").value("Youngster"))
                 .andExpect(jsonPath("$.points").value(0))
-                .andExpect(jsonPath("$.achievements.length()").value(52))
+                .andExpect(jsonPath("$.achievements.length()").value(55))
                 .andExpect(jsonPath("$.achievements[0].id").value("new-bark-beginnings"))
                 .andExpect(jsonPath("$.achievements[0].unlockedAt").doesNotExist());
         mvc.perform(get("/api/v1/players/ash@x.y/achievements").with(ash)).andExpect(status().isNotFound());
@@ -170,7 +170,12 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.achievements[0].points").value(1))
                 .andExpect(jsonPath("$.achievements[0].implemented").value(true))
                 .andExpect(jsonPath("$.achievements[?(@.id == 'plain-badge')].unlockedAt").value(org.hamcrest.Matchers.contains((Object) null)))
-                .andExpect(jsonPath("$.achievements[?(@.id == 'breeder')].implemented").value(org.hamcrest.Matchers.contains(false)));
+                .andExpect(jsonPath("$.achievements[0].rarity").value("common"))
+                .andExpect(jsonPath("$.achievements[0].hidden").value(false))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].hidden").value(org.hamcrest.Matchers.contains(true)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].name").value(org.hamcrest.Matchers.contains((Object) null)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].note").value(org.hamcrest.Matchers.contains((Object) null)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].rarity").value(org.hamcrest.Matchers.contains("legendary")));
         mvc.perform(get("/api/v1/players/Ash@x.y/achievements").with(user("misty@x.y").roles("PLAYER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value("ash@x.y"))
@@ -210,7 +215,7 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.party[0].moves[1]").value("Earthquake"))
                 .andExpect(jsonPath("$.party[0].types[1]").value("ground"))
                 .andExpect(jsonPath("$.party[1].nickname").doesNotExist())
-                .andExpect(jsonPath("$.achievements.length()").value(52))
+                .andExpect(jsonPath("$.achievements.length()").value(55))
                 .andExpect(jsonPath("$.achievements[0].id").value("new-bark-beginnings"))
                 .andExpect(jsonPath("$.achievements[0].unlocked").value(true))
                 .andExpect(jsonPath("$.achievements[0].progress").doesNotExist())
@@ -220,7 +225,9 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.stats.caught").value(1))
                 .andExpect(jsonPath("$.stats.seen").value(2))
                 .andExpect(jsonPath("$.stats.playTime").value("12:05"))
-                .andExpect(jsonPath("$.stats.trades").doesNotExist())
+                .andExpect(jsonPath("$.stats.trades").value(0))
+                .andExpect(jsonPath("$.stats.linkWins").value(0))
+                .andExpect(jsonPath("$.stats.linkLosses").value(0))
                 .andExpect(jsonPath("$.recent.length()").value(6)) // Onix caught, 2 seen, Lv 10, 2 achievements
                 .andExpect(jsonPath("$.recent[0].user").value("brock@x.y"))
                 .andExpect(jsonPath("$.recent[0].type").value("ACHIEVEMENT"))
@@ -228,5 +235,41 @@ class ScoreboardApiTest {
         assertThat(redis.opsForHash().keys("pibs:trainer:brock@x.y")).contains("card", "score");
         // A restarted backend reads the card back from Redis.
         assertThat(progressRepo.card("brock@x.y").party()).containsExactly(quagsire, egg);
+    }
+
+    @Test
+    @Order(4)
+    void aLockedLegendaryIsHiddenUntilUnlocked() throws Exception {
+        RequestPostProcessor misty = user("misty@x.y").roles("PLAYER");
+        // Inside Elm's lab, with the trainer's name: no Red beaten yet.
+        tracker.record("gold@x.y", Progress.EMPTY, new Gen2Save(1, 0xFF, 0, 1, false, true, false, false, new BitSet(),
+                new BitSet(), 0, List.of(), Set.of(), 0, 0, 0, 0, 40, 0, "New Bark Town · Elm's Lab", List.of(), "GOLD",
+                false, "ELMS_LAB", 0, Set.of(), List.of()));
+        mvc.perform(get("/api/v1/players/gold@x.y/profile").with(misty)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.row.trainerName").value("GOLD"))
+                .andExpect(jsonPath("$.row.location").value("New Bark Town · Elm's Lab"))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].hidden").value(org.hamcrest.Matchers.contains(true)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].name").value(org.hamcrest.Matchers.contains((Object) null)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].description").value(org.hamcrest.Matchers.contains((Object) null)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].points").value(org.hamcrest.Matchers.contains(50)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].category").value(org.hamcrest.Matchers.contains("Story")))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].rarity").value(org.hamcrest.Matchers.contains("legendary")))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].unlocked").value(org.hamcrest.Matchers.contains(false)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'champion-of-johto')].name").value(org.hamcrest.Matchers.contains("Champion of Johto")))
+                .andExpect(jsonPath("$.achievements[?(@.hidden == true)].id").value(org.hamcrest.Matchers.containsInAnyOrder(
+                        "the-silent-summit", "250-club", "living-history", "the-time-traveller", "full-house", "low-level")));
+        mvc.perform(get("/api/v1/players/gold@x.y/achievements").with(misty))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].name").value(org.hamcrest.Matchers.contains((Object) null)));
+
+        tracker.record("gold@x.y", Progress.EMPTY, new Gen2Save(1, 0xFF, 0, 1, true, true, false, false, new BitSet(),
+                new BitSet(), 0, List.of(), Set.of(), 0, 0, 0, 0, 41, 0, "Silver Cave · Room 3", List.of(), "GOLD",
+                false, "SILVER_CAVE_ROOM_3", 0, Set.of(), List.of()));
+        mvc.perform(get("/api/v1/players/gold@x.y/profile").with(misty)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].hidden").value(org.hamcrest.Matchers.contains(false)))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].name").value(org.hamcrest.Matchers.contains("The Silent Summit")))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].unlocked").value(org.hamcrest.Matchers.contains(true)));
+        mvc.perform(get("/api/v1/players/gold@x.y/achievements").with(misty))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].name").value(org.hamcrest.Matchers.contains("The Silent Summit")))
+                .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].note").isNotEmpty());
     }
 }

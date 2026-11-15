@@ -10,6 +10,7 @@ import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
 import dev.pppp.model.ScoreRow;
 import dev.pppp.model.TrainerCard;
+import dev.pppp.model.TrainerLog;
 import dev.pppp.model.TrainerScore;
 import dev.pppp.repository.ProgressRepository;
 import dev.pppp.service.CartridgeService;
@@ -45,6 +46,9 @@ import org.springframework.stereotype.Service;
  * <p>For Gold/Silver/Crystal the reading also unlocks {@link Achievements} (kept for good in
  * pibs:achievements:{userId}, the same way: never unlocked twice) and rates the save with a Trainer Score
  * ({@link TrainerScoring}; live, it can go down). The scoreboard ranks by Trainer Score, then achievement points.
+ * What the achievements need remembered goes to pibs:history:{userId} ({@link TrainerLog}). The battery save (PC
+ * boxes, link battle record, Battle Tower) is read once a minute, every few seconds in the Battle Tower, and
+ * counts once two reads in a row agree.
  */
 @Service
 public class ProgressTracker {
@@ -52,6 +56,8 @@ public class ProgressTracker {
     static final int BADGE = 100, CAUGHT = 10, SEEN = 2, LEVEL_MILESTONE = 5, HALL_OF_FAME = 500;
     /** The party's highest level scores each time it passes a multiple of this. */
     static final int LEVEL_STEP = 10;
+    /** How often the battery save is flushed and read (ms); in the Battle Tower, whose win lasts a short while. */
+    static final long SRAM_EVERY = 60_000, SRAM_EVERY_IN_TOWER = 5_000;
     private static final Logger log = LoggerFactory.getLogger(ProgressTracker.class);
 
     private final PlayerConsoles consoles;
@@ -70,6 +76,10 @@ public class ProgressTracker {
     private final Map<String, TrainerScore> trainers = new ConcurrentHashMap<>(); // pibs:trainer, likewise
     private final Map<String, Gen2Save> saves = new ConcurrentHashMap<>(); // the last confirmed save per running console
     private final Map<String, TrainerCard> cards = new ConcurrentHashMap<>(); // pibs:trainer card, read once
+    private final Map<String, TrainerLog> logs = new ConcurrentHashMap<>(); // pibs:history, read once
+    private final Map<String, Gen2Save.Sram> srams = new ConcurrentHashMap<>(); // the last confirmed battery save read
+    private final Map<String, Gen2Save.Sram> sramSamples = new ConcurrentHashMap<>(); // the previous one per player
+    private final Map<String, Long> sramReadAt = new ConcurrentHashMap<>(); // poll thread only
     private Set<String> online = Set.of(); // poll thread only
 
     public ProgressTracker(PlayerConsoles consoles, CartridgeService cartridges, ProgressRepository repo,
@@ -86,6 +96,7 @@ public class ProgressTracker {
         samples.keySet().retainAll(running);
         summaries.keySet().retainAll(running);
         saves.keySet().retainAll(running);
+        sramSamples.keySet().retainAll(running);
         for (String userId : running) {
             try {
                 GameProfile<?> profile = profile(userId);
@@ -98,6 +109,10 @@ public class ProgressTracker {
                 if (!now.summary().equals(summaries.put(userId, now.summary()))) {
                     events.publishEvent(new LiveEvent("GAME_STATE", Map.of("user", userId, "state", now.summary())));
                 }
+                // A paused console's cartridge RAM cannot change: no need to write its .sav again.
+                if (now.save() != null && profile instanceof PokemonGen2 && consoles.isAwake(userId)) {
+                    readSram(userId, now.save());
+                }
                 record(userId, now.progress(), now.save());
             } catch (RuntimeException e) {
                 log.warn("Progress poll failed for {}", userId, e);
@@ -107,6 +122,16 @@ public class ProgressTracker {
             online = running;
             events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
         }
+    }
+
+    /** Flushes and reads the player's battery save when it is due; it counts once two reads in a row agree. */
+    private void readSram(String userId, Gen2Save save) {
+        long now = System.currentTimeMillis(), due = save.map() != null && save.map().startsWith("BATTLE_TOWER")
+                ? SRAM_EVERY_IN_TOWER : SRAM_EVERY;
+        if (now - sramReadAt.getOrDefault(userId, 0L) < due) return;
+        sramReadAt.put(userId, now);
+        Gen2Save.Sram read = PokemonGen2.sram(save.crystal(), consoles.batterySave(userId), save.curBox());
+        if (read != null && read.equals(sramSamples.put(userId, read))) srams.put(userId, read);
     }
 
     /** Awards what this reading has beyond everything the player was awarded before. */
@@ -144,13 +169,14 @@ public class ProgressTracker {
      */
     private boolean card(String userId, Gen2Save save) {
         TrainerCard now = new TrainerCard(save.members(), save.location(), PokemonGen2.playTime(save),
-                save.johtoBadges(), save.kantoBadges());
+                save.johtoBadges(), save.kantoBadges(), save.trainerName());
         TrainerCard was = cards.computeIfAbsent(userId, repo::card);
         if (now.equals(was)) return false;
         repo.saveCard(userId, now);
         cards.put(userId, now);
         return !members(now).equals(members(was)) || !Objects.equals(now.location(), was.location())
-                || now.johtoBadges() != was.johtoBadges() || now.kantoBadges() != was.kantoBadges();
+                || now.johtoBadges() != was.johtoBadges() || now.kantoBadges() != was.kantoBadges()
+                || !Objects.equals(now.trainerName(), was.trainerName());
     }
 
     private static List<ScoreRow.Member> members(TrainerCard card) {
@@ -159,11 +185,13 @@ public class ProgressTracker {
 
     /** Unlocks what the save earns for the first time and stores its Trainer Score; true when either changed. */
     private boolean rate(String userId, Gen2Save before, Gen2Save save) {
+        TrainerLog log = log(userId, before, save);
         Map<String, Long> had = unlocked.computeIfAbsent(userId, repo::achievements);
         TrainerScore was = trainers.computeIfAbsent(userId, repo::trainer), score = TrainerScoring.score(save);
         long at = System.currentTimeMillis();
         Map<String, Long> fresh = new LinkedHashMap<>();
-        Achievements.earned(before, save).stream().filter(id -> !had.containsKey(id)).forEach(id -> fresh.put(id, at));
+        Achievements.earned(new Achievements.Moment(before, save, log, srams.get(userId))).stream()
+                .filter(id -> !had.containsKey(id)).forEach(id -> fresh.put(id, at));
         if (fresh.isEmpty() && score.equals(was)) return false;
         Map<String, Long> all = new HashMap<>(had);
         all.putAll(fresh);
@@ -179,6 +207,24 @@ public class ProgressTracker {
                 "id", id, "name", name(id), "points", Achievements.points(id), "at", at))));
         feed.forEach(e -> events.publishEvent(new LiveEvent("PROGRESS", e)));
         return true;
+    }
+
+    /** Updates and stores the player's {@link TrainerLog} with this reading. */
+    private TrainerLog log(String userId, Gen2Save before, Gen2Save save) {
+        TrainerLog was = logs.computeIfAbsent(userId, repo::log);
+        String partner = consoles.linkedWith(userId);
+        boolean otherVersion = partner != null && !Objects.equals(version(userId), version(partner));
+        TrainerLog now = Achievements.log(was, before, save, partner, otherVersion, srams.get(userId));
+        if (!now.equals(was)) {
+            repo.saveLog(userId, now);
+            logs.put(userId, now);
+        }
+        return now;
+    }
+
+    /** "Gold", "Silver", "Crystal", or the cartridge id for other games. */
+    private String version(String userId) {
+        return profile(userId) instanceof PokemonGen2 g ? g.version() : consoles.game(userId);
     }
 
     /** The pibs:scoreboard score: Trainer Score first, achievement points (under 1,000 in all) break ties. */
@@ -226,6 +272,10 @@ public class ProgressTracker {
         trainers.remove(userId);
         saves.remove(userId);
         cards.remove(userId);
+        logs.remove(userId);
+        srams.remove(userId);
+        sramSamples.remove(userId);
+        sramReadAt.remove(userId);
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
@@ -240,7 +290,7 @@ public class ProgressTracker {
             TrainerCard c = cards.computeIfAbsent(userId, repo::card);
             rows.add(new ScoreRow(userId, points(p), p.badges().size(), p.caught().size(), p.seen().size(),
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
-                    a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges()));
+                    a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges(), c.trainerName()));
         }
         return rows;
     }
@@ -248,7 +298,7 @@ public class ProgressTracker {
     /** The player's Trainer Score and the achievement catalogue with their unlock times. */
     public PlayerAchievements achievements(String userId) {
         Map<String, Long> a = unlocked.computeIfAbsent(userId, repo::achievements);
-        List<Achievement> all = Achievements.catalogue().stream().map(x -> x.unlockedAt(a.get(x.id()))).toList();
+        List<Achievement> all = Achievements.catalogue().stream().map(x -> x.seenBy(a.get(x.id()))).toList();
         return new PlayerAchievements(userId, trainers.computeIfAbsent(userId, repo::trainer), points(a), a.size(), all);
     }
 
@@ -266,21 +316,28 @@ public class ProgressTracker {
         ScoreRow row = scoreboard().stream().filter(r -> r.userId().equals(userId)).findFirst()
                 .orElseThrow(() -> new NotFoundException("No player " + userId));
         TrainerCard card = cards.computeIfAbsent(userId, repo::card);
+        TrainerLog log = logs.computeIfAbsent(userId, repo::log);
         Map<String, Long> a = unlocked.computeIfAbsent(userId, repo::achievements);
-        List<PlayerProfile.Entry> entries = Achievements.catalogue().stream().map(x -> {
-            Integer goal = switch (x.id()) { // the counts in Achievements' rules
+        List<PlayerProfile.Entry> entries = Achievements.catalogue().stream().map(c -> c.seenBy(a.get(c.id()))).map(x -> {
+            Integer goal = x.hidden() ? null : switch (x.id()) { // the counts in Achievements' rules
                 case "field-researcher" -> 50;
                 case "dex-holder" -> 100;
                 case "back-to-kanto" -> 8;
+                case "breeder" -> Achievements.BREEDER;
+                case "social-butterfly" -> Achievements.SOCIAL_BUTTERFLY;
                 default -> null;
             };
-            Integer progress = goal == null ? null
-                    : Math.min(goal, x.id().equals("back-to-kanto") ? Integer.bitCount(card.kantoBadges()) : row.caught());
-            return new PlayerProfile.Entry(x.id(), x.name(), x.description(), x.points(), a.containsKey(x.id()),
-                    progress, goal);
+            Integer progress = goal == null ? null : Math.min(goal, switch (x.id()) {
+                case "back-to-kanto" -> Integer.bitCount(card.kantoBadges());
+                case "breeder" -> log.hatched();
+                case "social-butterfly" -> log.partners().size();
+                default -> row.caught();
+            });
+            return new PlayerProfile.Entry(x.id(), x.category(), x.name(), x.description(), x.points(), x.rarity(),
+                    x.hidden(), x.unlockedAt() != null, progress, goal);
         }).toList();
-        return new PlayerProfile(row, card.party(), entries,
-                new PlayerProfile.Stats(row.caught(), row.seen(), card.playTime()), repo.newest(userId, 10));
+        return new PlayerProfile(row, card.party(), entries, new PlayerProfile.Stats(row.caught(), row.seen(),
+                card.playTime(), log.trades(), log.linkWins(), log.linkLosses()), repo.newest(userId, 10));
     }
 
     /** The activity feed, newest first. */
