@@ -1,7 +1,7 @@
 {
 	"name": "Pibs&PibettesPlayPokemonV2",
 	"short_name": "PPPPv2",
-	"description": "Play Pokémon together on one shared Game Boy.",
+	"description": "A Game Boy for every Pib: Pokémon Gold, Silver or Crystal, a shared scoreboard, and a link cable to trade and battle.",
 	"start_url": "/play",
 	"scope": "/",
 	"display": "standalone",
