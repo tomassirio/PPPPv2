@@ -185,6 +185,17 @@
 
 	// The screen frame sizes itself to the height left over; on desktop the controller matches its width.
 	let screenSlot = $state<HTMLDivElement>();
+	// Desktop: the game column is exactly as wide as the biggest screen that fits the height it has, so screen and
+	// controller fill it top to bottom with no gap; Link + Your run and the board share the rest of the width.
+	// Bezel: 32px of padding across, 68px of padding + LIVE strip down, the LCD 160:144.
+	let slotH = $state(0);
+	$effect(() => {
+		if (!screenSlot) return;
+		const watch = new ResizeObserver(([e]) => (slotH = e.contentRect.height));
+		watch.observe(screenSlot);
+		return () => watch.disconnect();
+	});
+	const gameW = $derived(slotH > 68 ? Math.round(((slotH - 68) * 160) / 144 + 32) : 0); // used by the desktop CSS only
 	let frameWidth = $state(0);
 	$effect(() => {
 		const frame = screenSlot?.querySelector('.bezel');
@@ -230,7 +241,7 @@
 		<div class="stage">
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner half={1} /></aside>
 		<main>
-			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null}>
+			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null} style:--game-w={gameW > 0 ? `${gameW}px` : null}>
 				{#if link.state?.session}
 					{@const ls = link.state.session}
 					<div class="linked-banner">
@@ -582,8 +593,10 @@
 		.game {
 			container-type: inline-size;
 			justify-content: flex-start;
-			flex: 1.3 1 0;
-			max-width: none;
+			flex: 0 0 var(--game-w, 40%);
+			min-width: 380px;
+			/* Leaves room for the other two columns' minimum widths and the gaps. */
+			max-width: calc(100% - 340px - 360px - 48px);
 		}
 		.mid {
 			flex: 1 1 0;
