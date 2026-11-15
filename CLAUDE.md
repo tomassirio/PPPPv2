@@ -84,7 +84,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 ## Frontend (`frontend/`)
 - SvelteKit 3 + Svelte 5 runes, TypeScript, Vite 8, adapter-static (SPA, `ssr = false`), served by nginx. Config lives in `vite.config.ts` (no svelte.config.js).
 - Commands: `cd frontend && npm run check && npm test && npm run build`. Dev: `npm run dev` proxies /api, /ws, /oauth2, /login/oauth2 to localhost:8080.
-- Screen designs to match for /play: `frontend/design/Play*.dc.html`. The sign-in page (`/`) is the handheld boot-up. Tokens in `src/app.css` have dark and light values (theme: `src/lib/theme.svelte.ts`, Auto/Light/Dark); use tokens, not hex, for anything that sits on the page background.
+- Screen designs to match: `frontend/design/PlayV2.mock.html` (canvas v2.1, https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa; views via the hash: #pick, #play, #linked, #scoreboard, #profile-jordan, #phone). Older v1 references: `Play*.dc.html`. The sign-in page (`/`) is the handheld boot-up. Tokens in `src/app.css` have dark and light values (theme: `src/lib/theme.svelte.ts`, Auto/Light/Dark); use tokens, not hex, for anything that sits on the page background.
 - Backend calls only through `src/lib/api.ts` (`api(method, path, body)`, adds X-XSRF-TOKEN, throws `ApiError{status, detail}`).
 - Live events only through `src/lib/events.ts` (`on(type, handler)` returns unsubscribe; `onOpen` re-fetches snapshots on reconnect; one shared WebSocket).
 - Imports via `#lib/*` need the emitted extension: `#lib/session.svelte.js`, `#lib/api.js`.

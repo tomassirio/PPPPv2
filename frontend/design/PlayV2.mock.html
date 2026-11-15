@@ -1,107 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>PibsPlayPokemon Screens</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap">
 <style>
-/* Layout: the v1 /play page (handheld left, panels right) shown in three states picked from a switcher. Dark-first, PPPP tokens. */
-:root{color-scheme:dark;
-  --bg:#11161a;--panel:#1a2228;--border:#2c3840;--border-strong:#3a4851;--text:#edebe3;--muted:#a3ada8;
-  --accent:#f2c14e;--accent-text:#f2c14e;--ink:#1d1f1c;--grass:#9bbc0f;--danger:#e76f51;--link:#6ea3ff;--link-tint:rgba(79,143,247,.14);--accent-tint:rgba(242,193,78,.1);
-  --stage:#0b0f12;--cart-gold:#d2aa2e;--cart-silver:#b9c1c9;--cart-crystal:#7ccbe0;--scrim:rgba(8,11,13,.62);
-  --shell:#d8d3c4;--bezel:#3b3f45;--lcd:#cadc9f;--lcd-ink:#0f380f;--lcd-mid:#306230;--key:#2b2d42;--key-ink:#edebe3;--ab:#bc4b51;--pill:#8d8a80;--led:#d6dade;--led-link:#9cc0ff;
+/* Layout v2.1: three columns that fit one screen. Game column (location sign, big LCD, Pibtendo controls) | link cable + your run with live party | standings with every Pib's party and whereabouts.
+   Full scoreboard and Pib profiles are their own views. PPPP tokens, dark-first. */
+:root{color-scheme:light;
+  --bg:#f4f1e8;--panel:#ffffff;--sunk:#ebe7dc;--border:#dcd6c6;--border-strong:#c2bba8;--text:#1d1f1c;--muted:#5d6460;
+  --accent:#f2c14e;--accent-text:#8a5a00;--ink:#1d1f1c;--grass:#4d7a00;--danger:#c0432a;--link:#2459c4;--link-tint:rgba(36,89,196,.1);--accent-tint:rgba(242,193,78,.22);
+  --stage:#e6e1d3;--scrim:rgba(29,31,28,.45);--cart-gold:#d2aa2e;--cart-silver:#b9c1c9;--cart-crystal:#7ccbe0;
+  --shell:#d8d3c4;--bezel:#2a2e33;--lcd:#cadc9f;--lcd-ink:#0f380f;--lcd-mid:#306230;--key:#2b2d42;--key-ink:#edebe3;--ab:#bc4b51;--pill:#8d8a80;--led:#d6dade;--led-link:#9cc0ff;
+  --hp-ok:#3fae4a;--hp-mid:#e3b622;--hp-low:#d9472f;
   --display:'Press Start 2P',ui-monospace,monospace;--body:Inter,system-ui,sans-serif}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light;
-  --bg:#f4f1e8;--panel:#ffffff;--border:#dcd6c6;--border-strong:#c2bba8;--text:#1d1f1c;--muted:#5d6460;
-  --accent-text:#8a5a00;--grass:#4d7a00;--danger:#c0432a;--link:#2459c4;--link-tint:rgba(36,89,196,.1);--accent-tint:rgba(242,193,78,.22);
-  --stage:#e6e1d3;--scrim:rgba(29,31,28,.45)}}
-:root[data-theme="light"]{color-scheme:light;
-  --bg:#f4f1e8;--panel:#ffffff;--border:#dcd6c6;--border-strong:#c2bba8;--text:#1d1f1c;--muted:#5d6460;
-  --accent-text:#8a5a00;--grass:#4d7a00;--danger:#c0432a;--link:#2459c4;--link-tint:rgba(36,89,196,.1);--accent-tint:rgba(242,193,78,.22);
-  --stage:#e6e1d3;--scrim:rgba(29,31,28,.45)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#11161a;--panel:#1a2228;--sunk:#141b20;--border:#2c3840;--border-strong:#3a4851;--text:#edebe3;--muted:#a3ada8;
+  --accent-text:#f2c14e;--grass:#9bbc0f;--danger:#e76f51;--link:#6ea3ff;--link-tint:rgba(79,143,247,.14);--accent-tint:rgba(242,193,78,.1);
+  --stage:#0b0f12;--scrim:rgba(8,11,13,.62)}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#11161a;--panel:#1a2228;--sunk:#141b20;--border:#2c3840;--border-strong:#3a4851;--text:#edebe3;--muted:#a3ada8;
+  --accent-text:#f2c14e;--grass:#9bbc0f;--danger:#e76f51;--link:#6ea3ff;--link-tint:rgba(79,143,247,.14);--accent-tint:rgba(242,193,78,.1);
+  --stage:#0b0f12;--scrim:rgba(8,11,13,.62)}
 *{box-sizing:border-box}
-body{background:var(--stage);color:var(--text);font-family:var(--body);font-size:14px}
-.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px;display:flex;flex-direction:column;gap:20px;max-width:1480px;margin:0 auto}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--stage);color:var(--text);font:14px/1.4 var(--body);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+.wrap{padding:20px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:20px;max-width:1480px;margin:0 auto}
 .px{font-family:var(--display)}
 .muted{color:var(--muted)}
-h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1,h2,h3{margin:0;text-wrap:balance}
+h2{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 p{margin:0}
-
-/* switcher (outside the mock-up) */
-.switch{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
-.seg{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:10px;background:var(--panel);border:1px solid var(--border)}
-.seg button{font:600 13px var(--body);height:36px;padding:0 14px;border-radius:7px;border:none;background:transparent;color:var(--muted);cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--accent);color:var(--ink)}
-button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
-
-/* app frame */
-.app{background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+button{font:inherit;color:inherit}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.small{font-size:13px;line-height:19px}.xs{font-size:12px}
 .row{display:flex;align-items:center;gap:12px;min-width:0}
 .between{justify-content:space-between}
 .col{display:flex;flex-direction:column;gap:16px;min-width:0}
 .grow{flex:1;min-width:0}
-.av{flex:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1d1f1c}
-.av.lg{width:44px;height:44px;font-size:13px}
-.av.me{background:#2a9d8f;color:#ffffff}
-.btn{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.rule{height:1px;background:var(--border)}
+.pts{font-weight:700;font-variant-numeric:tabular-nums}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* switcher (outside the mock-up) */
+.switch{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.seg{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:10px;background:var(--panel);border:1px solid var(--border)}
+.seg button{font:600 13px var(--body);height:34px;padding:0 13px;border-radius:7px;border:none;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--ink)}
+.seg.sm button{height:28px;padding:0 10px;font-size:12px}
+
+/* shared bits */
+.av{flex:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1d1f1c;position:relative}
+.av.me{background:#2a9d8f;color:#fff}
+.av i{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--panel);background:var(--muted)}
+.btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--border-strong);background:transparent;color:var(--text);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;cursor:pointer}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ink)}
-.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn.sm{height:30px;padding:0 11px;font-size:13px}
 .btn.on{border-color:var(--accent-text);color:var(--accent-text);background:var(--accent-tint)}
 .btn.stop{border-color:var(--danger);color:var(--danger)}
 .btn.tall{height:48px}
-.chip{font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:var(--border);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.chip.linked{background:var(--link-tint)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.link{background:none;border:none;padding:0;color:var(--link);font-weight:600;cursor:pointer}
+.chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--sunk);border:1px solid var(--border);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.g-Gold{border-color:var(--cart-gold)}.chip.g-Silver{border-color:var(--cart-silver)}.chip.g-Crystal{border-color:var(--cart-crystal)}
+.chip .cart-dot{width:8px;height:8px;border-radius:2px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
 .trade{color:var(--accent-text)}.battle{color:var(--danger)}.linked{color:var(--link)}.playing{color:var(--grass)}
-.dot.trade{background:var(--accent)}.dot.battle{background:var(--danger)}.dot.linked{background:var(--link)}.dot.playing{background:var(--grass)}
-.badges{display:flex;gap:5px;flex:none}
-.badges i{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--border-strong)}
-.badges i.got{background:var(--accent);border-color:var(--accent)}
-.badges.lg{gap:6px}.badges.lg i{width:24px;height:24px;border-width:2px}
-.bar{height:8px;border-radius:4px;background:var(--border);overflow:hidden}
+.dot.trade,.av i.trade{background:var(--accent)}.dot.battle,.av i.battle{background:var(--danger)}.dot.linked,.av i.linked{background:var(--link)}.dot.playing,.av i.playing{background:var(--grass)}
+.bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden}
 .bar b{display:block;height:100%;background:var(--accent)}
-.rule{height:1px;background:var(--border)}
-.pts{font-weight:700;font-variant-numeric:tabular-nums}
-.small{font-size:13px;line-height:19px}
+.up{color:var(--grass)}.down{color:var(--danger)}
+kbd{font:600 11px var(--body);padding:2px 6px;border-radius:5px;border:1px solid var(--border-strong);background:var(--sunk)}
 
-/* handheld: a physical object, same in both themes */
-.shell{background:var(--shell);border-radius:16px 16px 48px 16px;padding:24px;display:flex;flex-direction:column;gap:24px}
-.bezel{background:var(--bezel);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
-.lcd{aspect-ratio:160/144;width:100%;max-width:100%;background:var(--lcd);border-radius:2px;color:var(--lcd-ink);display:flex;flex-direction:column;justify-content:space-between;padding:7%}
+/* party icon slots: the game's own 16x16 party icons render here; the mock-up uses type-tinted placeholders */
+.party{display:flex;gap:4px;flex:none}
+.mon{--s:22px;position:relative;width:var(--s);height:var(--s);border-radius:5px;background:var(--t);color:#1d1f1c;font:6px var(--display);letter-spacing:-.02em;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.mon.m{--s:30px;font-size:7px;border-radius:7px}
+.mon.l{--s:44px;font-size:9px;border-radius:9px}
+.mon.empty{background:transparent;box-shadow:none;border:1px dashed var(--border-strong)}
+.mon.fnt{filter:grayscale(1);opacity:.45}
+.mon .hp{position:absolute;left:3px;right:3px;bottom:2px;height:2px;border-radius:1px;background:rgba(0,0,0,.22);overflow:hidden}
+.mon.l .hp{height:3px;bottom:4px;left:5px;right:5px}
+.mon .hp b{display:block;height:100%}
+.mon .shiny{position:absolute;top:-5px;right:-4px;font:700 11px var(--body);color:var(--accent-text);text-shadow:0 0 2px var(--panel)}
+.slot{display:flex;flex-direction:column;align-items:center;gap:3px}
+.slot small{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.st{font:700 10px var(--body);padding:1px 5px;border-radius:4px;background:var(--danger);color:#fff}
+.st.PSN{background:#9b5bb5}.st.PAR{background:#c99a12}
+
+/* app frame */
+.app{background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 24px;border-bottom:1px solid var(--border)}
+.brand{font-size:15px;color:var(--accent-text)}
+.topnav{display:flex;gap:2px}
+.topnav button{border:none;background:transparent;height:36px;padding:0 14px;border-radius:8px;font:600 14px var(--body);color:var(--muted);cursor:pointer}
+.topnav button[aria-current="page"]{color:var(--accent-text);background:var(--accent-tint)}
+.view{padding:20px 24px 24px;min-width:0}
+
+/* play */
+.playgrid{display:grid;grid-template-columns:minmax(360px,460px) minmax(0,1fr) minmax(0,400px);gap:20px;align-items:start}
+.screen{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.sign{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;border:2px solid var(--border-strong);background:var(--sunk);min-width:0}
+.sign svg{flex:none;width:18px;height:18px;color:var(--accent-text)}
+.sign .place{font:11px/1.5 var(--display);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sign .sub{font-size:12px;color:var(--muted);white-space:nowrap}
+.sign.linked{border-color:var(--link)}.sign.linked svg{color:var(--link)}
+.statusbar{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600}
+.statusbar .live{display:inline-flex;align-items:center;gap:6px;letter-spacing:.06em}
+.statusbar .live i{width:8px;height:8px;border-radius:50%;background:var(--danger)}
+.statusbar .spd{padding:4px 8px;border-radius:6px;background:var(--sunk);border:1px solid var(--border)}
+.vol{width:90px;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--muted) 70%,var(--border) 70%)}
+.pib{background:var(--shell);border-radius:14px 14px 44px 14px;padding:14px 22px 16px;display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;gap:6px 10px;align-items:center}
+.pib .logo{grid-column:1/-1;justify-self:center;font:italic 700 11px var(--body);color:#6b685f;border:1.5px solid #8d8a80;border-radius:999px;padding:1px 12px}
+.pib .ss{grid-column:1/-1}
+.kb{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:12px;color:var(--muted);padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
+.lcd{aspect-ratio:160/144;width:100%;background:var(--lcd);border-radius:3px;color:var(--lcd-ink);display:flex;flex-direction:column;justify-content:space-between;padding:6%}
 .lcd .scene{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;font-size:13px}
 .lcd .scene span{font:500 13px var(--body)}
-.lcd .box{border:4px solid var(--lcd-ink);border-radius:6px;box-shadow:inset 0 0 0 3px var(--lcd),inset 0 0 0 5px var(--lcd-mid);padding:16px 14px;font-size:11px;line-height:20px}
-.led{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--led)}
-.led.linked{color:var(--led-link)}
-.pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);flex:none}
-.pad div{background:var(--key);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--key-ink);font-size:16px}
-.pad div.c{border-radius:0}
-.ab{display:flex;gap:16px;transform:rotate(-20deg);flex:none}
-.ab div{width:64px;height:64px;border-radius:50%;background:var(--ab);color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:14px}
-.ab div:first-child{margin-top:28px}
-.ss{display:flex;gap:16px;justify-content:center}
-.ss div{min-width:88px;height:40px;border-radius:22px;background:var(--pill);color:var(--ink);font-size:12px;font-weight:700;letter-spacing:.08em;display:flex;align-items:center;justify-content:center}
-
-/* desktop */
-.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 28px;border-bottom:1px solid var(--border)}
-.brand{font-size:16px;color:var(--accent-text)}
-.d{display:flex;flex-wrap:wrap;gap:24px;padding:24px 28px;align-items:flex-start}
-.d>.game{flex:1 1 420px;max-width:520px}
-.d>.side{flex:1 1 320px}
-.tabs{display:flex;margin:-20px -20px 0}
-.tabs span{flex:1;height:48px;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--muted);box-shadow:inset 0 -1px 0 var(--border)}
-.tabs span.on{color:var(--accent-text);box-shadow:inset 0 -3px 0 var(--accent)}
-.rank{width:20px;font-size:10px;color:var(--muted);flex:none}
-.board .row.you{background:var(--accent-tint);box-shadow:inset 3px 0 0 var(--accent);margin:-8px -20px;padding:8px 20px}
-.cable{flex:1;height:2px;min-width:16px;background:repeating-linear-gradient(90deg,var(--link) 0 8px,transparent 8px 14px)}
-.feed{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.lcd .box{border:4px solid var(--lcd-ink);border-radius:6px;box-shadow:inset 0 0 0 3px var(--lcd),inset 0 0 0 5px var(--lcd-mid);padding:14px;font-size:11px;line-height:20px}
+.keys{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:12px;color:var(--muted)}
+.mygrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mygrid .pslot{padding:8px 10px}
+.tier{font:9px var(--display);padding:4px 6px;border-radius:4px;background:var(--accent-tint);color:var(--accent-text)}
+.jb{display:flex;gap:5px;flex-wrap:wrap}.jb i{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border-strong);transform:rotate(45deg) scale(.8)}.jb i.got{background:var(--accent);border-color:var(--accent)}
+.ptabs2{display:flex;margin:-18px -18px 0;border-bottom:1px solid var(--border)}.ptabs2 span{flex:1;height:46px;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--muted)}.ptabs2 span.on{color:var(--accent-text);box-shadow:inset 0 -3px 0 var(--accent)}
+.pslot{display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;background:var(--sunk);border:1px solid var(--border);min-width:0}
+.pslot .hpbar{height:5px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:5px}
+.pslot .hpbar b{display:block;height:100%}
+.standing{display:grid;grid-template-columns:18px 36px minmax(0,1fr) auto;align-items:center;gap:6px 10px;padding:8px 10px;margin:0 -10px;border-radius:8px;cursor:pointer;border:none;background:transparent;text-align:left;width:calc(100% + 20px)}
+.standing:hover{background:var(--sunk)}
+.standing.you{background:var(--accent-tint);box-shadow:inset 3px 0 0 var(--accent)}
+.rank{font-size:10px;color:var(--muted)}
+.feed{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
 .feed li{display:flex;gap:10px;font-size:13px;line-height:19px}
-.ico{flex:none;width:22px;height:22px;border-radius:6px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:11px}
+.ico{flex:none;width:22px;height:22px;border-radius:6px;background:var(--sunk);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px}
+.cable{flex:1;height:2px;min-width:16px;background:repeating-linear-gradient(90deg,var(--link) 0 8px,transparent 8px 14px)}
 .session{border-color:var(--link)}
-.banner{background:var(--link-tint);border:1px solid var(--link);border-radius:12px;padding:12px 14px}
+
+/* scoreboard */
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
+.head h1{font:16px/1.6 var(--display)}
+.podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.pod{cursor:pointer;text-align:left;font:inherit;color:inherit}
+.pod.first{border-color:var(--accent);background:linear-gradient(var(--accent-tint),var(--accent-tint)),var(--panel)}
+.pod .place{font-size:20px;color:var(--muted)}
+.pod.first .place{color:var(--accent-text)}
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.tbl{min-width:860px}
+.tr{display:grid;grid-template-columns:44px minmax(180px,1.3fr) 214px 92px 150px 110px;align-items:center;gap:14px;padding:10px 18px;border-top:1px solid var(--border)}
+.tr.th{border-top:none;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-block:12px}
+button.tr{width:100%;border-left:none;border-right:none;border-bottom:none;background:transparent;text-align:left;cursor:pointer;font:inherit;color:inherit}
+button.tr:hover{background:var(--sunk)}
+button.tr.you{background:var(--accent-tint);box-shadow:inset 3px 0 0 var(--accent)}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+
+/* profile */
+.crumb{display:flex;gap:8px;align-items:center;font-size:13px}
+.hero{display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between}
+.hero .av{width:64px;height:64px;font-size:18px}
+.hero .av i{width:16px;height:16px;border-width:3px}
+.hero h1{font:18px/1.5 var(--display)}
+.profgrid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+.monfull{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mcard{border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--sunk);min-width:0}
+.types{display:flex;gap:4px;flex-wrap:wrap}
+.type{font:700 10px var(--body);letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--t);color:#1d1f1c}
+.moves{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.moves span{font-size:12px;padding:3px 7px;border-radius:5px;border:1px solid var(--border);background:var(--panel)}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.ac{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;border:1px solid var(--border)}
+.ac .medal{flex:none;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;background:var(--accent);color:var(--ink)}
+.ac.locked .medal{background:var(--sunk);color:var(--muted);border:1px dashed var(--border-strong)}
+.ac.locked b{color:var(--muted)}
+.bdg{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.bdg span{aspect-ratio:1;border-radius:50%;border:2px solid var(--border-strong)}
+.bdg span.got{background:var(--accent);border-color:var(--accent)}
+.stack{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--border)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:8px 12px;font-size:13px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
 
 /* first run */
 .pick{padding:40px 28px 44px;display:flex;flex-direction:column;gap:28px;align-items:center;text-align:center}
-.pick h1{font-family:var(--display);font-size:18px;line-height:1.7;margin:0;text-wrap:balance}
+.pick h1{font:18px/1.7 var(--display)}
 .pick .lead{max-width:56ch;line-height:21px}
 .carts{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;width:100%}
 .carts .card{flex:1 1 220px;max-width:290px;text-align:left}
@@ -114,111 +198,74 @@ button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .carts ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;line-height:19px}
 
 /* phones */
-.stage{display:flex;flex-wrap:wrap;gap:40px;justify-content:center}
-.phone-wrap{display:flex;flex-direction:column;gap:14px;align-items:center;width:390px;max-width:100%}
-.phone{width:100%;height:820px;background:var(--bg);border:1px solid var(--border-strong);border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.stage{display:flex;flex-wrap:wrap;gap:32px;justify-content:center}
+.phone-wrap{display:flex;flex-direction:column;gap:14px;align-items:center;width:360px;max-width:100%}
+.phone{width:100%;height:780px;background:var(--bg);border:1px solid var(--border-strong);border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative}
 .phone header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 12px}
 .phone .brand{font-size:11px}
-.phone .tabs{margin:0}
+.ptabs{display:flex;border-bottom:1px solid var(--border)}
+.ptabs span{flex:1;height:44px;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--muted)}
+.ptabs span.on{color:var(--accent-text);box-shadow:inset 0 -3px 0 var(--accent)}
 .phone .body{flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
-.phone .shell{padding:16px;gap:16px;border-radius:14px 14px 40px 14px}
-.phone .bezel{padding:12px}
-.phone .lcd .scene{font-size:11px}
-.phone .lcd .box{font-size:9px;line-height:16px;padding:10px}
-.phone .pad{grid-template-columns:repeat(3,42px);grid-template-rows:repeat(3,42px)}
-.phone .ab div{width:54px;height:54px}
-.phone .board .row.you{margin:-8px -20px;padding:8px 20px}
+.hh{background:var(--shell);border-radius:14px 14px 40px 14px;padding:14px;display:flex;flex-direction:column;gap:14px}
+.hh .frame{padding:10px;border-radius:8px;flex-direction:column;gap:6px}
+.hh .lcd .scene{font-size:11px}
+.hh .lcd .box{font-size:9px;line-height:16px;padding:10px}
+.led{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--led)}
+.led.linked{color:var(--led-link)}
+.pad{display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,40px);flex:none}
+.pad div{background:var(--key);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--key-ink);font-size:14px}
+.pad div.c{border-radius:0}
+.ab{display:flex;gap:14px;transform:rotate(-20deg);flex:none}
+.ab div{width:52px;height:52px;border-radius:50%;background:var(--ab);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px}
+.ab div:first-child{margin-top:26px}
+.ss{display:flex;gap:14px;justify-content:center}
+.ss div{min-width:80px;height:34px;border-radius:20px;background:var(--pill);color:var(--ink);font-size:11px;font-weight:700;letter-spacing:.08em;display:flex;align-items:center;justify-content:center}
 .scrim{position:absolute;inset:0;background:var(--scrim)}
 .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--border-strong);border-radius:24px 24px 0 0;padding:12px 20px 28px;display:flex;flex-direction:column;gap:16px}
 .grab{width:40px;height:4px;border-radius:2px;background:var(--border-strong);align-self:center}
-.step{display:flex;gap:12px;align-items:flex-start;line-height:20px}
-.step b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--border);font-size:12px;display:flex;align-items:center;justify-content:center}
-</style>
+.banner{background:var(--link-tint);border:1px solid var(--link);border-radius:12px;padding:12px 14px}
+.prow{display:grid;grid-template-columns:18px 32px minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:8px 10px;margin:0 -10px;border-radius:8px}
+.prow.you{background:var(--accent-tint);box-shadow:inset 3px 0 0 var(--accent)}
+.plist{display:flex;flex-direction:column;gap:8px}
+.plist .pslot{padding:8px 10px}
 
+@media (max-width:1280px){.playgrid{grid-template-columns:minmax(340px,440px) minmax(0,1fr)}.playgrid>.c3{grid-column:1/-1}}
+@media (max-width:1180px){.profgrid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:780px){.playgrid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:820px){.mygrid,.monfull{grid-template-columns:repeat(2,minmax(0,1fr))}.podium{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.view{padding:16px}.monfull{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:no-preference){.standing,button.tr,.pod{transition:background .15s}}
+</style>
+</head>
+<body>
 <div class="wrap">
   <div class="switch">
     <div class="seg" role="group" aria-label="Screen">
-      <button type="button" id="v-pick" data-v="pick">First run · pick a game</button>
-      <button type="button" id="v-lobby" data-v="lobby">Desktop · lobby</button>
-      <button type="button" id="v-linked" data-v="linked">Desktop · linked</button>
-      <button type="button" id="v-phone" data-v="phone">Phone flow</button>
+      <button type="button" data-v="pick">First run</button>
+      <button type="button" data-v="play">Play</button>
+      <button type="button" data-v="linked">Play · linked</button>
+      <button type="button" data-v="scoreboard">Scoreboard</button>
+      <button type="button" data-v="profile-jordan">Pib profile</button>
+      <button type="button" data-v="phone">Phone</button>
     </div>
-    <span class="muted small">PibsPlayPokemon v2 · mock-up with sample data</span>
+    <span class="muted small">PibsPlayPokemon v2.1 · mock-up with sample data · tinted squares stand in for the game's party icons</span>
   </div>
 
-  <!-- ============ DESKTOP ============ -->
-  <div class="app" id="desktop">
+  <!-- ============ APP ============ -->
+  <div class="app" id="app">
     <div class="top">
-      <div class="row" style="flex-wrap:wrap"><span class="px brand">PibsPlayPokemon</span><span class="chip">Pokémon Crystal</span><span class="chip linked" data-when="linked"><span class="dot linked"></span>Linked with Sam</span></div>
-      <div class="row" style="gap:16px"><span class="muted">14 of 20 Pibs online</span><span class="av me" style="width:36px;height:36px">PB</span><span class="trade">Sign out</span></div>
+      <div class="row" style="flex-wrap:wrap;gap:16px"><span class="px brand">PibsPlayPokemon</span>
+        <nav class="topnav" aria-label="Main"><button type="button" data-nav="play">Play</button><button type="button" data-nav="scoreboard">Scoreboard</button><button type="button" data-nav="profile-you">My profile</button></nav>
+        <span class="chip linked" id="linkchip" hidden><span class="dot linked"></span>Linked with Sam</span></div>
+      <div class="row" style="gap:16px"><span class="chip"><span class="dot playing"></span><span id="online"></span></span><span class="av me" style="width:34px;height:34px">PB</span></div>
     </div>
-    <div class="d">
-      <section class="col game" aria-label="Your game">
-        <div class="shell">
-          <div class="bezel">
-            <div class="lcd px">
-              <div class="scene" data-when="lobby">YOUR GAME<span>160 × 144 · only you see this</span></div>
-              <div class="scene" data-when="linked">TRADE CENTER<span>each Pib sees their own side</span></div>
-              <div class="box" data-when="lobby">Saved at the POKéMON<br>CENTER.</div>
-              <div class="box" data-when="linked">SAM will trade PIKACHU<br>for your ABRA.</div>
-            </div>
-            <div class="row between"><span class="led" data-when="lobby">● YOUR SAVE · autosaved 2 min ago</span><span class="led" data-when="lobby">1×</span><span class="led linked" data-when="linked">● LINKED · locked to 1× speed</span></div>
-          </div>
-          <div class="row between" style="padding:0 8px">
-            <div class="pad" aria-hidden="true"><span></span><div>▲</div><span></span><div>◀</div><div class="c"></div><div>▶</div><span></span><div>▼</div><span></span></div>
-            <div class="ab px" aria-hidden="true"><div>B</div><div>A</div></div>
-          </div>
-          <div class="ss" aria-hidden="true"><div>SELECT</div><div>START</div></div>
-        </div>
-        <p class="muted small">Keyboard: arrow keys, Z for A, X for B, Enter for Start, Shift for Select.</p>
-      </section>
-
-      <section class="col side" aria-label="Link cable and your run">
-        <div class="card" data-when="lobby">
-          <div class="row between"><h2>Link cable</h2><span class="muted small">3 Pibs ready</span></div>
-          <div class="row" style="gap:8px;flex-wrap:wrap"><span class="btn on grow">✓ Ready to trade</span><span class="btn grow">Ready to battle</span></div>
-          <p class="muted small">Others can now challenge you. Stand in a Pokémon Center so you can walk straight into the Cable Club.</p>
-          <div class="rule"></div>
-          <div class="row"><span class="av" style="background:#f2c14e">SA</span><div class="grow"><b>Sam</b><div class="trade small">Wants to trade · Pokémon Gold</div></div><span class="btn primary sm">Trade</span></div>
-          <div class="row"><span class="av" style="background:#7fd1c7">PR</span><div class="grow"><b>Priya</b><div class="battle small">Wants to battle · Pokémon Silver</div></div><span class="btn sm">Battle</span></div>
-          <div class="row"><span class="av" style="background:#c9a7eb">MI</span><div class="grow"><b>Mia</b><div class="trade small">Wants to trade · Pokémon Gold</div></div><span class="btn primary sm">Trade</span></div>
-        </div>
-
-        <div class="card session" data-when="linked">
-          <div class="row between"><h2 class="linked">Link cable · trade</h2><span class="px" style="font-size:12px">14:20</span></div>
-          <div class="row" style="gap:10px"><span class="av lg me">PB</span><span class="cable"></span><span class="chip linked"><span class="dot linked"></span>connected</span><span class="cable"></span><span class="av lg" style="background:#f2c14e">SA</span></div>
-          <div class="row between"><b>You</b><b>Sam</b></div>
-          <p class="muted small">Both consoles run in step until someone unplugs or the 15-minute cap ends. Speed-up and save states are off while linked.</p>
-          <span class="btn stop">Unplug cable</span>
-        </div>
-
-        <div class="card">
-          <div class="row between"><h2>Your run</h2><span><span class="pts" style="font-size:22px">1,055</span> <span class="muted">pts · 3rd</span></span></div>
-          <div class="row between" style="flex-wrap:wrap"><span>Johto badges</span><div class="badges lg"><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i></i><i></i><i></i></div></div>
-          <div class="col" style="gap:8px"><div class="row between"><span>Pokédex</span><span class="muted">58 of 251 caught</span></div><div class="bar"><b style="width:38%"></b></div></div>
-          <div class="row between"><span>Top of party</span><span class="muted">Kadabra · Lv 38</span></div>
-          <div class="row between"><span>Trades · link battles</span><span class="muted">4 · 2 won</span></div>
-        </div>
-      </section>
-
-      <section class="card side" aria-label="Scoreboard" style="gap:16px">
-        <div class="tabs"><span class="on">Scoreboard</span><span>Activity</span><span>Chat</span></div>
-        <div class="col board" id="board"></div>
-        <div class="rule"></div>
-        <h2>Latest</h2>
-        <ul class="feed">
-          <li data-when="linked"><span class="ico">⇄</span><span><b>You</b> and <b>Sam</b> plugged in the link cable <span class="muted">· now</span></span></li>
-          <li><span class="ico">★</span><span><b>Jordan</b> earned the Fog Badge <span class="muted">· 2 min · +100</span></span></li>
-          <li><span class="ico">●</span><span><b>Mia</b> caught Pikachu, #25 <span class="muted">· 6 min · +10</span></span></li>
-          <li data-when="lobby"><span class="ico">⇄</span><span><b>Priya</b> traded with <b>Robin</b> <span class="muted">· 14 min · +25 each</span></span></li>
-        </ul>
-      </section>
-    </div>
+    <main class="view" id="view"></main>
   </div>
 
   <!-- ============ FIRST RUN ============ -->
   <div class="app" id="pick" hidden>
-    <div class="top"><span class="px brand">PibsPlayPokemon</span><div class="row" style="gap:16px"><span class="av me" style="width:36px;height:36px">PB</span><span class="trade">Sign out</span></div></div>
+    <div class="top"><span class="px brand">PibsPlayPokemon</span><div class="row" style="gap:16px"><span class="av me" style="width:34px;height:34px">PB</span><span class="trade">Sign out</span></div></div>
     <div class="pick">
       <div class="col" style="gap:12px;align-items:center"><h1>Pick your game</h1><p class="muted lead">You choose once. Your save, your score and your trades stay with this version. All three trade and battle with each other.</p></div>
       <div class="carts">
@@ -231,83 +278,342 @@ button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
   </div>
 
   <!-- ============ PHONES ============ -->
-  <div class="stage" id="phones" hidden>
-    <div class="phone-wrap"><div class="phone">
-      <header><span class="px brand">PibsPlayPokemon</span><span class="av me">PB</span></header>
-      <div class="tabs"><span class="on">Play</span><span>Scores</span><span>Chat</span></div>
-      <div class="body">
-        <div class="shell"><div class="bezel"><div class="lcd px"><div class="scene">YOUR GAME</div><div class="box">Saved at the POKéMON CENTER.</div></div><span class="led">● PAUSED</span></div></div>
-      </div>
-      <div class="scrim"></div>
-      <div class="sheet">
-        <span class="grab"></span>
-        <div class="row"><span class="av" style="width:48px;height:48px;font-size:14px;background:#f2c14e">SA</span><div class="grow"><div style="font-size:18px;font-weight:700">Sam wants to trade</div><div class="muted small">4 badges · 49 caught · Pokémon Gold</div></div></div>
-        <div class="col" style="gap:10px">
-          <div class="step"><b>1</b><span>Accept. Your game pauses for a second while we plug in the cable.</span></div>
-          <div class="step"><b>2</b><span>Walk to the Cable Club, upstairs in any Pokémon Center.</span></div>
-          <div class="step"><b>3</b><span>Trade as on a real Game Boy. Unplug any time.</span></div>
-        </div>
-        <div class="row" style="gap:8px"><span class="btn primary tall" style="flex:2">Accept trade</span><span class="btn tall" style="flex:1">Decline</span></div>
-        <div class="col" style="gap:6px"><div class="bar" style="height:4px"><b style="width:86%"></b></div><span class="muted" style="font-size:12px;text-align:center">Expires in 52 s</span></div>
-      </div>
-    </div><span class="muted">1 · A challenge arrives</span></div>
-
-    <div class="phone-wrap"><div class="phone">
-      <header><span class="px brand">PibsPlayPokemon</span><span class="av me">PB</span></header>
-      <div class="tabs"><span class="on">Play</span><span>Scores</span><span>Chat</span></div>
-      <div class="body">
-        <div class="banner row" style="gap:10px"><span class="av me">PB</span><span class="cable"></span><span class="av" style="background:#f2c14e">SA</span><div style="flex:none;margin-left:6px"><b>Linked with Sam</b><div class="linked" style="font-size:12px">Trade · 14:20 left</div></div></div>
-        <div class="shell"><div class="bezel"><div class="lcd px"><div class="scene">TRADE CENTER</div><div class="box">SAM will trade PIKACHU for your ABRA.</div></div><span class="led linked">● LINKED · 1×</span></div>
-          <div class="row between" style="padding:0 4px"><div class="pad" aria-hidden="true"><span></span><div>▲</div><span></span><div>◀</div><div class="c"></div><div>▶</div><span></span><div>▼</div><span></span></div><div class="ab px" aria-hidden="true"><div>B</div><div>A</div></div></div>
-          <div class="ss" aria-hidden="true"><div>SELECT</div><div>START</div></div>
-        </div>
-        <span class="btn stop tall">Unplug cable</span>
-      </div>
-    </div><span class="muted">2 · Linked session</span></div>
-
-    <div class="phone-wrap"><div class="phone">
-      <header><span class="px brand">PibsPlayPokemon</span><span class="av me">PB</span></header>
-      <div class="tabs"><span>Play</span><span class="on">Scores</span><span>Chat</span></div>
-      <div class="body" style="padding:16px 20px;gap:18px">
-        <div class="card" style="padding:16px;gap:12px"><div class="row between"><h2>Your run</h2><span><span class="pts" style="font-size:20px">1,055</span> <span class="muted">pts · 3rd</span></span></div><div class="row between"><div class="badges lg"><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i></i><i></i><i></i></div><span class="muted small">58 / 251</span></div></div>
-        <div class="row between"><h2>Scoreboard</h2><span class="muted small">20 Pibs</span></div>
-        <div class="col board" id="board2"></div>
-        <div class="rule"></div>
-        <ul class="feed"><li><span class="ico">★</span><span><b>Jordan</b> earned the Fog Badge <span class="muted">· 2 min</span></span></li><li><span class="ico">●</span><span><b>Mia</b> caught Pikachu, #25 <span class="muted">· 6 min</span></span></li></ul>
-      </div>
-    </div><span class="muted">3 · Scores tab</span></div>
-  </div>
+  <div class="stage" id="phones" hidden></div>
 </div>
 
 <script>
-const people = [
-  ['Jordan', 'JO', '#f4a259', 6, 71, '1,420', 'playing', 'Playing'],
-  ['Priya', 'PR', '#7fd1c7', 5, 64, '1,180', 'battle', 'Ready to battle'],
-  ['You', 'PB', '', 5, 58, '1,055', 'trade', 'Ready to trade'],
-  ['Sam', 'SA', '#f2c14e', 4, 49, '940', 'trade', 'Ready to trade'],
-  ['Mia', 'MI', '#c9a7eb', 3, 40, '810', 'trade', 'Ready to trade'],
-  ['Alex', 'AL', '#a7d676', 3, 37, '745', '', 'Offline'],
-  ['Robin', 'RO', '#e9a6b8', 2, 31, '590', 'playing', 'Playing'],
+const T={normal:'#c9c2a6',fire:'#f2945f',water:'#77aef2',grass:'#8fcb6a',electric:'#f4d24f',psychic:'#f293b6',ice:'#a3dde2',dragon:'#9a8af0',dark:'#9c8b7c',steel:'#bcc1cf',fighting:'#dc7d66',flying:'#adb7f2',poison:'#c193d6',ground:'#dcc07a',rock:'#c7b474',bug:'#b9cb52',ghost:'#9b88c2'};
+const SP={
+ feraligatr:['Feraligatr','FER',['water'],['Surf','Bite','Slash','Scary Face']],
+ pidgeot:['Pidgeot','PDG',['normal','flying'],['Fly','Wing Attack','Quick Attack','Mirror Move']],
+ ampharos:['Ampharos','AMP',['electric'],['ThunderPunch','Thunder Wave','Cotton Spore','Tackle']],
+ gengar:['Gengar','GEN',['ghost','poison'],['Shadow Ball','Hypnosis','Night Shade','Mean Look']],
+ quagsire:['Quagsire','QUA',['water','ground'],['Water Gun','Slam','Amnesia','Earthquake']],
+ sudowoodo:['Sudowoodo','SUD',['rock'],['Rock Throw','Mimic','Low Kick','Flail']],
+ typhlosion:['Typhlosion','TYP',['fire'],['Flame Wheel','Swift','SmokeScreen','Quick Attack']],
+ skarmory:['Skarmory','SKA',['steel','flying'],['Steel Wing','Fury Attack','Swift','Sand-Attack']],
+ jolteon:['Jolteon','JOL',['electric'],['ThunderShock','Double Kick','Pin Missile','Quick Attack']],
+ golbat:['Golbat','GBT',['poison','flying'],['Wing Attack','Bite','Confuse Ray','Supersonic']],
+ graveler:['Graveler','GRV',['rock','ground'],['Rock Throw','Magnitude','Defense Curl','Selfdestruct']],
+ kadabra:['Kadabra','KAD',['psychic'],['Psybeam','Confusion','Disable','Recover']],
+ meganium:['Meganium','MEG',['grass'],['Razor Leaf','Body Slam','Reflect','PoisonPowder']],
+ noctowl:['Noctowl','NOC',['normal','flying'],['Hypnosis','Peck','Reflect','Take Down']],
+ gyarados:['Gyarados','GYA',['water','flying'],['Bite','Dragon Rage','Thrash','Leer']],
+ flaaffy:['Flaaffy','FLA',['electric'],['ThunderShock','Thunder Wave','Cotton Spore','Tackle']],
+ abra:['Abra','ABR',['psychic'],['Teleport']],
+ croconaw:['Croconaw','CRO',['water'],['Water Gun','Bite','Rage','Scary Face']],
+ pikachu:['Pikachu','PIK',['electric'],['ThunderShock','Quick Attack','Thunder Wave','Growl']],
+ togetic:['Togetic','TGT',['normal','flying'],['Metronome','Encore','Charm','Safeguard']],
+ ledyba:['Ledyba','LDY',['bug','flying'],['Tackle','Supersonic','Comet Punch']],
+ psyduck:['Psyduck','PSY',['water'],['Scratch','Tail Whip','Disable','Confusion']],
+ quilava:['Quilava','QUI',['fire'],['Ember','Quick Attack','SmokeScreen','Tackle']],
+ fearow:['Fearow','FRW',['normal','flying'],['Peck','Fury Attack','Leer','Pursuit']],
+ wooper:['Wooper','WOO',['water','ground'],['Water Gun','Tail Whip','Slam']],
+ bellsprout:['Bellsprout','BEL',['grass','poison'],['Vine Whip','Growth','Wrap']],
+ bayleef:['Bayleef','BAY',['grass'],['Razor Leaf','Reflect','PoisonPowder','Tackle']],
+ geodude:['Geodude','GEO',['rock','ground'],['Rock Throw','Magnitude','Defense Curl','Tackle']],
+ zubat:['Zubat','ZUB',['poison','flying'],['Leech Life','Supersonic','Bite']],
+ hoppip:['Hoppip','HOP',['grass','flying'],['Synthesis','Tail Whip','Tackle','PoisonPowder']],
+ totodile:['Totodile','TOT',['water'],['Scratch','Rage','Water Gun','Leer']],
+ pidgey:['Pidgey','PDY',['normal','flying'],['Tackle','Sand-Attack','Gust']],
+ sentret:['Sentret','SEN',['normal'],['Scratch','Defense Curl','Quick Attack']],
+ metapod:['Metapod','MET',['bug'],['Harden']],
+ cyndaquil:['Cyndaquil','CYN',['fire'],['Tackle','Leer','SmokeScreen','Ember']],
+ chikorita:['Chikorita','CHI',['grass'],['Tackle','Growl','Razor Leaf']],
+ rattata:['Rattata','RAT',['normal'],['Tackle','Tail Whip','Quick Attack']],
+ mareep:['Mareep','MAR',['electric'],['Tackle','Growl','ThunderShock']],
+ onix:['Onix','ONX',['rock','ground'],['Rock Throw','Bind','Rage','Screech']],
+ hoothoot:['Hoothoot','HOO',['normal','flying'],['Tackle','Growl','Foresight','Peck']],
+ egg:['Egg','EGG',['normal'],[]]
+};
+const P=[
+ {id:'jordan',name:'Jordan',ini:'JO',col:'#f4a259',game:'Silver',b:6,k:0,dex:71,seen:104,trades:3,wins:4,losses:2,st:'playing',loc:'Route 42',time:'31:42',trend:1,flags:['tevo'],vs:[1,0,1],
+  party:[['feraligatr',42,100,'',{nick:'CHOMP',item:'Mystic Water'}],['pidgeot',39,82,'',{item:'Sharp Beak'}],['ampharos',38,64],['gengar',37,100,'',{item:'Spell Tag'}],['quagsire',35,41,'PSN'],['sudowoodo',33,100]]},
+ {id:'priya',name:'Priya',ini:'PR',col:'#7fd1c7',game:'Silver',b:5,k:0,dex:64,seen:92,trades:2,wins:6,losses:1,st:'battle',loc:'Mahogany Town',time:'28:05',trend:0,flags:['red'],vs:[0,1,1],
+  party:[['typhlosion',40,100],['skarmory',36,90,'',{item:'Sharp Beak'}],['jolteon',35,100],['golbat',34,55],['graveler',31,0,'FNT']]},
+ {id:'you',name:'You',ini:'PB',col:'',game:'Crystal',b:5,k:0,dex:58,seen:88,trades:4,wins:2,losses:2,st:'trade',loc:'Ecruteak City · Pokémon Center',time:'24:15',trend:1,flags:['red'],vs:null,
+  party:[['kadabra',38,100,'',{item:'TwistedSpoon'}],['meganium',37,88,'',{item:'Miracle Seed'}],['noctowl',34,70],['gyarados',32,100,'',{nick:'RED',shiny:1}],['flaaffy',30,23,'PAR'],['abra',12,100]]},
+ {id:'sam',name:'Sam',ini:'SA',col:'#f2c14e',game:'Gold',b:4,k:0,dex:49,seen:77,trades:5,wins:1,losses:3,st:'trade',loc:'Olivine City · Pokémon Center',time:'22:40',trend:-1,flags:[],vs:[2,1,0],
+  party:[['croconaw',30,100],['pikachu',28,76],['togetic',26,100],['psyduck',22,100],['ledyba',20,50]]},
+ {id:'mia',name:'Mia',ini:'MI',col:'#c9a7eb',game:'Gold',b:3,k:0,dex:40,seen:61,trades:3,wins:0,losses:1,st:'trade',loc:'Ecruteak City',time:'19:12',trend:0,flags:[],vs:[1,0,0],
+  party:[['quilava',27,100],['fearow',25,64],['wooper',20,100],['bellsprout',18,32],['pikachu',9,100]]},
+ {id:'alex',name:'Alex',ini:'AL',col:'#a7d676',game:'Crystal',b:3,k:0,dex:37,seen:55,trades:1,wins:1,losses:0,st:'',loc:'Goldenrod City',time:'17:58',trend:-1,flags:[],vs:[0,0,0],
+  party:[['bayleef',26,100],['geodude',22,100],['zubat',20,80],['hoppip',18,100]]},
+ {id:'noor',name:'Noor',ini:'NO',col:'#8fb8de',game:'Crystal',b:2,k:0,dex:29,seen:44,trades:2,wins:1,losses:1,st:'playing',loc:'Ilex Forest',time:'15:20',trend:1,flags:[],vs:[0,0,0],
+  party:[['bayleef',22,100],['onix',20,61],['hoothoot',17,100],['rattata',15,100],['egg',0,100]]},
+ {id:'robin',name:'Robin',ini:'RO',col:'#e9a6b8',game:'Silver',b:2,k:0,dex:31,seen:49,trades:2,wins:0,losses:2,st:'playing',loc:'Azalea Town',time:'14:03',trend:-1,flags:[],vs:[0,0,0],
+  party:[['totodile',18,100],['pidgey',14,60],['sentret',12,100],['metapod',9,100]]},
+ {id:'kai',name:'Kai',ini:'KA',col:'#e3c27a',game:'Gold',b:2,k:0,dex:24,seen:37,trades:0,wins:0,losses:0,st:'',loc:'Route 34',time:'11:47',trend:0,flags:[],vs:[0,0,0],
+  party:[['croconaw',21,100],['mareep',15,100],['pidgey',13,40]]},
+ {id:'lena',name:'Lena',ini:'LE',col:'#b6c7a3',game:'Silver',b:1,k:0,dex:19,seen:30,trades:1,wins:0,losses:0,st:'playing',loc:'Violet City',time:'8:31',trend:2,flags:[],vs:[0,0,0],
+  party:[['cyndaquil',14,100],['sentret',10,100],['rattata',8,70]]},
+ {id:'dev',name:'Dev',ini:'DE',col:'#d4a59a',game:'Crystal',b:1,k:0,dex:15,seen:22,trades:0,wins:0,losses:0,st:'',loc:'Route 30',time:'6:10',trend:0,flags:[],vs:[0,0,0],
+  party:[['chikorita',11,100],['hoothoot',6,100]]},
+ {id:'tess',name:'Tess',ini:'TE',col:'#a9d3e0',game:'Gold',b:0,k:0,dex:8,seen:12,trades:0,wins:0,losses:0,st:'playing',loc:'Cherrygrove City',time:'2:44',trend:0,flags:[],vs:[0,0,0],
+  party:[['totodile',7,100]]}
 ];
-function board(n, linked) {
-  return people.slice(0, n).map((p, i) => {
-    const you = p[0] === 'You', inLink = linked && (you || p[0] === 'Sam');
-    const kind = inLink ? 'linked' : p[6], label = inLink ? (you ? 'Linked with Sam' : 'Linked with you') : p[7];
-    const pips = Array.from({length: 8}, (_, b) => `<i class="${b < p[3] ? 'got' : ''}"></i>`).join('');
-    return `<div class="row ${you ? 'you' : ''}"><span class="rank px">${i + 1}</span><span class="av ${you ? 'me' : ''}" style="${you ? '' : 'background:' + p[2]}">${p[1]}</span><div class="grow"><div class="row" style="gap:8px"><b>${p[0]}</b><div class="badges" title="${p[3]} of 8 Johto badges">${pips}</div></div><div class="row ${kind || 'muted'}" style="gap:6px;font-size:12px"><span class="dot ${kind}"></span>${label}<span class="muted">· ${p[4]} caught</span></div></div><span class="pts">${p[5]}</span></div>`;
-  }).join('');
+P.forEach(p=>p.pts=p.b*100+p.dex*10+p.trades*25+p.wins*15);
+P.sort((a,b)=>b.pts-a.pts);P.forEach((p,i)=>p.rank=i+1);
+const byId=Object.fromEntries(P.map(p=>[p.id,p]));
+const STL={playing:'Playing',trade:'Ready to trade',battle:'Ready to battle',linked:'Linked','':'Offline'};
+const JOHTO=['Zephyr','Hive','Plain','Fog','Storm','Mineral','Glacier','Rising'],KANTO=['Boulder','Cascade','Thunder','Rainbow','Soul','Marsh','Volcano','Earth'];
+const ACH=[
+ ['Partner chosen','Pick a starter in New Bark Town',p=>1,1],
+ ['Ten caught','Catch 10 Pokémon',p=>p.dex,10],
+ ['Half a century','Catch 50 Pokémon',p=>p.dex,50],
+ ['Elm’s favourite','Catch 100 Pokémon',p=>p.dex,100],
+ ['Halfway there','Earn 4 Johto badges',p=>p.b,4],
+ ['Johto complete','Earn all 8 Johto badges',p=>p.b,8],
+ ['Plugged in','Make your first trade',p=>p.trades,1],
+ ['Well connected','Trade 5 times',p=>p.trades,5],
+ ['Cable Club win','Win a link battle',p=>p.wins,1],
+ ['Link regular','Win 5 link battles',p=>p.wins,5],
+ ['Trade evolution','Evolve a Pokémon by trading',p=>+p.flags.includes('tevo'),1],
+ ['Lake of Rage','Catch the red Gyarados',p=>+p.flags.includes('red'),1],
+ ['Champion','Beat the Elite Four',p=>0,1]
+];
+const FEED=[
+ ['★','jordan','earned the Mineral Badge','2 min','+100'],
+ ['●','mia','caught Pikachu, #25','6 min','+10'],
+ ['⇄','priya','traded with Robin','14 min','+25'],
+ ['⚔','priya','beat Sam in a link battle','31 min','+15'],
+ ['✦','you','caught the red Gyarados','1 h','achievement'],
+ ['⇄','jordan','traded with Noor · Haunter evolved into Gengar','2 h','+25'],
+ ['●','lena','caught Sentret, #161','2 h','+10'],
+ ['★','noor','earned the Hive Badge','3 h','+100']
+];
+let mode='play',filter='All',sortBy='pts';
+
+const nm=p=>p.id==='you'?'You':p.name;
+const hpCol=h=>h>50?'var(--hp-ok)':h>20?'var(--hp-mid)':'var(--hp-low)';
+const tbg=t=>t.length>1?`linear-gradient(135deg,${T[t[0]]} 50%,${T[t[1]]} 50%)`:T[t[0]];
+const status=p=>{if(mode==='linked'&&(p.id==='you'||p.id==='sam'))return['linked',p.id==='you'?'Linked with Sam':'Linked with you'];return[p.st,STL[p.st]];};
+function av(p,size){const[k]=status(p),me=p.id==='you';const s=size?`width:${size}px;height:${size}px;font-size:${Math.round(size/3)}px;`:'';return `<span class="av${me?' me':''}" style="${s}${me?'':'background:'+p.col}">${p.ini}<i class="${k}"></i></span>`;}
+function mon(m,cls=''){
+  const[sp,lv,hp,st,x={}]=m,d=SP[sp];
+  const label=sp==='egg'?'Egg':`${x.nick?x.nick+' · ':''}${d[0]} · Lv ${lv}${st?' · '+st:''}${x.shiny?' · shiny':''}`;
+  return `<span class="mon ${cls}${st==='FNT'?' fnt':''}" style="--t:${tbg(d[2])}" title="${label}" role="img" aria-label="${label}">${d[1]}${sp==='egg'?'':`<span class="hp"><b style="width:${hp}%;background:${hpCol(hp)}"></b></span>`}${x.shiny?'<span class="shiny" aria-hidden="true">✦</span>':''}</span>`;
 }
-function show() {
-  const h = location.hash.slice(1), v = ['pick', 'lobby', 'linked', 'phone'].includes(h) ? h : 'lobby';
-  document.getElementById('desktop').hidden = v === 'phone' || v === 'pick';
-  document.getElementById('pick').hidden = v !== 'pick';
-  document.getElementById('phones').hidden = v !== 'phone';
-  document.querySelectorAll('[data-when]').forEach(e => { e.hidden = e.dataset.when !== v; });
-  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
-  document.getElementById('board').innerHTML = board(7, v === 'linked');
-  document.getElementById('board2').innerHTML = board(5, true);
+function party(p,cls='',lv=false){
+  const a=[...p.party];while(a.length<6)a.push(null);
+  return `<span class="party">${a.map(m=>{const t=m?mon(m,cls):`<span class="mon ${cls} empty" aria-hidden="true"></span>`;return lv?`<span class="slot">${t}<small>${m&&m[0]!=='egg'?'Lv '+m[1]:'&nbsp;'}</small></span>`:t;}).join('')}</span>`;
 }
-document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { location.hash = b.dataset.v; show(); }));
-addEventListener('hashchange', show);
-show();
+function gchip(g){return `<span class="chip g-${g}"><span class="cart-dot" style="background:var(--cart-${g.toLowerCase()})"></span>${g}</span>`;}
+function trend(t){return t>0?`<span class="up xs">▲${t}</span>`:t<0?`<span class="down xs">▼${-t}</span>`:`<span class="muted xs">–</span>`;}
+function feedLi(f,short){const p=byId[f[1]];return `<li><span class="ico">${f[0]}</span><span><b>${nm(p)}</b> ${f[2]} <span class="muted">· ${f[3]}${short?'':' · '+f[4]}</span></span></li>`;}
+function slotCard(m){
+  const[sp,lv,hp,st,x={}]=m,d=SP[sp];
+  if(sp==='egg')return `<div class="pslot">${mon(m,'m')}<div class="grow"><b>Egg</b><div class="muted xs">Hatching soon</div></div></div>`;
+  return `<div class="pslot">${mon(m,'m')}<div class="grow"><div class="row between" style="gap:6px"><b class="ell">${x.nick||d[0]}</b><span class="xs muted">Lv ${lv}</span></div><div class="row between xs" style="gap:6px"><span class="muted ell">${x.nick?d[0]:d[2].join(' / ')}</span>${st?`<span class="st ${st}">${st}</span>`:''}</div><div class="hpbar"><b style="width:${hp}%;background:${hpCol(hp)}"></b></div></div></div>`;
+}
+
+/* ---------- views ---------- */
+const TIER=p=>p.pts>=1400?'S':p.pts>=1100?'A':p.pts>=800?'B':p.pts>=500?'C':p.pts>=250?'D':'F';
+const PIN='<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 1a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 10 4.5a2.5 2.5 0 0 1 0 5z"/></svg>';
+const place=p=>{const[a,b]=p.loc.split(' · ');return{city:a,spot:b||''};};
+function vPlay(){
+  const me=byId.you,L=mode==='linked',w=place(me);
+  const ready=P.filter(p=>p.id!=='you'&&(p.st==='trade'||p.st==='battle'));
+  const link=L?`<div class="card session">
+      <div class="row between"><h2 class="linked">Link cable · trade</h2><span class="px" style="font-size:12px">14:20</span></div>
+      <div class="row" style="gap:10px">${av(me,40)}<span class="cable"></span><span class="chip linked"><span class="dot linked"></span>connected</span><span class="cable"></span>${av(byId.sam,40)}</div>
+      <div class="row between" style="flex-wrap:wrap"><div class="col" style="gap:6px"><b class="small">You</b>${party(me)}</div><div class="col" style="gap:6px;align-items:flex-end"><b class="small">Sam</b>${party(byId.sam)}</div></div>
+      <p class="muted xs">Both consoles run in step until someone unplugs or the 15-minute cap ends. Speed-up and save states are off while linked.</p>
+      <button class="btn stop" type="button">Unplug cable</button></div>`
+   :`<div class="card" style="gap:12px">
+      <div class="row between"><h2>Link cable</h2><span class="muted small">${ready.length} Pibs ready</span></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn on grow">✓ Ready to trade</button><button type="button" class="btn grow">Ready to battle</button></div>
+      <div class="rule"></div>
+      ${ready.map(p=>`<div class="row">${av(p)}<div class="grow col" style="gap:5px"><div class="ell small"><b>${p.name}</b> <span class="${p.st}">· ${p.st==='trade'?'wants to trade':'wants to battle'}</span></div>${party(p)}</div><button type="button" class="btn sm ${p.st==='trade'?'primary':''}">${p.st==='trade'?'Trade':'Battle'}</button></div>`).join('')}</div>`;
+  const top=P.slice(0,6);
+  return `<div class="playgrid">
+    <section class="col" style="gap:12px" aria-label="Your game">
+      <div class="screen">
+        <div class="sign${L?' linked':''}">${PIN}<span class="place grow">${L?'TRADE CENTER':w.city.toUpperCase()}</span><span class="sub">${L?'Cable Club · with Sam':w.spot||'Johto'}</span></div>
+        <div class="lcd px">
+          <div class="scene">${L?'TRADE CENTER<span>each Pib sees their own side</span>':'YOUR GAME<span>160 × 144 · only you see this</span>'}</div>
+          <div class="box">${L?'SAM will trade PIKACHU<br>for your ABRA.':'Saved at the POKéMON<br>CENTER.'}</div>
+        </div>
+        <div class="statusbar">${L?'<span class="live linked"><i style="background:var(--link)"></i>LINKED</span><span class="spd linked">1× locked</span>':'<span class="live"><i></i>LIVE</span><span class="spd">▸▸ 1×</span>'}<span class="muted grow" style="font-weight:500">${L?'save states off':'autosaved 2 min ago'}</span><svg class="muted" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3 7h3l5-4v14l-5-4H3z"/></svg><span class="vol" aria-hidden="true"></span></div>
+      </div>
+      <div class="pib" aria-hidden="true"><span class="logo">Pibtendo</span>
+        <div class="pad"><span></span><div>▲</div><span></span><div>◀</div><div class="c"></div><div>▶</div><span></span><div>▼</div><span></span></div>
+        <span></span>
+        <div class="ab px"><div>B</div><div>A</div></div>
+        <div class="ss"><div>SELECT</div><div>START</div></div>
+      </div>
+      <div class="kb"><b style="letter-spacing:.08em;font-size:11px">KEYBOARD</b><div class="seg sm" role="group" aria-label="Movement keys"><button type="button" aria-pressed="true">Arrows</button><button type="button">WASD</button></div><span><kbd>Z</kbd> A</span><span><kbd>X</kbd> B</span><span><kbd>Enter</kbd> Start</span><span><kbd>Shift</kbd> Select</span></div>
+    </section>
+
+    <section class="col" style="gap:16px" aria-label="Link cable and your run">
+      ${link}
+      <div class="card" style="gap:12px">
+        <div class="row between"><h2>Your run</h2><span class="row" style="gap:8px"><span class="pts" style="font-size:20px">${me.pts.toLocaleString('en')}</span><span class="tier">${TIER(me)}</span><span class="muted small">${me.rank}rd</span></span></div>
+        <div class="row between small"><span class="muted">Title</span><b>Ace Trainer</b></div>
+        <div class="row between small"><span class="muted">Party</span><span class="muted xs">live from your game</span></div>
+        <div class="mygrid">${me.party.map(slotCard).join('')}</div>
+        <div class="row between small" style="flex-wrap:wrap"><span class="muted">Johto badges</span><span class="jb">${JOHTO.map((n,i)=>`<i class="${i<me.b?'got':''}" title="${n} Badge"></i>`).join('')}</span></div>
+        <div class="row between small" style="flex-wrap:wrap"><span class="muted">Kanto badges</span><span class="jb">${KANTO.map((n,i)=>`<i class="${i<me.k?'got':''}" title="${n} Badge"></i>`).join('')}</span></div>
+        <div class="col" style="gap:6px"><div class="row between small"><span class="muted">Pokédex</span><span>${me.dex} of 251 caught · ${me.seen} seen</span></div><div class="bar"><b style="width:${me.dex/251*100}%"></b></div></div>
+        <div class="row between small"><span class="muted">Achievements</span><button type="button" class="link small" data-go="profile-you">${ACH.filter(a=>a[2](me)>=a[3]).length} of ${ACH.length} · see all →</button></div>
+      </div>
+    </section>
+
+    <section class="card c3" style="gap:10px" aria-label="Scoreboard">
+      <div class="ptabs2"><span class="on">Scoreboard</span><span>Activity</span><span>Chat</span></div>
+      <div class="col" style="gap:2px">${top.map(p=>{const[k,l]=status(p),c=place(p).city;return `<button type="button" class="standing${p.id==='you'?' you':''}" data-go="profile-${p.id}"><span class="rank px">${p.rank}</span>${av(p,36)}<span class="col" style="gap:4px"><span class="row" style="gap:6px"><b class="ell">${p.id==='you'?'Tomas':p.name}</b>${p.id==='you'?'<span class="tier" style="font:600 11px var(--body)">You</span>':''}</span><span class="xs ell"><span class="${k||'muted'}">${L&&k==='linked'?'Linked':l}</span><span class="muted"> · ${L&&k==='linked'?'Trade Center':c}</span></span>${party(p)}</span><span class="col" style="gap:4px;align-items:flex-end"><span class="pts">${p.pts.toLocaleString('en')}</span><span class="tier">${TIER(p)}</span></span></button>`;}).join('')}</div>
+      <button type="button" class="btn sm" data-go="scoreboard">Full scoreboard · all ${P.length} Pibs</button>
+      <div class="rule"></div>
+      <h2>Latest</h2>
+      <ul class="feed">${(L?[['⇄','you','plugged in the link cable with Sam','now','']]:[]).concat(FEED.slice(0,L?2:3)).map(f=>feedLi(f,true)).join('')}</ul>
+    </section></div>`;
+}
+
+function vBoard(){
+  let rows=P.filter(p=>filter==='All'||p.game===filter);
+  const key={pts:p=>p.pts,b:p=>p.b,dex:p=>p.dex,lv:p=>Math.max(...p.party.map(m=>m[1]))}[sortBy];
+  rows=[...rows].sort((a,b)=>key(b)-key(a));
+  const pod=rows.slice(0,3);
+  return `<div class="col" style="gap:20px">
+    <div class="head"><div class="col" style="gap:6px"><h1>Scoreboard</h1><span class="muted small">${P.length} of 20 Pibs have started · updates live</span></div>
+      <div class="row" style="flex-wrap:wrap;gap:10px">
+        <div class="seg sm" role="group" aria-label="Game">${['All','Gold','Silver','Crystal'].map(g=>`<button type="button" data-filter="${g}" aria-pressed="${filter===g}">${g}</button>`).join('')}</div>
+        <div class="seg sm" role="group" aria-label="Sort by">${[['pts','Points'],['b','Badges'],['dex','Pokédex'],['lv','Top level']].map(([k,l])=>`<button type="button" data-sort="${k}" aria-pressed="${sortBy===k}">${l}</button>`).join('')}</div>
+      </div></div>
+    <div class="podium">${pod.map((p,i)=>`<button type="button" class="card pod${i===0?' first':''}" data-go="profile-${p.id}">
+      <div class="row between"><span class="place px">${i+1}</span><span class="row" style="gap:8px"><span class="pts" style="font-size:20px">${p.pts.toLocaleString('en')}</span><span class="muted small">pts</span></span></div>
+      <div class="row">${av(p,44)}<div class="grow"><b style="font-size:16px">${nm(p)}</b><div class="row xs" style="gap:8px;margin-top:4px">${gchip(p.game)}<span class="muted">${p.b} badges · ${p.dex} caught</span></div></div></div>
+      ${party(p,'m',true)}</button>`).join('')}</div>
+    <div class="tablewrap"><div class="tbl">
+      <div class="tr th"><span>#</span><span>Pib</span><span>Party</span><span class="num">Badges</span><span>Pokédex</span><span class="num">Points</span></div>
+      ${rows.map((p,i)=>`<button type="button" class="tr${p.id==='you'?' you':''}" data-go="profile-${p.id}">
+        <span class="rank px">${i+1}</span>
+        <span class="row" style="gap:10px">${av(p)}<span class="grow"><b>${nm(p)}</b><span class="row xs" style="gap:6px;margin-top:2px"><span class="dot ${status(p)[0]}"></span><span class="${status(p)[0]||'muted'}">${status(p)[1]}</span><span class="muted">· ${p.loc.split(' · ')[0]} · ${p.game}</span></span></span></span>
+        ${party(p,'m')}
+        <span class="num"><b>${p.b}</b><span class="muted"> / 8</span></span>
+        <span class="col" style="gap:5px"><span class="small"><b>${p.dex}</b> <span class="muted">caught · ${p.seen} seen</span></span><span class="bar"><b style="width:${p.dex/251*100}%"></b></span></span>
+        <span class="num row" style="justify-content:flex-end;gap:8px"><span class="pts">${p.pts.toLocaleString('en')}</span>${trend(p.trend)}</span>
+      </button>`).join('')}
+    </div></div>
+    <p class="muted xs">8 more Pibs haven't picked a game yet. Points: 100 a badge, 10 a catch, 25 a trade, 15 a link-battle win.</p>
+  </div>`;
+}
+
+function vProfile(id){
+  const p=byId[id]||byId.jordan,me=p.id==='you',[sk,sl]=status(p);
+  const got=ACH.filter(a=>a[2](p)>=a[3]).length;
+  const seg=[['Badges',p.b*100,'var(--accent)'],['Pokédex',p.dex*10,'var(--grass)'],['Trades',p.trades*25,'var(--link)'],['Link wins',p.wins*15,'var(--danger)']];
+  const feed=FEED.filter(f=>f[1]===p.id);
+  return `<div class="col" style="gap:20px">
+    <div class="crumb"><button type="button" class="link" data-go="scoreboard">← Scoreboard</button><span class="muted">/ ${nm(p)}</span></div>
+    <div class="card"><div class="hero">
+      <div class="row" style="gap:18px">${av(p,64)}<div class="col" style="gap:8px"><h1>${me?'Your profile':p.name}</h1>
+        <div class="row xs" style="gap:8px;flex-wrap:wrap">${gchip(p.game)}<span class="chip"><span class="dot ${sk}"></span><span class="${sk||'muted'}">${sl}</span></span><span class="row" style="gap:4px"><span style="width:14px;height:14px;display:inline-flex;color:var(--accent-text)">${PIN}</span><b>${p.loc}</b></span><span class="muted">· playtime ${p.time}</span></div></div></div>
+      <div class="row" style="gap:24px;flex-wrap:wrap">
+        <div class="col" style="gap:2px;align-items:flex-end"><span class="px" style="font-size:22px">#${p.rank}</span><span class="muted xs">of ${P.length}</span></div>
+        <div class="col" style="gap:2px;align-items:flex-end"><span class="pts" style="font-size:26px">${p.pts.toLocaleString('en')}</span><span class="xs">${trend(p.trend)} <span class="muted">places today</span></span></div>
+        ${me?'':`<div class="row" style="gap:8px"><button type="button" class="btn primary"${p.st?'':' disabled'}>Offer trade</button><button type="button" class="btn"${p.st?'':' disabled'}>Challenge</button></div>`}
+      </div></div></div>
+    <div class="profgrid">
+      <div class="col">
+        <div class="card"><div class="row between" style="flex-wrap:wrap"><h2>Party · ${p.party.length} of 6</h2><span class="muted xs">From ${me?'your':p.name+'’s'} game · updated 12 s ago</span></div>
+          <div class="monfull">${p.party.map(m=>{const[sp,lv,hp,st,x={}]=m,d=SP[sp];
+            if(sp==='egg')return `<div class="mcard"><div class="row">${mon(m,'l')}<div><b>Egg</b><div class="muted xs">It's making sounds inside</div></div></div></div>`;
+            const max=Math.round(lv*2.7+12),cur=Math.round(max*hp/100);
+            return `<div class="mcard"><div class="row">${mon(m,'l')}<div class="grow"><div class="row between" style="gap:6px"><b class="ell">${x.nick||d[0]}</b><span class="xs">Lv ${lv}</span></div><div class="muted xs ell">${x.nick?d[0]+' · ':''}${x.item||'No item'}</div><div class="types" style="margin-top:5px">${d[2].map(t=>`<span class="type" style="--t:${T[t]}">${t}</span>`).join('')}${x.shiny?'<span class="type" style="--t:var(--accent)">shiny</span>':''}</div></div></div>
+              <div class="col" style="gap:4px"><div class="row between xs"><span class="muted">HP</span><span class="row" style="gap:6px">${st?`<span class="st ${st}">${st}</span>`:''}<span style="font-variant-numeric:tabular-nums">${cur} / ${max}</span></span></div><div class="bar"><b style="width:${hp}%;background:${hpCol(hp)}"></b></div></div>
+              <div class="moves">${d[3].map(mv=>`<span>${mv}</span>`).join('')}</div></div>`;}).join('')}</div></div>
+        <div class="card"><div class="row between"><h2>Achievements</h2><span class="muted small">${got} of ${ACH.length}</span></div>
+          <div class="ach">${ACH.map(a=>{const v=a[2](p),ok=v>=a[3];return `<div class="ac${ok?'':' locked'}"><span class="medal px">${ok?'★':Math.min(99,Math.round(v/a[3]*100))+'%'}</span><div class="col" style="gap:2px"><b class="small">${a[0]}</b><span class="muted xs">${a[1]}${!ok&&a[3]>1?` · ${v} of ${a[3]}`:''}</span></div></div>`;}).join('')}</div></div>
+      </div>
+      <div class="col">
+        <div class="card"><h2>Badges</h2>
+          <div class="col" style="gap:8px"><div class="row between xs"><b>Johto</b><span class="muted">${p.b} of 8</span></div><div class="bdg">${JOHTO.map((n,i)=>`<span class="${i<p.b?'got':''}" title="${n} Badge"></span>`).join('')}</div><span class="muted xs">${p.b?'Latest: '+JOHTO[p.b-1]+' Badge':'No badges yet'}${p.b<8?' · next: '+JOHTO[p.b]:''}</span></div>
+          <div class="col" style="gap:8px"><div class="row between xs"><b>Kanto</b><span class="muted">${p.k} of 8</span></div><div class="bdg">${KANTO.map((n,i)=>`<span class="${i<p.k?'got':''}" title="${n} Badge"></span>`).join('')}</div></div></div>
+        <div class="card"><div class="row between"><h2>Points</h2><span class="pts">${p.pts.toLocaleString('en')}</span></div>
+          <div class="stack">${seg.map(s=>`<span style="width:${s[1]/p.pts*100}%;background:${s[2]}"></span>`).join('')}</div>
+          <dl class="kv" style="margin:0">${seg.map(s=>`<dt><span class="sw" style="background:${s[2]}"></span>${s[0]}</dt><dd>${s[1].toLocaleString('en')}</dd>`).join('')}</dl></div>
+        <div class="card"><h2>Stats</h2><dl class="kv" style="margin:0">
+          <dt>Pokédex</dt><dd>${p.dex} caught · ${p.seen} seen</dd><dt>Trades</dt><dd>${p.trades}</dd><dt>Link battles</dt><dd>${p.wins} won · ${p.losses} lost</dd><dt>Playtime</dt><dd>${p.time}</dd><dt>Top Pokémon</dt><dd>${SP[p.party[0][0]][0]} · Lv ${p.party[0][1]}</dd></dl></div>
+        ${me?'':`<div class="card"><h2>You and ${p.name}</h2><dl class="kv" style="margin:0"><dt>Trades together</dt><dd>${p.vs[0]}</dd><dt>Link battles</dt><dd>${p.vs[1]+p.vs[2]?`you ${p.vs[1]} · ${p.name} ${p.vs[2]}`:'none yet'}</dd></dl></div>`}
+        <div class="card"><h2>Recent</h2>${feed.length?`<ul class="feed">${feed.map(f=>feedLi(f)).join('')}</ul>`:'<p class="muted small">Nothing in the last day.</p>'}</div>
+      </div>
+    </div></div>`;
+}
+
+/* ---------- phones ---------- */
+function phones(){
+  const me=byId.you,sam=byId.sam,jo=byId.jordan;
+  const hdr=(tab)=>`<header><span class="px brand">PibsPlayPokemon</span><span class="av me">PB</span></header><div class="ptabs">${['Play','Scores','Chat'].map(t=>`<span class="${t===tab?'on':''}">${t}</span>`).join('')}</div>`;
+  const pad=`<div class="row between" style="padding:0 4px"><div class="pad" aria-hidden="true"><span></span><div>▲</div><span></span><div>◀</div><div class="c"></div><div>▶</div><span></span><div>▼</div><span></span></div><div class="ab px" aria-hidden="true"><div>B</div><div>A</div></div></div><div class="ss" aria-hidden="true"><div>SELECT</div><div>START</div></div>`;
+  return `
+  <div class="phone-wrap"><div class="phone">${hdr('Play')}
+    <div class="body"><div class="hh"><div class="frame"><div class="lcd px"><div class="scene">YOUR GAME</div><div class="box">Saved at the POKéMON CENTER.</div></div><span class="led">● PAUSED</span></div></div></div>
+    <div class="scrim"></div>
+    <div class="sheet"><span class="grab"></span>
+      <div class="row">${av(sam,48)}<div class="grow"><div style="font-size:18px;font-weight:700">Sam wants to trade</div><div class="muted small">${sam.b} badges · ${sam.dex} caught · Pokémon Gold</div></div></div>
+      <div class="col" style="gap:6px"><span class="muted xs">Sam's party</span>${party(sam,'m')}</div>
+      <div class="col" style="gap:8px;font-size:13px;line-height:19px"><span>1 · Accept. Your game pauses for a second while we plug in the cable.</span><span>2 · Walk to the Cable Club, upstairs in any Pokémon Center.</span><span>3 · Trade as on a real Game Boy. Unplug any time.</span></div>
+      <div class="row" style="gap:8px"><span class="btn primary tall" style="flex:2">Accept trade</span><span class="btn tall" style="flex:1">Decline</span></div>
+      <div class="col" style="gap:6px"><div class="bar" style="height:4px"><b style="width:86%"></b></div><span class="muted xs" style="text-align:center">Expires in 52 s</span></div>
+    </div></div><span class="muted">1 · A challenge arrives</span></div>
+
+  <div class="phone-wrap"><div class="phone">${hdr('Play')}
+    <div class="body">
+      <div class="banner row" style="gap:10px"><span class="av me">PB</span><span class="cable"></span><span class="av" style="background:${sam.col}">SA</span><div style="flex:none;margin-left:6px"><b>Linked with Sam</b><div class="linked xs">Trade · 14:20 left</div></div></div>
+      <div class="hh"><div class="frame"><div class="lcd px"><div class="scene">TRADE CENTER</div><div class="box">SAM will trade PIKACHU for your ABRA.</div></div><span class="led linked">● LINKED · 1×</span></div>${pad}</div>
+      <span class="btn stop tall">Unplug cable</span>
+    </div></div><span class="muted">2 · Linked session</span></div>
+
+  <div class="phone-wrap"><div class="phone">${hdr('Scores')}
+    <div class="body" style="gap:12px">
+      <div class="row between"><h2>Scoreboard</h2><span class="muted xs">tap a Pib for details</span></div>
+      <div class="col" style="gap:4px">${P.slice(0,7).map(p=>`<div class="prow${p.id==='you'?' you':''}"><span class="rank px">${p.rank}</span>${av(p)}<span class="col" style="gap:5px"><span class="small ell"><b>${nm(p)}</b> <span class="muted xs">· ${p.loc.split(' · ')[0]}</span></span>${party(p)}</span><span class="pts small">${p.pts.toLocaleString('en')}</span></div>`).join('')}</div>
+      <span class="btn sm" style="align-self:center">All ${P.length} Pibs</span>
+    </div></div><span class="muted">3 · Scores tab, parties at a glance</span></div>
+
+  <div class="phone-wrap"><div class="phone">${hdr('Scores')}
+    <div class="body" style="gap:14px">
+      <span class="link small">← Scoreboard</span>
+      <div class="row">${av(jo,52)}<div class="grow"><div class="px" style="font-size:13px">Jordan</div><div class="row xs" style="gap:6px;margin-top:6px">${gchip(jo.game)}<span class="playing">Playing</span></div></div><div class="col" style="gap:0;align-items:flex-end"><span class="px" style="font-size:14px">#1</span><span class="pts">${jo.pts.toLocaleString('en')}</span></div></div>
+      <div class="row" style="gap:8px"><span class="btn primary sm grow">Offer trade</span><span class="btn sm grow">Challenge</span></div>
+      <div class="row between"><h2>Party</h2><span class="muted xs">updated 12 s ago</span></div>
+      <div class="plist">${jo.party.map(slotCard).join('')}</div>
+      <div class="row between small"><span class="muted">Johto badges</span><b>${jo.b} of 8</b></div>
+      <div class="row between small"><span class="muted">Achievements</span><b>${ACH.filter(a=>a[2](jo)>=a[3]).length} of ${ACH.length}</b></div>
+    </div></div><span class="muted">4 · Pib profile</span></div>`;
+}
+
+/* ---------- routing ---------- */
+function render(){
+  const h=location.hash.slice(1)||'play';
+  const v=['pick','play','linked','scoreboard','phone','chat'].includes(h)||h.startsWith('profile-')?h:'play';
+  mode=v==='linked'?'linked':'play';
+  document.getElementById('app').hidden=v==='pick'||v==='phone';
+  document.getElementById('pick').hidden=v!=='pick';
+  const ph=document.getElementById('phones');ph.hidden=v!=='phone';if(v==='phone')ph.innerHTML=phones();
+  document.getElementById('linkchip').hidden=mode!=='linked';
+  document.getElementById('online').textContent=`${P.filter(p=>p.st).length} online`;
+  const view=document.getElementById('view');
+  const nav=v==='linked'?'play':v.startsWith('profile-you')?'profile-you':v.startsWith('profile-')?'scoreboard':v;
+  document.querySelectorAll('.topnav button').forEach(b=>{if(b.dataset.nav===nav)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  if(v==='play'||v==='linked')view.innerHTML=vPlay();
+  else if(v==='scoreboard')view.innerHTML=vBoard();
+  else if(v.startsWith('profile-'))view.innerHTML=vProfile(v.slice(8));
+  else if(v==='chat')view.innerHTML='<div class="card"><h2>Chat</h2><p class="muted">Not part of this round of screens.</p></div>';
+  const sw=v.startsWith('profile-')&&v!=='profile-you'?'profile-jordan':v==='profile-you'?'':v;
+  document.querySelectorAll('.switch .seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===sw)));
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-v],[data-nav],[data-go],[data-filter],[data-sort]');if(!b)return;
+  if(b.dataset.filter){filter=b.dataset.filter;render();return;}
+  if(b.dataset.sort){sortBy=b.dataset.sort;render();return;}
+  const to=b.dataset.v||b.dataset.nav||b.dataset.go;
+  if(to==='play'&&mode==='linked'&&b.dataset.nav){location.hash='linked';return;}
+  location.hash=to;window.scrollTo(0,0);
+});
+addEventListener('hashchange',render);
+render();
 </script>
+</body>
+</html>
