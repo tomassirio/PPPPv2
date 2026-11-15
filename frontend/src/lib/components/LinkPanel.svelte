@@ -1,9 +1,11 @@
-<!-- Link cable card: ready to trade/battle, everyone else who is ready (avatar, name, what they want, their game),
-     the incoming challenge and the running session (two avatars joined by the cable, time left, Unplug).
+<!-- Link cable card: ready to trade/battle, everyone else who is ready (avatar, name, what they want, their game and
+     party), the incoming challenge and the running session (two avatars joined by the cable, both parties, time left,
+     Unplug).
      State lives in link.svelte.ts. -->
 <script lang="ts">
 	import Avatar from '#lib/components/Avatar.svelte';
 	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
+	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, clock, left, link, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
@@ -15,8 +17,9 @@
 	const me = $derived(session.me?.id);
 	const s = $derived(link.state);
 	const others = $derived(s?.lobby.filter((p) => p.userId !== me) ?? []);
+	const rowOf = (user: string) => board.rows.find((r) => r.userId === user);
 	const gameOf = (user: string) => {
-		const g = board.rows.find((r) => r.userId === user)?.game;
+		const g = rowOf(user)?.game;
 		return g ? board.names[g] : undefined;
 	};
 </script>
@@ -36,9 +39,15 @@
 			<Avatar user={ss.peer} size={44} />
 		</div>
 		<div class="names">
-			<b>You</b>
+			<div class="side">
+				<b>You</b>
+				{#if me}<PartyIcons party={rowOf(me)?.party} />{/if}
+			</div>
 			<span class="sr">linked with</span>
-			<b>{nameOf(ss.peer)}</b>
+			<div class="side end">
+				<b>{nameOf(ss.peer)}</b>
+				<PartyIcons party={rowOf(ss.peer)?.party} />
+			</div>
 		</div>
 		<p class="muted">
 			Both consoles run in step until someone unplugs or the 15-minute cap ends. Go to the Cable Club upstairs in any
@@ -80,6 +89,7 @@
 						<div class="who">
 							<b>{nameOf(p.userId)}</b>
 							<span class={p.kind === 'TRADE' ? 'trade' : 'battle'}>Wants to {verb(p.kind)}{g ? ` · ${g}` : ''}</span>
+							{#if rowOf(p.userId)?.party?.length}<PartyIcons party={rowOf(p.userId)?.party} size={22} />{/if}
 						</div>
 						<button
 							class="small"
@@ -184,7 +194,17 @@
 	}
 	.names {
 		display: flex;
+		flex-wrap: wrap;
 		justify-content: space-between;
+		gap: 8px;
+	}
+	.side {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.side.end {
+		align-items: flex-end;
 	}
 	ul {
 		margin: 0;
@@ -205,6 +225,7 @@
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
+		gap: 3px;
 	}
 	.who > * {
 		overflow: hidden;

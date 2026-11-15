@@ -21,6 +21,13 @@
 	--link-tint: rgba(79, 143, 247, 0.14);
 	--accent-tint: rgba(242, 193, 78, 0.1); /* selected/"you" backgrounds */
 	--scrim: rgba(8, 11, 13, 0.62);
+	--sunk: #141b20; /* wells inside a card: party slots, chips */
+	--hp-ok: #3fae4a;
+	--hp-mid: #e3b622;
+	--hp-low: #d9472f;
+	--cart-gold: #d2aa2e;
+	--cart-silver: #b9c1c9;
+	--cart-crystal: #7ccbe0;
 	--pixel-font: 'Press Start 2P', monospace;
 	--body-font: Inter, system-ui, sans-serif;
 	color-scheme: dark;
@@ -42,6 +49,7 @@
 	--link-tint: rgba(36, 89, 196, 0.1);
 	--accent-tint: rgba(242, 193, 78, 0.22);
 	--scrim: rgba(29, 31, 28, 0.45);
+	--sunk: #ebe7dc;
 	--name-dim: 50%;
 	--pad-edge: #c2bba8;
 	--glow: #e6e0f2;
@@ -64,6 +72,7 @@
 		--link-tint: rgba(36, 89, 196, 0.1);
 		--accent-tint: rgba(242, 193, 78, 0.22);
 		--scrim: rgba(29, 31, 28, 0.45);
+		--sunk: #ebe7dc;
 		--name-dim: 50%;
 		--pad-edge: #c2bba8;
 		--glow: #e6e0f2;
@@ -100,6 +109,48 @@ button {
 	background: var(--panel);
 	border: 1px solid var(--border);
 	border-radius: 12px;
+}
+
+/* A player's status (playerStatus kinds in play.ts): coloured text, and a dot that is a hollow ring when offline. */
+.status-playing {
+	color: var(--grass);
+}
+.status-trade {
+	color: var(--accent-text);
+}
+.status-battle {
+	color: var(--danger);
+}
+.status-linked {
+	color: var(--link);
+}
+.status-offline {
+	color: var(--muted);
+}
+.status-dot {
+	flex: none;
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: currentColor;
+}
+.status-trade .status-dot {
+	background: var(--accent);
+}
+.status-offline .status-dot {
+	background: none;
+	box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+/* Visually hidden, still read out. */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

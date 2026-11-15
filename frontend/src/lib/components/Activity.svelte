@@ -1,11 +1,12 @@
-<!-- The activity feed, newest first: badges, catches, levels. limit: how many (the scoreboard's "Latest" shows a few). -->
+<!-- The activity feed, newest first: badges, catches, levels. limit: how many (the scoreboard's "Latest" shows a few);
+     events: show these instead of everyone's (a profile's recent feed). -->
 <script lang="ts">
 	import { board, watchBoard } from '#lib/board.svelte.ts';
-	import { activityText, ago } from '#lib/play.ts';
+	import { activityText, ago, type ScoreEvent } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
-	let { limit = Infinity, label }: { limit?: number; label?: string } = $props();
+	let { limit = Infinity, label, events }: { limit?: number; label?: string; events?: ScoreEvent[] } = $props();
 	$effect(() => watchBoard());
 
 	let now = $state(Date.now());
@@ -15,7 +16,7 @@
 	});
 
 	const ICONS: Record<string, string> = { BADGE: '★', CAUGHT: '●', SEEN: '◐', LEVEL: '▲', HALL_OF_FAME: '♛' };
-	const shown = $derived(board.activity.slice(0, limit));
+	const shown = $derived((events ?? board.activity).slice(0, limit));
 </script>
 
 {#if shown.length}

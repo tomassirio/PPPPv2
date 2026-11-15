@@ -102,9 +102,11 @@
 				</label>
 			{/if}
 
-			{#if page.url.pathname.startsWith('/admin')}
+			{#if page.url.pathname !== '/play'}
 				<a class="item" href="/play">Play</a>
-			{:else if isAdmin(me)}
+			{/if}
+			<a class="item" href="/pib/{encodeURIComponent(me.id)}">My profile</a>
+			{#if isAdmin(me) && !page.url.pathname.startsWith('/admin')}
 				<a class="item" href="/admin">Admin</a>
 			{/if}
 			<button type="button" class="item" onclick={logout}>Sign out</button>

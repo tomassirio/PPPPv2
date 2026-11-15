@@ -72,9 +72,18 @@ export type ScoreRow = {
 	grade: string;
 	achievementPoints: number;
 	achievementsUnlocked: number;
-	/** Hatched party members from their last confirmed reading; species = national Pokédex number. */
-	party: { species: number; level: number }[];
+	/** Party members from their last confirmed reading; species = national Pokédex number. */
+	party: PartyMon[];
+	// Newer fields (optional: an older backend leaves them out).
+	/** "Ecruteak City · Pokémon Center": landmark, then the spot inside it. */
+	location?: string | null;
+	playTime?: string | null;
+	/** Bitmasks, bit i = the i-th badge (Zephyr..Rising, Boulder..Earth). */
+	johtoBadges?: number;
+	kantoBadges?: number;
 };
+export type MonStatus = 'PSN' | 'PAR' | 'SLP' | 'BRN' | 'FRZ' | 'FNT';
+export type PartyMon = { species: number; level: number; hpPercent?: number; status?: MonStatus | null; shiny?: boolean; egg?: boolean };
 export type ScoreEvent = { user: string; type: string; detail: string; points: number; at: number };
 
 /** "jordan earned the Boulder Badge"; who: another subject ("You"). */
@@ -125,4 +134,115 @@ export const hue = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCode
 export function ordinal(n: number): string {
 	const t = n % 100;
 	return n + (t >= 11 && t <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+}
+
+export const JOHTO = ['Zephyr', 'Hive', 'Plain', 'Fog', 'Storm', 'Mineral', 'Glacier', 'Rising'];
+export const KANTO = ['Boulder', 'Cascade', 'Thunder', 'Rainbow', 'Soul', 'Marsh', 'Volcano', 'Earth'];
+
+/** Set bits in a badge mask. */
+export const bitCount = (mask: number) => [...(mask >>> 0).toString(2)].filter((b) => b === '1').length;
+
+/** Johto and Kanto badge masks; an older row only has the total, so its badges fill Johto first. */
+export function badgeMasks(r: Pick<ScoreRow, 'badges' | 'johtoBadges' | 'kantoBadges'>): { johto: number; kanto: number } {
+	return {
+		johto: r.johtoBadges ?? (1 << Math.min(8, r.badges)) - 1,
+		kanto: r.kantoBadges ?? (1 << Math.max(0, r.badges - 8)) - 1
+	};
+}
+
+/** "Ecruteak City · Pokémon Center" -> landmark and spot ("" when there is none). */
+export function place(location: string | null | undefined): { city: string; spot: string } {
+	const [city = '', ...rest] = (location ?? '').split(' · ');
+	return { city, spot: rest.join(' · ') };
+}
+
+/** HP bar colour by percentage left. */
+export const hpColor = (pct: number) => (pct > 50 ? 'var(--hp-ok)' : pct > 20 ? 'var(--hp-mid)' : 'var(--hp-low)');
+
+export type Version = 'Gold' | 'Silver' | 'Crystal';
+/** Which of the three versions a cartridge is, from its name ("Pokémon Gold") or id. */
+export function versionOf(game: string | null, names: Record<string, string>): Version | null {
+	const m = /gold|silver|crystal/i.exec(game ? (names[game] ?? game) : '');
+	return m ? ((m[0][0].toUpperCase() + m[0].slice(1).toLowerCase()) as Version) : null;
+}
+
+export type BoardSort = 'points' | 'badges' | 'dex' | 'level';
+/** Best Pokémon level in a party (eggs don't count). */
+export const topLevel = (party: PartyMon[] | undefined) => Math.max(0, ...(party ?? []).filter((m) => !m.egg).map((m) => m.level));
+const SORT_KEY: Record<BoardSort, (r: ScoreRow) => number> = {
+	points: (r) => r.trainerScore,
+	badges: (r) => r.badges,
+	dex: (r) => r.caught,
+	level: (r) => topLevel(r.party)
+};
+/** The full scoreboard: one version (or all), best first by the chosen column; ties keep the server's ranking. */
+export function boardRows(rows: ScoreRow[], version: Version | 'All', sort: BoardSort, names: Record<string, string>): ScoreRow[] {
+	const key = SORT_KEY[sort];
+	return rows.filter((r) => version === 'All' || versionOf(r.game, names) === version).sort((a, b) => key(b) - key(a));
+}
+
+/** Type colours behind type labels (Gen 2's 17 types). */
+export const TYPE_COLORS: Record<string, string> = {
+	normal: '#c9c2a6', fire: '#f2945f', water: '#77aef2', grass: '#8fcb6a', electric: '#f4d24f', psychic: '#f293b6',
+	ice: '#a3dde2', dragon: '#9a8af0', dark: '#9c8b7c', steel: '#bcc1cf', fighting: '#dc7d66', flying: '#adb7f2',
+	poison: '#c193d6', ground: '#dcc07a', rock: '#c7b474', bug: '#b9cb52', ghost: '#9b88c2'
+};
+
+/** GET /players/{userId}/profile. */
+export type ProfileMon = {
+	species: number;
+	name: string;
+	nickname: string | null;
+	level: number;
+	hp: number | null;
+	maxHp: number | null;
+	status: MonStatus | null;
+	item: string | null;
+	moves: string[];
+	shiny: boolean;
+	egg: boolean;
+	types: string[];
+};
+export type ProfileAchievement = { id: string; name: string; description: string; points: number; unlocked: boolean; progress?: number | null; goal?: number | null };
+export type Profile = {
+	row: ScoreRow;
+	party: ProfileMon[];
+	achievements: ProfileAchievement[];
+	stats: { caught: number; seen: number; trades: number | null; linkBattles: number | null; playTime: string | null };
+	recent: ScoreEvent[];
+};
+/** GET /players/{userId}/achievements (Achievement.java): the older backend's catalogue with unlock times. */
+export type CatalogueEntry = { id: string; name: string; description: string; points: number; unlockedAt: number | null };
+
+/**
+ * A profile pieced together where the backend has no /profile yet: the scoreboard row (party icons, no moves), the
+ * achievement catalogue, and the player's lines in the activity feed. name: species name lookup.
+ */
+export function profileFrom(row: ScoreRow, catalogue: CatalogueEntry[], activity: ScoreEvent[], name: (species: number) => string): Profile {
+	return {
+		row,
+		party: (row.party ?? []).map((m) => ({
+			species: m.species,
+			name: m.egg ? 'Egg' : name(m.species),
+			nickname: null,
+			level: m.level,
+			hp: null,
+			maxHp: null,
+			status: m.status ?? null,
+			item: null,
+			moves: [],
+			shiny: !!m.shiny,
+			egg: !!m.egg,
+			types: []
+		})),
+		achievements: catalogue.map((a) => ({ id: a.id, name: a.name, description: a.description, points: a.points, unlocked: a.unlockedAt != null })),
+		stats: { caught: row.caught, seen: row.seen, trades: null, linkBattles: null, playTime: row.playTime ?? null },
+		recent: activity.filter((e) => e.user === row.userId)
+	};
+}
+
+/** Locked achievement progress as a whole percentage (0-99), or null when there is no count to show. */
+export function progressPct(a: Pick<ProfileAchievement, 'unlocked' | 'progress' | 'goal'>): number | null {
+	if (a.unlocked || a.progress == null || !a.goal || a.goal <= 1) return null;
+	return Math.min(99, Math.floor((a.progress * 100) / a.goal));
 }

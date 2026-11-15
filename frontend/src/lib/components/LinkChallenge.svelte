@@ -2,6 +2,7 @@
      cable card on desktop; sheet: a bottom sheet over the game on phones (each shows only at its own size). -->
 <script lang="ts">
 	import Avatar from '#lib/components/Avatar.svelte';
+	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, CHALLENGE_MS, left, link, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
@@ -30,6 +31,12 @@
 					{#if facts}<p class="muted">{facts}</p>{/if}
 				</div>
 			</div>
+			{#if row?.party?.length}
+				<div class="their">
+					<span class="muted">{nameOf(c.from)}'s party</span>
+					<PartyIcons party={row.party} size={30} />
+				</div>
+			{/if}
 			<ol class="steps">
 				<li><b aria-hidden="true">1</b><span>Accept. Your game pauses for a second while the cable goes in.</span></li>
 				<li><b aria-hidden="true">2</b><span>Walk to the Cable Club, upstairs in any Pokémon Center.</span></li>
@@ -73,6 +80,14 @@
 	.muted {
 		font-size: 13px;
 		color: var(--muted);
+	}
+	.their {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.their .muted {
+		font-size: 12px;
 	}
 	.steps {
 		margin: 0;

@@ -6,7 +6,7 @@ import type { ScoreEvent, ScoreRow } from './play';
 
 const FEED = 30;
 
-/** names: cartridge id -> "Pokémon Gold", filled by /play from GET /me/game. */
+/** names: cartridge id -> "Pokémon Gold", from GET /me/game (the list of cartridges). */
 export const board = $state<{ rows: ScoreRow[]; activity: ScoreEvent[]; names: Record<string, string> }>({
 	rows: [],
 	activity: [],
@@ -14,6 +14,10 @@ export const board = $state<{ rows: ScoreRow[]; activity: ScoreEvent[]; names: R
 });
 
 function load() {
+	if (!Object.keys(board.names).length)
+		api<{ available: { id: string; name: string }[] }>('GET', '/me/game')
+			.then((g) => (board.names = Object.fromEntries(g.available.map((c) => [c.id, c.name]))))
+			.catch(() => {});
 	api<ScoreRow[]>('GET', '/scoreboard')
 		.then((r) => (board.rows = r))
 		.catch(() => {});

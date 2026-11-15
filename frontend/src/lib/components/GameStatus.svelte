@@ -1,13 +1,15 @@
-<!-- "Your run": the player's Trainer Score, grade, title and rank (scoreboard), achievements, badges, Pokédex progress, and the top of their
-     party and play time where the game profile reads them. The game summary is read from the console's RAM
+<!-- "Your run": the player's Trainer Score, grade, title and rank (scoreboard), their party as cards (icon, name,
+     level, status, HP; from the game summary where it has a party box, else their scoreboard row), badges, Pokédex
+     progress, play time, and achievements linking to their profile. The game summary is read from the console's RAM
      (GET /api/v1/game/state, kept current by GAME_STATE). Badges are sprites, greyed out until earned: the Kanto ones
      from src/lib/assets/badges, others (Gold/Silver/Crystal's Johto 8) drawn from the player's ROM by
      /api/v1/game/badges/{index}.png, a letter in a circle if that fails. Pips only for a profile without named badges. -->
 <script lang="ts">
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
-	import { ordinal } from '#lib/play.ts';
+	import { hpColor, ordinal } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
+	import { speciesName } from '#lib/components/PartyIcons.svelte';
 
 	const badgeArt = import.meta.glob('../assets/badges/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 	const art = (name: string, i: number) => badgeArt[`../assets/badges/${name.toLowerCase()}.png`] ?? `/api/v1/game/badges/${i}.png`;
@@ -37,24 +39,74 @@
 				? [{ label: 'Badges', got: earned }]
 				: []
 	);
-	const top = $derived(summary?.party[0]);
+	// One shape for both sources: Pokémon Red's party box (names, HP) or the scoreboard row's party (Gen 2).
+	type Card = { icon: number; name: string; sub: string; level: number; hp: number | null; status: string | null; shiny: boolean; egg: boolean };
+	const party = $derived<Card[]>(
+		summary?.party.length
+			? summary.party.map((m) => ({
+					icon: m.icon,
+					name: m.name,
+					sub: m.name === m.species ? '' : m.species,
+					level: m.level,
+					hp: m.maxHp ? Math.round((m.hp * 100) / m.maxHp) : null,
+					status: m.status,
+					shiny: false,
+					egg: false
+				}))
+			: (mine?.party ?? []).map((m) => ({
+					icon: m.species,
+					name: m.egg ? 'Egg' : speciesName(m.species),
+					sub: m.egg ? 'Hatching soon' : '',
+					level: m.level,
+					hp: m.hpPercent ?? null,
+					status: m.status ?? null,
+					shiny: !!m.shiny,
+					egg: !!m.egg
+				}))
+	);
 </script>
 
 <section class="panel card" aria-labelledby="run-h">
 	<div class="head">
 		<h2 id="run-h">Your run</h2>
 		{#if mine}
-			<span><span class="pts">{mine.trainerScore}</span> <span class="muted">/ 1000 · {mine.grade} · {ordinal(rank + 1)}</span></span>
+			<span class="score"
+				><span class="pts">{mine.trainerScore}<span class="sr-only"> of 1000, grade</span></span> <span class="grade pixel">{mine.grade}</span>
+				<span class="muted">{ordinal(rank + 1)}</span></span
+			>
 		{/if}
 	</div>
 	{#if mine}
-		<div class="line"><span>Title</span><span class="muted">{mine.title}</span></div>
-		<div class="line"><span>Achievements</span><span class="muted">{mine.achievementsUnlocked} unlocked · {mine.achievementPoints} pts</span></div>
+		<div class="line"><span class="muted">Title</span><b>{mine.title}</b></div>
+	{/if}
+	{#if party.length}
+		<div class="line"><span class="muted">Party</span><span class="muted xs">live from your game</span></div>
+		<ul class="cards" aria-label="Your party">
+			{#each party as m, i (i)}
+				<li class="pslot">
+					<span class="mon" class:fnt={m.status === 'FNT'}>
+						{#if !m.egg}<img src="/api/v1/game/icons/{m.icon}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
+						{#if m.shiny}<span class="shiny" title="Shiny">✦</span>{/if}
+					</span>
+					<span class="info">
+						<span class="line"><b class="ell">{m.name}</b>{#if !m.egg}<span class="xs muted">Lv {m.level}</span>{/if}</span>
+						<span class="line xs"
+							><span class="muted ell">{m.sub}</span>{#if m.status}<span class="st st-{m.status}">{m.status}</span>{/if}</span
+						>
+						{#if m.hp != null && !m.egg}
+							<span class="hpbar" role="meter" aria-label="HP" aria-valuemin="0" aria-valuemax="100" aria-valuenow={m.hp}
+								><b style:width="{m.hp}%" style:background={hpColor(m.hp)}></b></span
+							>
+						{/if}
+					</span>
+				</li>
+			{/each}
+		</ul>
 	{/if}
 	{#if summary}
 		{#each rows as row, r (row.label)}
 			<div class="line wrap" class:later={r > 0 && !row.got}>
-				<span>{row.label}</span>
+				<span class="muted">{row.label}</span>
 				{#if named.length}
 					<ul class="badges" aria-label="{row.label}: {row.got} of 8 earned">
 						{#each named.slice(r * 8, r * 8 + 8) as b, j (b.name)}
@@ -82,7 +134,7 @@
 		{#if dex}
 			<div class="dex">
 				<div class="line">
-					<span>Pokédex</span>
+					<span class="muted">Pokédex</span>
 					<span class="muted">{dex.value} of {dex.max} caught{seen ? ` · ${seen.value} seen` : ''}</span>
 				</div>
 				<span class="bar" role="meter" aria-label="Pokédex caught" aria-valuemin="0" aria-valuemax={dex.max} aria-valuenow={dex.value}
@@ -90,14 +142,17 @@
 				>
 			</div>
 		{/if}
-		{#if top}
-			<div class="line"><span>Top of party</span><span class="muted">{top.name} · Lv {top.level}</span></div>
-		{/if}
 		{#if summary.playTime}
-			<div class="line"><span>Time played</span><span class="muted">{summary.playTime}</span></div>
+			<div class="line"><span class="muted">Time played</span><span>{summary.playTime}</span></div>
 		{/if}
 	{:else}
 		<p class="muted">Badges and your Pokédex show up here once your game is past the title screen.</p>
+	{/if}
+	{#if mine && session.me}
+		<div class="line">
+			<span class="muted">Achievements</span>
+			<a href="/pib/{encodeURIComponent(session.me.id)}">{mine.achievementsUnlocked} unlocked · see all →</a>
+		</div>
 	{/if}
 </section>
 
@@ -142,6 +197,118 @@
 		font-size: 22px;
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
+	}
+	.score {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.grade {
+		padding: 4px 6px;
+		border-radius: 4px;
+		background: var(--accent-tint);
+		color: var(--accent-text);
+		font-size: 9px;
+	}
+	.xs {
+		font-size: 12px;
+	}
+	.ell {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	a {
+		font-weight: 600;
+		color: var(--link);
+		text-decoration: none;
+	}
+	a:hover {
+		text-decoration: underline;
+	}
+	a:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
+	/* Party: two columns of cards. */
+	.cards {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 8px;
+	}
+	.pslot {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+		padding: 8px 10px;
+		border-radius: 10px;
+		background: var(--sunk);
+		border: 1px solid var(--border);
+		min-width: 0;
+	}
+	.mon {
+		position: relative;
+		flex: none;
+		width: 30px;
+		height: 30px;
+	}
+	.mon img {
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+	.mon.fnt img {
+		filter: grayscale(1);
+		opacity: 0.45;
+	}
+	.shiny {
+		position: absolute;
+		top: -5px;
+		right: -4px;
+		font-size: 11px;
+		font-weight: 700;
+		color: var(--accent-text);
+	}
+	.info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.info .line {
+		gap: 6px;
+	}
+	.st {
+		flex: none;
+		padding: 1px 5px;
+		border-radius: 4px;
+		background: var(--danger);
+		color: #fff;
+		font-size: 10px;
+		font-weight: 700;
+	}
+	.st-PSN {
+		background: #9b5bb5;
+	}
+	.st-PAR {
+		background: #c99a12;
+	}
+	.hpbar {
+		display: block;
+		height: 5px;
+		margin-top: 3px;
+		border-radius: 3px;
+		background: var(--border);
+		overflow: hidden;
+	}
+	.hpbar b {
+		display: block;
+		height: 100%;
 	}
 	.pips {
 		display: flex;

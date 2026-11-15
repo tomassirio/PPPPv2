@@ -1,6 +1,7 @@
-<!-- /play: the player's own game screen and pad; the Link cable and "Your run" cards; one card with Scoreboard /
-     Activity / Chat tabs. Desktop = three columns (frontend/design/PlayV2.mock.html), phone = screen + Play / Link /
-     Scores / Chat tabs, a challenge comes up as a bottom sheet and a linked session as a banner over the screen. -->
+<!-- /play: the player's own game (location sign, screen, pad); the Link cable and "Your run" cards; one card with
+     Scoreboard / Activity / Chat tabs. Desktop = three columns (frontend/design/PlayV2.mock.html, #play), two with the
+     board underneath on tablets; phone = Play / Scores / Chat tabs under the header, a challenge comes up as a bottom
+     sheet and a linked session as a banner over the screen. Held sideways, Link / Scores / Chat are sheets. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { dexBanners } from '#lib/dex.svelte.ts';
@@ -28,15 +29,13 @@
 	import { board } from '#lib/board.svelte.ts';
 	import { act, clock, left, link } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
-	import Presence from '#lib/components/Presence.svelte';
 	import SoundControl from '#lib/components/SoundControl.svelte';
-	import UserMenu from '#lib/components/UserMenu.svelte';
+	import AppHeader from '#lib/components/AppHeader.svelte';
+	import { place } from '#lib/play.ts';
 	import ShellPicker from '#lib/components/ShellPicker.svelte';
 	import ViewportDebug from '#lib/components/ViewportDebug.svelte';
 	import PokeballRain from '#lib/components/PokeballRain.svelte';
 	import { page } from '$app/state';
-	import banner from '#lib/assets/banner-v2.png';
-	import ppppLogo from '#lib/assets/ppppv2-logo.png';
 
 	type Tab = 'play' | 'link' | 'scores' | 'chat';
 	let tab = $state<Tab>('play');
@@ -49,7 +48,8 @@
 		{ id: 'chat', label: 'Chat' }
 	];
 
-	// Phone tab bar: icons (static SVG paths, not user content) and badges for what changed on other tabs.
+	// Phone tabs (Play / Scores / Chat under the header; held sideways an icon rail with Link instead of Play): icons
+	// (static SVG paths, not user content) and badges for what changed on other tabs.
 	const TABS: { id: Tab; label: string; icon: string }[] = [
 		{ id: 'play', label: 'Play', icon: '<rect x="3" y="6" width="18" height="12" rx="4"/><path d="M7 12h4M9 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>' },
 		{ id: 'link', label: 'Link', icon: '<path d="M8 3v4m8-4v4M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>' },
@@ -139,8 +139,14 @@
 		if (chatShown) unreadChat = 0;
 		if (scoresShown) newScores = false;
 	});
-	// Phones: "Your run" heads the Scores tab; held sideways it shares the Link sheet.
-	const runOn = $derived(tab === 'scores' || (landscape && tab === 'link'));
+	// Held sideways, Link and "Your run" share a sheet. Upright there is no Link tab: the Link cable card heads Scores,
+	// and "Your run" is the player's own profile (their row in the standings).
+	const linkOn = $derived(tab === 'link' || (!landscape && tab === 'scores'));
+	const runOn = $derived(landscape && tab === 'link');
+	// Phone held sideways: no Link tab upright, so don't leave it selected when the phone turns.
+	$effect(() => {
+		if (!landscape && tab === 'link') tab = 'scores';
+	});
 	$effect(() => {
 		const offs = [
 			on('CHAT_MESSAGE', (m: { kind: string }) => {
@@ -189,6 +195,8 @@
 	});
 
 	const me = $derived(session.me);
+	// Where the player is, from their scoreboard row (the location sign over the screen).
+	const where = $derived(place(board.rows.find((r) => r.userId === me?.id)?.location));
 	let loadFailed = $state(false);
 	// The player's own cartridge: null until /me/game answers, then `game` is null until they pick one.
 	let myGame = $state<{ game: string | null; available: Cartridge[]; speed: number | null } | null>(null);
@@ -217,16 +225,7 @@
 	<GamePicker available={myGame.available} onpicked={(g) => (myGame = { ...myGame!, game: g })} />
 {:else if me && myGame}
 	<div class="page play-root" class:big={bigScreen} style:zoom={uiZoom === 1 ? null : uiZoom} style:--page-h={uiZoom === 1 ? null : `${pageH}px`} style:--plate={currentShell.value.shell} style:--plate-ink={inkFor(currentShell.value.shell)}>
-		<header>
-			<div class="brand">
-				<img class="logo" src={banner} alt="Pibs&amp;PibettesPlayPokemon V2" width="1024" height="196" />
-				<img class="short" src={ppppLogo} alt="PPPP V2" width="480" height="174" />
-			</div>
-			<div class="user">
-				<Presence />
-				<UserMenu {me} />
-			</div>
-		</header>
+		<AppHeader {me} />
 
 		<div class="stage">
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner half={1} /></aside>
@@ -242,6 +241,17 @@
 						<button type="button" class="unplug" onclick={() => act('DELETE', '/link/session')}>Unplug</button>
 					</div>
 				{/if}
+				{#if link.state?.session || where.city}
+					{@const ls = link.state?.session}
+					<p class="sign" class:linked={!!ls}>
+						<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
+							><path d="M10 1a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 10 4.5a2.5 2.5 0 0 1 0 5z" /></svg
+						>
+						<span class="sr-only">You are at </span>
+						<span class="place pixel">{ls ? 'TRADE CENTER' : where.city.toUpperCase()}</span>
+						<span class="sub">{ls ? `Cable Club · with ${nameOf(ls.peer)}` : where.spot || 'Johto'}</span>
+					</p>
+				{/if}
 				<div class="screen-slot" bind:this={screenSlot}>
 					<GameScreen>
 						{#snippet leading()}<SpeedControl speed={myGame?.speed} />{/snippet}
@@ -251,7 +261,7 @@
 					<ChatOverlay hidden={chatShown} />
 				</div>
 				<nav class="tabs" aria-label="Panels">
-					{#each TABS.filter((t) => !(landscape && t.id === 'play')) as t (t.id)}
+					{#each TABS.filter((t) => t.id !== (landscape ? 'play' : 'link')) as t (t.id)}
 						{@const badge = badges[t.id]}
 						<button
 							type="button"
@@ -278,7 +288,7 @@
 				</div>
 			</section>
 			<section class="mid" class:sheet-off={tab !== 'link'} aria-label="Link cable and your run">
-				<div class="slot" class:p-off={tab !== 'link'}><LinkPanel /></div>
+				<div class="slot link" class:p-off={!linkOn}><LinkPanel /></div>
 				<div class="slot run" class:p-off={!runOn}><GameStatus /></div>
 			</section>
 			<section class="board panel" class:sheet-off={tab !== 'scores' && tab !== 'chat'} aria-label="Scoreboard, activity and chat">
@@ -326,32 +336,60 @@
 	.page {
 		min-height: 100vh;
 	}
-	header {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
-		padding: 16px 32px;
-		border-bottom: 1px solid var(--border);
-	}
-	.brand,
-	.user {
+	/* The location sign over the screen: pin, landmark in the pixel font, the spot inside it. */
+	.sign {
+		flex: none;
+		margin: 0;
 		display: flex;
 		align-items: center;
-		gap: 16px;
-		flex-wrap: wrap;
+		gap: 10px;
+		padding: 8px 10px;
+		border-radius: 8px;
+		border: 2px solid var(--border-strong);
+		background: var(--sunk);
+		min-width: 0;
 	}
-	.logo {
-		display: block;
-		height: 44px;
-		width: auto;
+	.sign svg {
+		flex: none;
+		width: 18px;
+		height: 18px;
+		color: var(--accent-text);
 	}
-	/* Phones: the PPPP V2 logo instead of the long banner. */
-	.short {
-		display: none;
-		height: 36px;
-		width: auto;
+	.sign .place {
+		flex: 1;
+		min-width: 0;
+		font-size: 11px;
+		line-height: 1.5;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.sign .sub {
+		font-size: 12px;
+		color: var(--muted);
+		white-space: nowrap;
+	}
+	.sign.linked {
+		border-color: var(--link);
+	}
+	.sign.linked svg {
+		color: var(--link);
+	}
+	/* Tablets: game | link + your run, the board full width underneath (the mock's 2-column step). */
+	@media (min-width: 761px) and (max-width: 1099px), (min-width: 761px) and (max-height: 599px) and (min-height: 521px) {
+		main {
+			display: grid;
+			grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+			align-items: start;
+		}
+		.game {
+			max-width: none;
+		}
+		.board {
+			grid-column: 1 / -1;
+			contain: none;
+			height: 640px;
+		}
 	}
 	main {
 		display: flex;
@@ -513,7 +551,7 @@
 			flex-direction: column;
 			overflow: hidden;
 		}
-		header {
+		.page > :global(header) {
 			flex: none;
 		}
 		.stage {
@@ -619,30 +657,13 @@
 		.chat-pane {
 			padding: 0;
 		}
-	}
-	@media (max-width: 760px) {
-		/* One row: logo on the left, online + account menu on the right. */
-		header {
-			padding: 8px 16px;
-			gap: 8px;
-			flex-wrap: nowrap;
-		}
-		.logo {
+		.sign {
 			display: none;
 		}
-		.short {
-			display: block;
-		}
-		.brand,
-		.user {
-			gap: 8px;
-			flex-wrap: nowrap;
-		}
-		.user {
-			margin-left: auto;
-		}
-		/* App-like: the page is one screen tall. Screen on top, the active tab fills the middle and scrolls
-		   inside itself, the tab bar sits at the bottom. 100svh: the height with the browser's bars shown, measured
+	}
+	@media (max-width: 760px) {
+		/* App-like: the page is one screen tall. Tabs under the header, then the screen, then the active tab fills
+		   the rest and scrolls inside itself. 100svh: the height with the browser's bars shown, measured
 		   right on Android Chrome and Firefox and iOS Chrome. A fixed inset: 0 page takes the large viewport (bars
 		   hidden) and innerHeight read at load can be stale, both hid the tab bar below the screen. */
 		.page {
@@ -656,7 +677,7 @@
 			flex-direction: column;
 			overflow: hidden;
 		}
-		header {
+		.page > :global(header) {
 			flex: none;
 		}
 		main {
@@ -670,7 +691,7 @@
 			width: 100%;
 			max-width: none;
 			margin: 0;
-			padding: 8px 6px 0;
+			padding: 0 6px calc(8px + env(safe-area-inset-bottom));
 			gap: 8px;
 		}
 		.game {
@@ -706,9 +727,10 @@
 			max-width: none;
 			overflow-y: auto;
 		}
-		/* Scores: Your run on top keeps its height, the ranking under it scrolls. */
-		.slot.run {
-			flex: none;
+		/* Scores: the Link cable card on top (scrolls itself if long), the ranking under it scrolls. */
+		.slot.link {
+			flex: 0 1 auto;
+			max-height: 45%;
 		}
 		.linked-banner {
 			order: 0;
@@ -771,36 +793,37 @@
 			display: none;
 		}
 		.tabs {
-			order: 2;
+			order: -1;
 			flex: none;
 			display: flex;
 			margin: 0 -6px;
-			padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
-			border-top: 1px solid var(--border);
-			background: var(--panel);
+			border-bottom: 1px solid var(--border);
 		}
 		.tabs button {
 			position: relative;
 			flex: 1 1 0;
+			height: 44px;
 			display: flex;
-			flex-direction: column;
 			align-items: center;
-			gap: 2px;
-			padding: 6px 0;
+			justify-content: center;
+			gap: 6px;
+			padding: 0;
 			border: none;
 			background: transparent;
-			font-size: 11px;
+			font-size: 14px;
 			font-weight: 600;
 			color: var(--muted);
+		}
+		.tabs button svg {
+			display: none;
 		}
 		/* The selected tab in the player's plate colour (pulled toward the text colour on light, like names). */
 		.tabs button[aria-pressed='true'] {
 			color: color-mix(in oklab, var(--plate, var(--accent-text)), var(--text) var(--name-dim));
+			box-shadow: inset 0 -3px 0 var(--accent);
 		}
 		.badge {
-			position: absolute;
-			top: 2px;
-			left: calc(50% + 6px);
+			position: static;
 			min-width: 8px;
 			height: 16px;
 			padding: 0 4px;
@@ -813,11 +836,10 @@
 			text-align: center;
 		}
 		.badge:empty {
-			width: 10px;
+			width: 8px;
 			min-width: 0;
-			height: 10px;
+			height: 8px;
 			padding: 0;
-			top: 4px;
 		}
 	}
 	/* Phone held sideways: a Game Boy Advance. D-pad left, screen in the middle, A/B right, Select/Start under
@@ -842,12 +864,11 @@
 		}
 		.dex,
 		.off,
-		.logo,
-		.short {
+		.page > :global(header .brand) {
 			display: none;
 		}
 		/* Online + account menu top-right, floating over the corner. */
-		header {
+		.page > :global(header) {
 			position: fixed;
 			inset: 8px max(12px, env(safe-area-inset-right)) auto max(12px, env(safe-area-inset-left));
 			z-index: 32;
@@ -856,7 +877,7 @@
 			background: none;
 			pointer-events: none;
 		}
-		header > * {
+		.page > :global(header > *) {
 			pointer-events: auto;
 		}
 		.stage,
@@ -1009,6 +1030,10 @@
 		.tabs button[aria-pressed='true'] {
 			color: color-mix(in oklab, var(--plate, var(--accent-text)), var(--text) var(--name-dim));
 			background: var(--bg);
+			box-shadow: none;
+		}
+		.tabs button svg {
+			display: block;
 		}
 		.tabs button span:not(.badge) {
 			position: absolute;
