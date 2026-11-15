@@ -2,28 +2,47 @@
 
 export type Button = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'start' | 'select';
 
-/** arrows: arrow keys, Z = A, X = B. wasd: W A S D, K = A, J = B (the arrow keys still move too). */
-export type KeyScheme = 'arrows' | 'wasd';
+/** Which keyboard key presses each pad button: one key per button, as KeyboardEvent.key (letters lower-case). */
+export type Bindings = Record<Button, string>;
 
-const COMMON: Record<string, Button> = {
-	ArrowUp: 'up',
-	ArrowDown: 'down',
-	ArrowLeft: 'left',
-	ArrowRight: 'right',
-	Enter: 'start',
-	Shift: 'select',
-	Backspace: 'select'
-};
-const KEYS: Record<KeyScheme, Record<string, Button>> = {
-	arrows: { ...COMMON, z: 'a', Z: 'a', x: 'b', X: 'b' },
-	wasd: { ...COMMON, w: 'up', W: 'up', a: 'left', A: 'left', s: 'down', S: 'down', d: 'right', D: 'right', k: 'a', K: 'a', j: 'b', J: 'b' }
-};
+export const BUTTONS: Button[] = ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select'];
 
-/** The keys shown on the pad's buttons (aria-keyshortcuts) and in the keyboard card. */
-export const KEY_LABELS: Record<KeyScheme, Record<Button, string>> = {
-	arrows: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', a: 'Z', b: 'X', start: 'Enter', select: 'Shift' },
-	wasd: { up: 'W', down: 'S', left: 'A', right: 'D', a: 'K', b: 'J', start: 'Enter', select: 'Shift' }
-};
+/** The two ready-made layouts; players can change any key from there (Settings in the account menu). */
+export const PRESETS = {
+	arrows: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', a: 'z', b: 'x', start: 'Enter', select: 'Shift' },
+	wasd: { up: 'w', down: 's', left: 'a', right: 'd', a: 'k', b: 'j', start: 'Enter', select: 'Shift' }
+} satisfies Record<string, Bindings>;
+
+/** Keys that can't be bound: they move focus or close dialogs. */
+export const RESERVED_KEYS = ['Escape', 'Tab'];
+
+/** KeyboardEvent.key as stored: single characters lower-cased, so Shift+W and Caps Lock still match "w". */
+export const normKey = (key: string) => (key.length === 1 ? key.toLowerCase() : key);
+
+const KEY_NAMES: Record<string, string> = { ' ': 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
+/** How a bound key is shown: "W", "↑", "Space", "Enter". */
+export const keyName = (key: string) => KEY_NAMES[key] ?? (key.length === 1 ? key.toUpperCase() : key);
+
+/** Binds `key` to `button`. A key belongs to one button only: whichever button had it gets `button`'s old key (a swap). */
+export function rebind(bindings: Bindings, button: Button, key: string): { bindings: Bindings; swapped: Button | null } {
+	const k = normKey(key);
+	const other = BUTTONS.find((b) => b !== button && bindings[b] === k) ?? null;
+	const next = { ...bindings, [button]: k };
+	if (other) next[other] = bindings[button];
+	return { bindings: next, swapped: other };
+}
+
+/** A saved value back to bindings: anything missing or broken falls back to the arrows layout. */
+export function parseBindings(raw: string | null): Bindings {
+	if (raw === 'wasd') return { ...PRESETS.wasd }; // stored by the old Arrows/WASD toggle
+	try {
+		const v = JSON.parse(raw ?? '');
+		if (BUTTONS.every((b) => typeof v?.[b] === 'string' && v[b])) return Object.fromEntries(BUTTONS.map((b) => [b, normKey(v[b])])) as Bindings;
+	} catch {
+		/* not JSON: the default */
+	}
+	return { ...PRESETS.arrows };
+}
 
 export type KeyLike = {
 	key: string;
@@ -39,16 +58,18 @@ export function notForShortcuts(e: KeyLike): boolean {
 	if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return true;
 	const t = e.target as HTMLElement | null;
 	const tag = t?.tagName;
-	return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t?.isContentEditable;
+	// Inside an open dialog (Settings rebinding keys) keys are the dialog's.
+	return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t?.isContentEditable || !!t?.closest?.('dialog');
 }
 
 /** The pad button for a keydown, or null when it should be left alone (typing, shortcuts, held keys). */
-export function keyToButton(e: KeyLike, scheme: KeyScheme = 'arrows'): Button | null {
+export function keyToButton(e: KeyLike, bindings: Bindings = PRESETS.arrows): Button | null {
 	if (notForShortcuts(e)) return null;
 	const tag = (e.target as HTMLElement | null)?.tagName;
-	// Enter on a focused button or link already activates it.
-	if (e.key === 'Enter' && (tag === 'BUTTON' || tag === 'A')) return null;
-	return KEYS[scheme][e.key] ?? null;
+	// Enter and Space on a focused button or link already activate it.
+	if ((e.key === 'Enter' || e.key === ' ') && (tag === 'BUTTON' || tag === 'A')) return null;
+	const k = normKey(e.key);
+	return BUTTONS.find((b) => bindings[b] === k) ?? null;
 }
 
 /** Reconnect delay: 0.5 s doubling up to 30 s. */

@@ -1,11 +1,11 @@
-<!-- The avatar in the top bar opens this menu: who you are, light/dark (sun/moon), Keys: arrows or WASD (keyboard devices), Pokédex banners (wide desktops), Admin (admins only; Play when
+<!-- The avatar in the top bar opens this menu: who you are, light/dark (sun/moon), Pokédex banners (wide desktops), My profile, Settings (key bindings), Admin (admins only; Play when
      already on /admin), Sign out. -->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { isAdmin, logout, type Me } from '#lib/session.svelte.ts';
 	import { setTheme, theme } from '#lib/theme.svelte.ts';
 	import { dexBanners, setDexBanners } from '#lib/dex.svelte.ts';
-	import { keys, setKeyScheme } from '#lib/keys.svelte.ts';
+	import SettingsDialog from '#lib/components/SettingsDialog.svelte';
 
 	let { me }: { me: Me } = $props();
 
@@ -13,6 +13,7 @@
 	let root = $state<HTMLDivElement>();
 	let trigger = $state<HTMLButtonElement>();
 	let pictureFailed = $state(false);
+	let settingsOpen = $state(false);
 
 	const initials = $derived(
 		me.name
@@ -96,26 +97,6 @@
 				</div>
 			</div>
 
-			<!-- Mouse clicks drop focus, so the WASD/Enter keys that follow go to the game, not this toggle. -->
-			<div class="row keys-row">
-				<span id="keys-label">Keys</span>
-				<div class="toggle" role="group" aria-labelledby="keys-label">
-					{#each [['arrows', 'Arrow keys, Z and X', '↑↓'], ['wasd', 'W A S D, K and J', 'WASD']] as [scheme, label, text] (scheme)}
-						<button
-							type="button"
-							class="keys-btn"
-							aria-pressed={keys.scheme === scheme}
-							aria-label={label}
-							title={label}
-							onclick={(e) => {
-								setKeyScheme(scheme as 'arrows' | 'wasd');
-								if (e.detail > 0) e.currentTarget.blur();
-							}}>{text}</button
-						>
-					{/each}
-				</div>
-			</div>
-
 			{#if !page.url.pathname.startsWith('/admin')}
 				<label class="row dex-row">
 					<span>Pokédex on the sides</span>
@@ -127,33 +108,24 @@
 				<a class="item" href="/play">Play</a>
 			{/if}
 			<a class="item" href="/pib/{encodeURIComponent(me.id)}">My profile</a>
+			<button
+				type="button"
+				class="item"
+				onclick={() => {
+					close();
+					settingsOpen = true;
+				}}>Settings</button
+			>
 			{#if isAdmin(me) && !page.url.pathname.startsWith('/admin')}
 				<a class="item" href="/admin">Admin</a>
 			{/if}
 			<button type="button" class="item" onclick={logout}>Sign out</button>
 		</div>
 	{/if}
+	<SettingsDialog bind:open={settingsOpen} />
 </div>
 
 <style>
-	/* Keys only matter with a keyboard and mouse. */
-	.row.keys-row {
-		display: none;
-	}
-	@media (hover: hover) and (pointer: fine) {
-		.row.keys-row {
-			display: flex;
-		}
-	}
-	/* Same size as the theme buttons, a word instead of an icon. */
-	.toggle .keys-btn {
-		width: auto;
-		min-width: 32px;
-		padding: 0 8px;
-		font-size: 11px;
-		font-weight: 700;
-		letter-spacing: 0.02em;
-	}
 	/* Only where /play shows the banners (its wide media query); elsewhere the option would do nothing. */
 	.row.dex-row {
 		display: none;

@@ -1,22 +1,22 @@
-// Which keys move the player: the arrow keys (Z = A, X = B) or WASD (K = A, J = B). Remembered per browser.
-import type { KeyScheme } from './play';
+// The player's key bindings (one key per pad button), remembered per browser. Changed in Settings (account menu).
+import { parseBindings, type Bindings } from './play';
 
 const KEY = 'pppp.keys';
 
-function saved(): KeyScheme {
+function saved(): Bindings {
 	try {
-		return localStorage.getItem(KEY) === 'wasd' ? 'wasd' : 'arrows';
+		return parseBindings(localStorage.getItem(KEY));
 	} catch {
-		return 'arrows';
+		return parseBindings(null);
 	}
 }
 
-export const keys = $state<{ scheme: KeyScheme }>({ scheme: saved() });
+export const keys = $state<{ bindings: Bindings }>({ bindings: saved() });
 
-export function setKeyScheme(scheme: KeyScheme) {
-	keys.scheme = scheme;
+export function setBindings(bindings: Bindings) {
+	keys.bindings = bindings;
 	try {
-		localStorage.setItem(KEY, scheme);
+		localStorage.setItem(KEY, JSON.stringify(bindings));
 	} catch {
 		/* private mode: not remembered */
 	}

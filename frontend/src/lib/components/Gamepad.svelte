@@ -1,12 +1,14 @@
 <!-- D-pad, A/B, Start/Select. Keys and fingers hold buttons down on the player's own console over /ws/input
-     (#lib/input.ts) until let go; a click without a pointer, or a closed socket, sends one press (POST /me/inputs). Keys: arrows
-     with Z=A, X=B, or WASD with K=A, J=B (picked in the account menu); Enter=Start, Shift/Backspace=Select. -->
+     (#lib/input.ts) until let go; a click without a pointer, or a closed socket, sends one press (POST /me/inputs). Keys:
+     with the player's own key bindings (Settings in the account menu; arrows + Z/X by default). -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
-	import { keyToButton, KEY_LABELS, type Button } from '#lib/play.ts';
+	import { keyToButton, type Button } from '#lib/play.ts';
 	import { sendKey, useInput } from '#lib/input.ts';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { keys } from '#lib/keys.svelte.ts';
+	// aria-keyshortcuts names (KeyboardEvent.key, Space for " ").
+	const shortcut = (b: Button) => (keys.bindings[b] === ' ' ? 'Space' : keys.bindings[b]);
 	import { shellVars } from '#lib/shells.ts';
 	import { currentShell } from '#lib/shell.svelte.ts';
 	import ShellPicker from './ShellPicker.svelte';
@@ -63,7 +65,7 @@
 	$effect(() => releaseAll); // leaving the page
 
 	function onkeydown(e: KeyboardEvent) {
-		const b = keyToButton({ key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, target: e.target }, keys.scheme);
+		const b = keyToButton({ key: e.key, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, target: e.target }, keys.bindings);
 		if (!b) return;
 		e.preventDefault(); // no page scroll, also for the browser's auto-repeat of a held key
 		if (!e.repeat) press(b);
@@ -71,7 +73,7 @@
 
 	function onkeyup(e: KeyboardEvent) {
 		// Let go even if focus moved into a text field meanwhile.
-		const b = keyToButton({ key: e.key }, keys.scheme);
+		const b = keyToButton({ key: e.key }, keys.bindings);
 		if (b) release(b);
 	}
 
@@ -108,7 +110,7 @@
 					class:held={down.has(d.b)}
 					style:grid-area={d.area}
 					aria-label={d.label}
-					aria-keyshortcuts={KEY_LABELS[keys.scheme][d.b]}
+					aria-keyshortcuts={shortcut(d.b)}
 					onpointerdown={(e) => pointerDown(e, d.b)}
 					onpointerup={() => release(d.b)}
 					onpointercancel={() => release(d.b)}
@@ -127,51 +129,50 @@
 						stroke-linejoin="round"
 						aria-hidden="true"><path d={d.path}></path></svg
 					>
-					{#if keys.scheme === 'wasd'}<kbd class="cap" aria-hidden="true">{KEY_LABELS.wasd[d.b]}</kbd>{/if}
 				</button>
 			{/each}
 			<div class="hub"></div>
 		</div>
 		<div class="ab">
-			<button type="button" class="round pixel b" class:held={down.has('b')} aria-label="B button" aria-keyshortcuts={KEY_LABELS[keys.scheme].b} onpointerdown={(e) => pointerDown(e, 'b')}
+			<button type="button" class="round pixel b" class:held={down.has('b')} aria-label="B button" aria-keyshortcuts={shortcut('b')} onpointerdown={(e) => pointerDown(e, 'b')}
 			onpointerup={() => release('b')}
 			onpointercancel={() => release('b')}
 			onpointerleave={() => release('b')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('b')}
-				>B<kbd class="cap" aria-hidden="true">{KEY_LABELS[keys.scheme].b}</kbd></button
+				>B</button
 			>
-			<button type="button" class="round pixel" class:held={down.has('a')} aria-label="A button" aria-keyshortcuts={KEY_LABELS[keys.scheme].a} onpointerdown={(e) => pointerDown(e, 'a')}
+			<button type="button" class="round pixel" class:held={down.has('a')} aria-label="A button" aria-keyshortcuts={shortcut('a')} onpointerdown={(e) => pointerDown(e, 'a')}
 			onpointerup={() => release('a')}
 			onpointercancel={() => release('a')}
 			onpointerleave={() => release('a')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('a')}
-				>A<kbd class="cap" aria-hidden="true">{KEY_LABELS[keys.scheme].a}</kbd></button
+				>A</button
 			>
 		</div>
 	</div>
 	<div class="meta">
-		<button type="button" class="pill" class:held={down.has('select')} aria-label="Select" aria-keyshortcuts="Shift" onpointerdown={(e) => pointerDown(e, 'select')}
+		<button type="button" class="pill" class:held={down.has('select')} aria-label="Select" aria-keyshortcuts={shortcut('select')} onpointerdown={(e) => pointerDown(e, 'select')}
 			onpointerup={() => release('select')}
 			onpointercancel={() => release('select')}
 			onpointerleave={() => release('select')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('select')}
-			>SELECT<kbd class="cap" aria-hidden="true">Shift</kbd></button
+			>SELECT</button
 		>
-		<button type="button" class="pill" class:held={down.has('start')} aria-label="Start" aria-keyshortcuts="Enter" onpointerdown={(e) => pointerDown(e, 'start')}
+		<button type="button" class="pill" class:held={down.has('start')} aria-label="Start" aria-keyshortcuts={shortcut('start')} onpointerdown={(e) => pointerDown(e, 'start')}
 			onpointerup={() => release('start')}
 			onpointercancel={() => release('start')}
 			onpointerleave={() => release('start')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('start')}
-			>START<kbd class="cap" aria-hidden="true">Enter</kbd></button
+			>START</button
 		>
 	</div>
 </div>
 
-<!-- Only a failed press says anything here. The key scheme and legend live in the account menu (UserMenu). -->
+<!-- Only a failed press says anything here. Key bindings live in Settings (account menu). -->
 <p class="last" role="status" aria-live="polite">
 	{#if status}<span class:error={statusError} class:muted={!statusError}>{status}</span>{/if}
 </p>
@@ -261,34 +262,6 @@
 		font-size: 12px;
 		font-weight: 700;
 		letter-spacing: 0.08em;
-	}
-	/* Which keyboard key presses each button, as a small key cap on its corner (keyboard and mouse only). */
-	.dir,
-	.round,
-	.pill {
-		position: relative;
-	}
-	.cap {
-		display: none;
-		position: absolute;
-		top: -7px;
-		right: -7px;
-		min-width: 18px;
-		padding: 1px 4px;
-		box-sizing: border-box;
-		border-radius: 4px;
-		border: 1px solid var(--border-strong);
-		background: var(--panel);
-		color: var(--text);
-		font: 600 10px/14px var(--font-ui, system-ui, sans-serif);
-		letter-spacing: 0;
-		text-align: center;
-		pointer-events: none;
-	}
-	@media (hover: hover) and (pointer: fine) {
-		.cap {
-			display: block;
-		}
 	}
 	/* The Pibtendo oval from the sign-in handheld, embossed in the shell's own colour. */
 	/* Floats in the shell's top padding, between the d-pad and A/B: adds no height to the pad. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyToButton, ordinal, place, playerStatus, profileFrom, progressPct, versionOf, type ScoreRow } from './play';
+import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, ordinal, parseBindings, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, versionOf, type ScoreRow } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -11,13 +11,32 @@ describe('play helpers', () => {
 		expect(keyToButton({ key: 'z', target: { tagName: 'INPUT' } as never })).toBeNull();
 		expect(keyToButton({ key: 'Enter', target: { tagName: 'BUTTON' } as never })).toBeNull();
 		expect(keyToButton({ key: 'x', target: { tagName: 'BUTTON' } as never })).toBe('b');
-		expect(keyToButton({ key: 'w' })).toBeNull(); // arrows scheme: letters do not move
-		expect(keyToButton({ key: 'w' }, 'wasd')).toBe('up');
-		expect(keyToButton({ key: 'A' }, 'wasd')).toBe('left');
-		expect(keyToButton({ key: 'k' }, 'wasd')).toBe('a');
-		expect(keyToButton({ key: 'j' }, 'wasd')).toBe('b');
-		expect(keyToButton({ key: 'z' }, 'wasd')).toBeNull();
-		expect(keyToButton({ key: 'ArrowDown' }, 'wasd')).toBe('down');
+		expect(keyToButton({ key: 'w' })).toBeNull(); // arrows layout: letters do not move
+		expect(keyToButton({ key: 'W' }, PRESETS.wasd)).toBe('up'); // Shift or Caps Lock held
+		expect(keyToButton({ key: 'a' }, PRESETS.wasd)).toBe('left');
+		expect(keyToButton({ key: 'k' }, PRESETS.wasd)).toBe('a');
+		expect(keyToButton({ key: 'ArrowDown' }, PRESETS.wasd)).toBeNull();
+		expect(keyToButton({ key: ' ', target: { tagName: 'BUTTON' } as never }, { ...PRESETS.arrows, a: ' ' })).toBeNull();
+		expect(keyToButton({ key: 'z', target: { tagName: 'BUTTON', closest: () => ({}) } as never })).toBeNull(); // in a dialog
+	});
+
+	it('rebinds one key per button, swapping with the button that had it', () => {
+		const { bindings, swapped } = rebind(PRESETS.arrows, 'a', 'X');
+		expect(bindings.a).toBe('x');
+		expect(swapped).toBe('b');
+		expect(bindings.b).toBe('z');
+		expect(rebind(PRESETS.arrows, 'up', 'q')).toEqual({ bindings: { ...PRESETS.arrows, up: 'q' }, swapped: null });
+	});
+
+	it('reads saved bindings, old toggle values and junk', () => {
+		expect(parseBindings('wasd')).toEqual(PRESETS.wasd);
+		expect(parseBindings('arrows')).toEqual(PRESETS.arrows);
+		expect(parseBindings(null)).toEqual(PRESETS.arrows);
+		expect(parseBindings('{"up":"w"}')).toEqual(PRESETS.arrows);
+		expect(parseBindings(JSON.stringify({ ...PRESETS.wasd, a: 'L' }))).toEqual({ ...PRESETS.wasd, a: 'l' });
+		expect(keyName('ArrowUp')).toBe('↑');
+		expect(keyName(' ')).toBe('Space');
+		expect(keyName('k')).toBe('K');
 	});
 
 	it('backs off exponentially with a cap', () => {
