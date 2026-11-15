@@ -11,6 +11,7 @@
 	import { inkFor } from '#lib/shells.ts';
 	import Chat from '#lib/components/Chat.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
+	import SpeedControl from '#lib/components/SpeedControl.svelte';
 	import GameStatus from '#lib/components/GameStatus.svelte';
 	import GameToasts from '#lib/components/GameToasts.svelte';
 	import ChatOverlay from '#lib/components/ChatOverlay.svelte';
@@ -26,7 +27,7 @@
 	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
 	import { board } from '#lib/board.svelte.ts';
 	import { act, clock, left, link } from '#lib/link.svelte.ts';
-	import { shortUser } from '#lib/play.ts';
+	import { nameOf } from '#lib/pictures.svelte.ts';
 	import Presence from '#lib/components/Presence.svelte';
 	import SoundControl from '#lib/components/SoundControl.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
@@ -190,7 +191,7 @@
 	const me = $derived(session.me);
 	let loadFailed = $state(false);
 	// The player's own cartridge: null until /me/game answers, then `game` is null until they pick one.
-	let myGame = $state<{ game: string | null; available: Cartridge[] } | null>(null);
+	let myGame = $state<{ game: string | null; available: Cartridge[]; speed: number | null } | null>(null);
 
 	$effect(() => {
 		loadMe()
@@ -236,13 +237,14 @@
 					<div class="linked-banner">
 						<span class="pair" aria-hidden="true"><Avatar user={me.id} /><span class="cable"></span><Avatar user={ls.peer} /></span>
 						<span class="lb-text"
-							><b>Linked with {shortUser(ls.peer)}</b><span>{ls.kind === 'TRADE' ? 'Trade' : 'Battle'} · {clock(left(ls.endsAt))} left</span></span
+							><b>Linked with {nameOf(ls.peer)}</b><span>{ls.kind === 'TRADE' ? 'Trade' : 'Battle'} · {clock(left(ls.endsAt))} left</span></span
 						>
 						<button type="button" class="unplug" onclick={() => act('DELETE', '/link/session')}>Unplug</button>
 					</div>
 				{/if}
 				<div class="screen-slot" bind:this={screenSlot}>
 					<GameScreen>
+						{#snippet leading()}<SpeedControl speed={myGame?.speed} />{/snippet}
 						{#snippet controls()}<span class="bezel-controls"><ChatOverlayToggle /><SoundControl /></span>{/snippet}
 					</GameScreen>
 					<GameToasts />

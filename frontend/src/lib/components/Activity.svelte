@@ -1,7 +1,8 @@
 <!-- The activity feed, newest first: badges, catches, levels. limit: how many (the scoreboard's "Latest" shows a few). -->
 <script lang="ts">
 	import { board, watchBoard } from '#lib/board.svelte.ts';
-	import { activityText, ago, shortUser } from '#lib/play.ts';
+	import { activityText, ago } from '#lib/play.ts';
+	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
 	let { limit = Infinity, label }: { limit?: number; label?: string } = $props();
@@ -23,7 +24,7 @@
 			{@const you = e.user === session.me?.id}
 			<li>
 				<span class="ico" aria-hidden="true">{ICONS[e.type] ?? '·'}</span>
-				<span><b>{you ? 'You' : shortUser(e.user)}</b> {activityText(e, '').trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
+				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '').trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
 			</li>
 		{/each}
 	</ul>

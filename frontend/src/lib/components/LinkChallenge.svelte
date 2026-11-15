@@ -4,7 +4,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, CHALLENGE_MS, left, link, verb, watchLink } from '#lib/link.svelte.ts';
-	import { shortUser } from '#lib/play.ts';
+	import { nameOf } from '#lib/pictures.svelte.ts';
 
 	let { sheet = false }: { sheet?: boolean } = $props();
 	$effect(() => watchLink());
@@ -26,7 +26,7 @@
 			<div class="who">
 				<Avatar user={c.from} size={sheet ? 48 : 40} />
 				<div>
-					<p class="title" id="challenge-h-{sheet ? 's' : 'i'}">{shortUser(c.from)} wants to {verb(c.kind)}</p>
+					<p class="title" id="challenge-h-{sheet ? 's' : 'i'}">{nameOf(c.from)} wants to {verb(c.kind)}</p>
 					{#if facts}<p class="muted">{facts}</p>{/if}
 				</div>
 			</div>

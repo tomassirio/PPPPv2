@@ -73,6 +73,19 @@ public class ProgressRepository {
     }
 
     /** The player's latest Trainer Score; ZERO when none is stored. */
+    /** The party stored with the Trainer Score ("155:12,16:5"), empty when none. */
+    public java.util.List<dev.pppp.model.ScoreRow.Member> party(String userId) {
+        Object v = redis.opsForHash().get(trainerKey(userId), "party");
+        if (v == null || v.toString().isEmpty()) return java.util.List.of();
+        return java.util.Arrays.stream(v.toString().split(",")).map(m -> m.split(":"))
+                .map(m -> new dev.pppp.model.ScoreRow.Member(Integer.parseInt(m[0]), Integer.parseInt(m[1]))).toList();
+    }
+
+    public void saveParty(String userId, java.util.List<dev.pppp.model.ScoreRow.Member> party) {
+        redis.opsForHash().put(trainerKey(userId), "party", String.join(",",
+                party.stream().map(m -> m.species() + ":" + m.level()).toList()));
+    }
+
     public TrainerScore trainer(String userId) {
         Map<Object, Object> h = redis.opsForHash().entries(trainerKey(userId));
         if (h.isEmpty()) return TrainerScore.ZERO;

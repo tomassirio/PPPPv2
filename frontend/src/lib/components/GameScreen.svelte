@@ -3,8 +3,8 @@
 	import type { Snippet } from 'svelte';
 	import { backoff } from '#lib/play.ts';
 
-	// `controls` renders at the right of the bezel's status strip (e.g. the sound control).
-	let { controls }: { controls?: Snippet } = $props();
+	// `controls` renders at the right of the bezel's status strip (e.g. the sound control); `leading` right after LIVE.
+	let { controls, leading }: { controls?: Snippet; leading?: Snippet } = $props();
 
 	let canvas: HTMLCanvasElement;
 	let connected = $state(false);
@@ -76,7 +76,10 @@
 			<p class="sr-only" role="status">{overlay ?? ''}</p>
 		</div>
 		<div class="strip">
-			<span class="live" class:off={!!overlay}><span class="dot" aria-hidden="true">●</span> {overlay ? 'OFFLINE' : 'LIVE'}</span>
+			<span class="left">
+				<span class="live" class:off={!!overlay}><span class="dot" aria-hidden="true">●</span> {overlay ? 'OFFLINE' : 'LIVE'}</span>
+				{@render leading?.()}
+			</span>
 			{@render controls?.()}
 		</div>
 	</div>
@@ -142,6 +145,11 @@
 		justify-content: space-between;
 		gap: 12px;
 		min-height: 28px;
+	}
+	.left {
+		display: flex;
+		align-items: center;
+		gap: 12px;
 	}
 	.live {
 		font-size: 11px;

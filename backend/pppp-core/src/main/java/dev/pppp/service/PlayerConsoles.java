@@ -160,6 +160,30 @@ public class PlayerConsoles {
         log.info("Link cable plugged: {} and {}", userA, userB);
     }
 
+    /** Speeds a player has to pick from. Audio only plays at 1x (EmulatorHost drops it otherwise). */
+    public static final java.util.Set<Double> SPEEDS = java.util.Set.of(1.0, 2.0, 4.0);
+
+    /**
+     * Sets the player's own emulation speed. IllegalArgumentException for a speed not in {@link #SPEEDS};
+     * IllegalStateException when their console is not running or a link cable is plugged in (linked consoles run in
+     * step at 1x, see EmulatorHost.link).
+     */
+    public void setSpeed(String userId, double speed) {
+        if (!SPEEDS.contains(speed)) throw new IllegalArgumentException("Speed must be 1, 2 or 4");
+        synchronized (links) {
+            if (links.containsKey(userId)) throw new IllegalStateException("Speed is locked to 1x while the link cable is plugged in");
+            Console c = consoles.get(userId);
+            if (c == null) throw new IllegalStateException("Your console is not running");
+            c.host().setSpeed(speed);
+        }
+    }
+
+    /** The player's emulation speed, or null when their console is not in memory. */
+    public Double speed(String userId) {
+        Console c = consoles.get(userId);
+        return c == null ? null : c.host().status().speed();
+    }
+
     /** Pulls the player's link cable and parks both consoles. Returns who was at the other end, or null when not linked. */
     public String unlink(String userId) {
         String peer;

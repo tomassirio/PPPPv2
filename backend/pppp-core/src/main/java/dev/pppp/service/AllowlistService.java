@@ -63,14 +63,22 @@ public class AllowlistService {
         return repo.role(normalize(email));
     }
 
-    /** Remembers a player's profile photo so others can see it (Up next). Only https URLs; never throws. */
-    public void rememberPicture(String id, String url) {
-        if (url == null || !url.startsWith("https://")) return;
+    /**
+     * Remembers a player's Google name and photo so others see them wherever players are listed. Only https photo
+     * URLs; names are trimmed to 60 characters. Never throws.
+     */
+    public void rememberProfile(String id, String name, String url) {
         try {
-            repo.savePicture(id, url);
+            if (url != null && url.startsWith("https://")) repo.savePicture(id, url);
+            String n = name == null ? "" : name.strip();
+            if (!n.isEmpty() && !n.equalsIgnoreCase(id)) repo.saveName(id, n.length() > 60 ? n.substring(0, 60) : n);
         } catch (RuntimeException e) {
-            // a missing avatar is not worth failing /me over
+            // a missing avatar or name is not worth failing /me over
         }
+    }
+
+    public java.util.Map<String, String> names() {
+        return repo.names();
     }
 
     /** Player id -> profile photo URL, for players who have opened the page since photos were remembered. */

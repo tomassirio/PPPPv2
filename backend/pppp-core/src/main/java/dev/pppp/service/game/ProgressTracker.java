@@ -66,6 +66,7 @@ public class ProgressTracker {
     private final Map<String, Map<String, Long>> unlocked = new ConcurrentHashMap<>(); // pibs:achievements, likewise
     private final Map<String, TrainerScore> trainers = new ConcurrentHashMap<>(); // pibs:trainer, likewise
     private final Map<String, Gen2Save> saves = new ConcurrentHashMap<>(); // the last confirmed save per running console
+    private final Map<String, List<ScoreRow.Member>> parties = new ConcurrentHashMap<>(); // pibs:trainer party, read once
     private Set<String> online = Set.of(); // poll thread only
 
     public ProgressTracker(PlayerConsoles consoles, CartridgeService cartridges, ProgressRepository repo,
@@ -117,7 +118,7 @@ public class ProgressTracker {
      */
     public synchronized void record(String userId, Progress now, Gen2Save save) {
         boolean changed = award(userId, now);
-        if (save != null) changed |= rate(userId, saves.put(userId, save), save);
+        if (save != null) changed |= rate(userId, saves.put(userId, save), save) | party(userId, save);
         if (changed) events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
@@ -131,6 +132,15 @@ public class ProgressTracker {
         awarded.put(userId, after);
         scored.forEach(e -> events.publishEvent(new LiveEvent("PROGRESS", e)));
         return !scored.isEmpty();
+    }
+
+    /** Stores the party when it changed (shown on the scoreboard); true when it did. */
+    private boolean party(String userId, Gen2Save save) {
+        List<ScoreRow.Member> now = save.party().stream().map(m -> new ScoreRow.Member(m.species(), m.level())).toList();
+        if (now.equals(parties.computeIfAbsent(userId, repo::party))) return false;
+        repo.saveParty(userId, now);
+        parties.put(userId, now);
+        return true;
     }
 
     /** Unlocks what the save earns for the first time and stores its Trainer Score; true when either changed. */
@@ -201,6 +211,7 @@ public class ProgressTracker {
         unlocked.remove(userId);
         trainers.remove(userId);
         saves.remove(userId);
+        parties.remove(userId);
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
@@ -214,7 +225,7 @@ public class ProgressTracker {
             Map<String, Long> a = unlocked.computeIfAbsent(userId, repo::achievements);
             rows.add(new ScoreRow(userId, points(p), p.badges().size(), p.caught().size(), p.seen().size(),
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
-                    a.size()));
+                    a.size(), parties.computeIfAbsent(userId, repo::party)));
         }
         return rows;
     }

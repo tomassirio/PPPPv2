@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import dev.pppp.model.LiveEvent;
@@ -121,7 +122,7 @@ class ProgressTrackerTest {
                 "BADGE Thunder +100", "SEEN Pidgey +2", "LEVEL 10 +5", "LEVEL 20 +5");
         assertThat(ProgressTracker.points(stored.get(ASH))).isEqualTo(224);
         assertThat(published.getLast()).isEqualTo(new LiveEvent("SCOREBOARD_CHANGED", // Red has no Trainer Score
-                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true, 0, "Youngster", "F", 0, 0))));
+                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true, 0, "Youngster", "F", 0, 0, List.of()))));
     }
 
     @Test
@@ -291,11 +292,15 @@ class ProgressTrackerTest {
         assertThat(ranks.get(ASH)).isEqualTo(44 * 10_000L + 60);
         assertThat(tracker.scoreboard().getFirst()).extracting(ScoreRow::trainerScore, ScoreRow::title, ScoreRow::grade)
                 .containsExactly(44, "Youngster", "F");
+        assertThat(tracker.scoreboard().getFirst().party())
+                .containsExactly(new ScoreRow.Member(150, 100), new ScoreRow.Member(129, 100));
 
         gold.partySize(1); // Magikarp went to the box, the coins were spent
         gold.coins(0);
         twice(tracker);
         assertThat(trainers.get(ASH).score()).isEqualTo(29); // team 25, side 0
+        assertThat(tracker.scoreboard().getFirst().party()).containsExactly(new ScoreRow.Member(150, 100));
+        verify(repo).saveParty(ASH, List.of(new ScoreRow.Member(150, 100)));
         assertThat(achieved.get(ASH)).containsKeys("kantos-strongest", "high-roller", "level-up", "centurion");
     }
 

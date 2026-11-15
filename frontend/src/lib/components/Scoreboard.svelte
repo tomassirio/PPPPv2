@@ -1,13 +1,20 @@
-<!-- Scoreboard: every player ranked by points, with badge pips, a status line (linked / ready / playing / offline,
-     from the link cable and the row's online flag) and Pokédex count; the signed-in player's row highlighted.
+<!-- Scoreboard: every player ranked by Trainer Score, with their full name, a status line (linked / ready / playing /
+     offline, from the link cable and the row's online flag) and Pokédex count, then their party's icons and badge pips;
+     the signed-in player's row highlighted. Party icons are drawn from the viewer's own ROM (same species numbers).
      Rows from board.svelte.ts; the "Latest" feed under it. -->
 <script lang="ts">
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { link, watchLink } from '#lib/link.svelte.ts';
-	import { playerStatus, shortUser } from '#lib/play.ts';
+	import { playerStatus } from '#lib/play.ts';
+	import { nameOf } from '#lib/pictures.svelte.ts';
+	import { game } from '#lib/game.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
+
+	/** "Cyndaquil, Lv 12" when the viewer's own game knows the species name. */
+	const monLabel = (m: { species: number; level: number }) =>
+		`${game.summary?.collection?.names?.[m.species - 1] ?? `#${m.species}`}, Lv ${m.level}`;
 
 	$effect(() => watchBoard());
 	$effect(() => watchLink());
@@ -26,13 +33,23 @@
 					<Avatar user={r.userId} />
 					<div class="mid">
 						<div class="line">
-							<b class="name"><span class="sr">{i + 1}. </span>{you ? 'You' : shortUser(r.userId)}</b>
+							<b class="name" title={nameOf(r.userId)}><span class="sr">{i + 1}. </span>{nameOf(r.userId)}</b>
+							{#if you}<span class="you-tag">You</span>{/if}
+						</div>
+						<div class="status {st.kind}"><span class="dot" aria-hidden="true"></span>{st.label}<span class="muted">· {r.caught} caught</span></div>
+						<div class="line extra">
+							{#if r.party?.length}
+								<ul class="party" aria-label="Party">
+									{#each r.party as m, k (k)}
+										<li><img src="/api/v1/game/icons/{m.species}.png" alt={monLabel(m)} title={monLabel(m)} width="56" height="56" loading="lazy" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} /></li>
+									{/each}
+								</ul>
+							{/if}
 							<span class="pips" title="{r.badges} badges" aria-hidden="true">
 								{#each Array(pips) as _, b (b)}<i class:got={b < r.badges}></i>{/each}
 							</span>
 							<span class="sr">, {r.badges} badges</span>
 						</div>
-						<div class="status {st.kind}"><span class="dot" aria-hidden="true"></span>{st.label}<span class="muted">· {r.caught} caught</span></div>
 					</div>
 					<span class="score" title="{r.title} · {r.achievementsUnlocked} achievements ({r.achievementPoints} pts)">
 						<span class="pts">{r.trainerScore}<span class="sr"> Trainer Score, grade</span></span>
@@ -96,10 +113,38 @@
 		min-width: 0;
 	}
 	.name {
-		min-width: 3em;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.you-tag {
+		flex: none;
+		padding: 1px 6px;
+		border-radius: 999px;
+		background: var(--accent-tint);
+		color: var(--accent-text);
+		font-size: 11px;
+		font-weight: 700;
+	}
+	.extra {
+		justify-content: space-between;
+		flex-wrap: wrap;
+		gap: 4px 8px;
+		margin-top: 2px;
+	}
+	.party {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		gap: 2px;
+	}
+	.party img {
+		display: block;
+		width: 26px;
+		height: 26px;
+		image-rendering: pixelated;
 	}
 	/* 8 pips a row: Johto, then Kanto on a second row once it starts. */
 	.pips {

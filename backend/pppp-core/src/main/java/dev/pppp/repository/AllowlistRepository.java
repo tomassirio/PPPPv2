@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 public class AllowlistRepository {
     private static final String ALLOWLIST = "allowlist";
     private static final String BANS = "bans";
-    private static final String PICTURES = "users:pictures";
+    private static final String PICTURES = "users:pictures", NAMES = "users:names";
 
     private final StringRedisTemplate redis;
 
@@ -55,8 +55,21 @@ public class AllowlistRepository {
     }
 
     public Map<String, String> pictures() {
+        return all(PICTURES);
+    }
+
+    /** users:names: user id -> Google full name. */
+    public void saveName(String id, String name) {
+        redis.opsForHash().put(NAMES, id, name);
+    }
+
+    public Map<String, String> names() {
+        return all(NAMES);
+    }
+
+    private Map<String, String> all(String key) {
         Map<String, String> out = new java.util.HashMap<>();
-        redis.opsForHash().entries(PICTURES).forEach((k, v) -> out.put(k.toString(), v.toString()));
+        redis.opsForHash().entries(key).forEach((k, v) -> out.put(k.toString(), v.toString()));
         return out;
     }
 

@@ -1,6 +1,7 @@
 package dev.pppp.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -143,6 +144,8 @@ class LinkApiTest {
                 .andExpect(jsonPath("$.outgoing").doesNotExist());
 
         ready(ASH, "TRADE").andExpect(status().isConflict()); // while linked
+        assertThatThrownBy(() -> consoles.setSpeed(SAM, 2)).isInstanceOf(IllegalStateException.class); // locked at 1x
+        assertThat(consoles.speed(SAM)).isEqualTo(1.0);
         challenge(ASH, GARY).andExpect(status().isConflict());
 
         as(ASH, delete("/api/v1/link/session"), null).andExpect(status().isOk())

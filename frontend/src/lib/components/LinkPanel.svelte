@@ -6,7 +6,7 @@
 	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, clock, left, link, verb, watchLink } from '#lib/link.svelte.ts';
-	import { shortUser } from '#lib/play.ts';
+	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
 	$effect(() => watchLink());
@@ -38,7 +38,7 @@
 		<div class="names">
 			<b>You</b>
 			<span class="sr">linked with</span>
-			<b>{shortUser(ss.peer)}</b>
+			<b>{nameOf(ss.peer)}</b>
 		</div>
 		<p class="muted">
 			Both consoles run in step until someone unplugs or the 15-minute cap ends. Go to the Cable Club upstairs in any
@@ -64,7 +64,7 @@
 
 		{#if s?.outgoing}
 			<p class="muted">
-				Waiting for {shortUser(s.outgoing.to)} to answer… <span class="num">{left(s.outgoing.expiresAt)} s</span>
+				Waiting for {nameOf(s.outgoing.to)} to answer… <span class="num">{left(s.outgoing.expiresAt)} s</span>
 			</p>
 		{/if}
 
@@ -78,7 +78,7 @@
 					<li>
 						<Avatar user={p.userId} />
 						<div class="who">
-							<b>{shortUser(p.userId)}</b>
+							<b>{nameOf(p.userId)}</b>
 							<span class={p.kind === 'TRADE' ? 'trade' : 'battle'}>Wants to {verb(p.kind)}{g ? ` · ${g}` : ''}</span>
 						</div>
 						<button
@@ -88,7 +88,7 @@
 							disabled={!!s?.outgoing || !!s?.incoming}
 							onclick={() => act('POST', '/link/challenges', { userId: p.userId })}
 						>
-							{p.kind === 'TRADE' ? 'Trade' : 'Battle'}<span class="sr"> with {shortUser(p.userId)}</span>
+							{p.kind === 'TRADE' ? 'Trade' : 'Battle'}<span class="sr"> with {nameOf(p.userId)}</span>
 						</button>
 					</li>
 				{/each}

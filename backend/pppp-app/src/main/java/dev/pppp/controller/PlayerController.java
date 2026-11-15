@@ -19,8 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 /** The signed-in player's own game (the one-time pick, their console's buttons) and the admin's reset of a player. */
 @RestController
 public class PlayerController {
-    /** game is null until picked; available is what the admin has uploaded. */
-    public record MyGame(String game, List<Cartridge> available) {}
+    /** game is null until picked; available is what the admin has uploaded; speed is null while the console is off. */
+    public record MyGame(String game, List<Cartridge> available, Double speed) {}
+    public record Speed(double speed) {}
     public record Pick(String cartridgeId) {}
     public record InputRequest(String command, Integer repeat, Boolean walk) {}
 
@@ -36,7 +37,8 @@ public class PlayerController {
 
     @GetMapping("/api/v1/me/game")
     public MyGame game(Authentication auth) {
-        return new MyGame(consoles.game(CurrentUser.id(auth)), cartridges.list());
+        String id = CurrentUser.id(auth);
+        return new MyGame(consoles.game(id), cartridges.list(), consoles.speed(id));
     }
 
     /** 409 when the player already picked another game. */
@@ -44,6 +46,13 @@ public class PlayerController {
     public MyGame pick(@RequestBody Pick req, Authentication auth) {
         consoles.pick(CurrentUser.id(auth), req.cartridgeId());
         return game(auth);
+    }
+
+    /** 1, 2 or 4 (400 otherwise); 409 while the console is off or a link cable is plugged in. */
+    @PutMapping("/api/v1/me/speed")
+    public Speed speed(@RequestBody Speed req, Authentication auth) {
+        consoles.setSpeed(CurrentUser.id(auth), req.speed());
+        return new Speed(req.speed());
     }
 
     @PostMapping("/api/v1/me/inputs")

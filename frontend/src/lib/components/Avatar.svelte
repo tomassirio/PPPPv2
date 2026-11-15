@@ -1,8 +1,8 @@
 <!-- A player's round avatar: their Google photo, or initials on a colour from their id. Decorative: the name is
      always written next to it. -->
 <script lang="ts">
-	import { hue, shortUser } from '#lib/play.ts';
-	import { needPicture, pictures } from '#lib/pictures.svelte.ts';
+	import { hue } from '#lib/play.ts';
+	import { initialsOf, needPicture, pictures } from '#lib/pictures.svelte.ts';
 
 	let { user, size = 32 }: { user: string; size?: number } = $props();
 	let broken = $state(false);
@@ -16,7 +16,7 @@
 	{#if picture && !broken}
 		<img src={picture} alt="" referrerpolicy="no-referrer" onerror={() => (broken = true)} />
 	{:else}
-		{shortUser(user).slice(0, 2).toUpperCase()}
+		{initialsOf(user)}
 	{/if}
 </span>
 

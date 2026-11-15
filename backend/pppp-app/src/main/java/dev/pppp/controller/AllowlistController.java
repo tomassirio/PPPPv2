@@ -41,7 +41,7 @@ public class AllowlistController {
     @GetMapping("/me")
     public Me me(Authentication auth) {
         var v = CurrentUser.viewer(auth);
-        allowlist.rememberPicture(v.id(), v.picture());
+        allowlist.rememberProfile(v.id(), v.name(), v.picture());
         List<String> roles = auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(a -> a.startsWith("ROLE_"))
@@ -54,6 +54,12 @@ public class AllowlistController {
     @GetMapping("/players/pictures")
     public java.util.Map<String, String> pictures() {
         return allowlist.pictures();
+    }
+
+    /** Player id -> Google full name, for players who signed in since names were kept. */
+    @GetMapping("/players/names")
+    public java.util.Map<String, String> names() {
+        return allowlist.names();
     }
 
     @GetMapping("/admin/allowlist")

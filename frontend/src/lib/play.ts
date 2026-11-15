@@ -73,6 +73,8 @@ export type ScoreRow = {
 	grade: string;
 	achievementPoints: number;
 	achievementsUnlocked: number;
+	/** Hatched party members from their last confirmed reading; species = national Pokédex number. */
+	party: { species: number; level: number }[];
 };
 export type ScoreEvent = { user: string; type: string; detail: string; points: number; at: number };
 

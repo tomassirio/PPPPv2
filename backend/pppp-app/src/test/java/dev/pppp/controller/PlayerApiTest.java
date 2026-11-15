@@ -85,6 +85,11 @@ class PlayerApiTest {
         mvc.perform(json(post("/api/v1/me/inputs"), "{\"command\":\"jump\"}")).andExpect(status().isBadRequest());
         mvc.perform(json(post("/api/v1/me/inputs"), "{\"command\":\"a\",\"walk\":true}")).andExpect(status().isBadRequest());
 
+        mvc.perform(get("/api/v1/me/game").with(PIB)).andExpect(jsonPath("$.speed").value(1.0));
+        mvc.perform(json(put("/api/v1/me/speed"), "{\"speed\":3}")).andExpect(status().isBadRequest());
+        mvc.perform(json(put("/api/v1/me/speed"), "{\"speed\":4}")).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/me/game").with(PIB)).andExpect(jsonPath("$.speed").value(4.0));
+
         consoles.idle("pib@x.y"); // leaving parks the state next to the player's own battery save
         assertThat(DATA.resolve("saves/pib@x.y/test.state")).isNotEmptyFile();
     }
