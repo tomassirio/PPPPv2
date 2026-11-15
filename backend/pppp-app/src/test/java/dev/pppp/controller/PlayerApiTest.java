@@ -3,6 +3,7 @@ package dev.pppp.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -50,6 +51,7 @@ class PlayerApiTest {
     }
 
     static final RequestPostProcessor PIB = user("pib@x.y").roles("PLAYER");
+    static final RequestPostProcessor ADMIN = user("boss@x.y").roles("PLAYER", "ADMIN");
 
     @Autowired MockMvc mvc;
     @Autowired PlayerConsoles consoles;
@@ -80,5 +82,28 @@ class PlayerApiTest {
 
         consoles.idle("pib@x.y"); // leaving parks the state next to the player's own battery save
         assertThat(DATA.resolve("saves/pib@x.y/test.state")).isNotEmptyFile();
+    }
+
+    @Test
+    void anAdminResetWipesTheRunSoThePlayerPicksAgain() throws Exception {
+        String who = "reset-me@x.y";
+        RequestPostProcessor player = user(who).roles("PLAYER");
+        mvc.perform(put("/api/v1/me/game").with(player).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cartridgeId\":\"test\"}")).andExpect(status().isOk());
+        consoles.open(who);
+        consoles.idle(who);
+        assertThat(DATA.resolve("saves/" + who + "/test.state")).isNotEmptyFile();
+
+        mvc.perform(delete("/api/v1/admin/players/" + who).with(player).with(csrf())).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/v1/admin/players/" + who).with(ADMIN).with(csrf())).andExpect(status().isNoContent());
+
+        assertThat(consoles.running()).doesNotContain(who);
+        assertThat(DATA.resolve("saves/" + who)).doesNotExist();
+        mvc.perform(get("/api/v1/me/game").with(player)).andExpect(jsonPath("$.game").doesNotExist());
+        mvc.perform(get("/api/v1/scoreboard").with(player))
+                .andExpect(jsonPath("$[?(@.userId=='" + who + "')]").isEmpty());
+        mvc.perform(put("/api/v1/me/game").with(player).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cartridgeId\":\"other\"}")).andExpect(status().isOk()); // a different game now
+        mvc.perform(delete("/api/v1/admin/players/nobody@x.y").with(ADMIN).with(csrf())).andExpect(status().isNotFound());
     }
 }

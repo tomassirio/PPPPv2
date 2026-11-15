@@ -76,6 +76,17 @@ public class CartridgeRepository {
         return saves.resolve(dir(userId)).resolve(id + ".state");
     }
 
+    /** Deletes everything stored on disk for the player: battery saves and parked states of every cartridge. */
+    public void deletePlayerFiles(String userId) {
+        Path dir = saves.resolve(dir(userId));
+        if (!Files.isDirectory(dir)) return;
+        try (Stream<Path> files = Files.walk(dir)) {
+            for (Path p : files.sorted(Comparator.reverseOrder()).toList()) Files.delete(p);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     /** User ids are e-mails; anything that is not a plain file-name character becomes "_". */
     private static String dir(String userId) {
         if (!userId.contains("@")) throw new IllegalArgumentException("Not a user id: " + userId);

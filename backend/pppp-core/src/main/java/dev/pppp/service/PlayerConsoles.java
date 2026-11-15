@@ -103,6 +103,15 @@ public class PlayerConsoles {
         });
     }
 
+    /** Leaves (listeners, link cable, park) and then shuts the player's console down for good. No-op without one. */
+    public void discard(String userId) {
+        idle(userId);
+        Console c = consoles.remove(userId);
+        if (c == null) return;
+        c.presses().shutdownNow();
+        c.host().shutdown();
+    }
+
     /**
      * Presses buttons on the player's own console, after whatever they pressed before. command and repeat as in
      * CommandParser; walk holds a single direction long enough to chain steps.

@@ -121,6 +121,14 @@ public class ProgressTracker {
         return after.stream().filter(n -> !before.contains(n)).toList();
     }
 
+    /** Drops what this tracker remembers about the player (after their stored progress was deleted). */
+    public void forget(String userId) {
+        samples.remove(userId);
+        summaries.remove(userId);
+        awarded.remove(userId);
+        events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
+    }
+
     /** Every player who picked a game, most points first. */
     public List<ScoreRow> scoreboard() {
         Set<String> running = consoles.running();

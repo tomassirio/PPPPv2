@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '#lib/api.ts';
+	import type { Cartridge } from '#lib/cartridges.ts';
 	import { act } from './admin.svelte';
-
-	type Cartridge = { id: string; title: string; size: number; cgb: boolean };
 
 	let cartridges = $state<Cartridge[]>([]);
 	let file = $state<FileList | null>(null);
@@ -37,11 +36,11 @@
 	<h2 id="carts-h" class="pixel">Cartridges</h2>
 	<div class="scroll">
 		<table>
-			<thead><tr><th>Title</th><th>ID</th><th>Size</th><th>Color</th><th></th></tr></thead>
+			<thead><tr><th>Game</th><th>ID</th><th>Size</th><th>Color</th><th></th></tr></thead>
 			<tbody>
 				{#each cartridges as cart (cart.id)}
 					<tr>
-						<td>{cart.title}</td>
+						<td>{cart.name}</td>
 						<td><code>{cart.id}</code></td>
 						<td>{Math.round(cart.size / 1024)} KB</td>
 						<td>{cart.cgb ? 'GBC' : 'GB'}</td>

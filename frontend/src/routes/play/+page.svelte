@@ -17,6 +17,7 @@
 	import PokedexBanner from '#lib/components/PokedexBanner.svelte';
 	import Gamepad from '#lib/components/Gamepad.svelte';
 	import GamePicker from '#lib/components/GamePicker.svelte';
+	import type { Cartridge } from '#lib/cartridges.ts';
 	import LinkPanel from '#lib/components/LinkPanel.svelte';
 	import Scoreboard from '#lib/components/Scoreboard.svelte';
 	import Presence from '#lib/components/Presence.svelte';
@@ -114,6 +115,10 @@
 			on('CHAT_MESSAGE', (m: { kind: string }) => {
 				if (tab !== 'chat' && m.kind === 'USER') unreadChat++; // only people's messages, not system lines
 			}),
+			// An admin reset this player's run: back to the game picker.
+			on('PLAYER_RESET', (e: { user: string }) => {
+				if (myGame && e.user === me?.id) myGame = { ...myGame, game: null };
+			}),
 			on('PROGRESS', () => {
 				if (tab !== 'party') newInParty = true; // a new line in the scoreboard's activity
 			})
@@ -155,7 +160,7 @@
 	const me = $derived(session.me);
 	let loadFailed = $state(false);
 	// The player's own cartridge: null until /me/game answers, then `game` is null until they pick one.
-	let myGame = $state<{ game: string | null; available: { id: string; title: string; size: number; cgb: boolean }[] } | null>(null);
+	let myGame = $state<{ game: string | null; available: Cartridge[] } | null>(null);
 
 	$effect(() => {
 		loadMe()

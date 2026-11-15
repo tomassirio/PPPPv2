@@ -1,19 +1,15 @@
 <!-- First run: the player picks their cartridge, once. PUT /me/game refuses a second, different pick. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
+	import { cover, type Cartridge } from '#lib/cartridges.ts';
 
-	type Cartridge = { id: string; title: string; size: number; cgb: boolean };
 	let { available, onpicked }: { available: Cartridge[]; onpicked: (game: string) => void } = $props();
 
 	let choice = $state<string | null>(null);
 	let saving = $state(false);
 	let error = $state('');
 
-	/** "pokemon-crystal" -> "Pokemon Crystal". */
-	const label = (id: string) => id.replace(/-/g, ' ').replace(/\b[a-z]/g, (c) => c.toUpperCase());
-	/** Cartridge plastic by version; anything else gets the classic grey. */
-	const plastic = (id: string) =>
-		/gold/.test(id) ? '#d2aa2e' : /silver/.test(id) ? '#b9c1c9' : /crystal/.test(id) ? '#7ccbe0' : /red/.test(id) ? '#d8574f' : /blue/.test(id) ? '#5b83d6' : '#9a9a9a';
+	const chosen = $derived(available.find((c) => c.id === choice));
 
 	async function start() {
 		if (!choice || saving) return;
@@ -35,17 +31,21 @@
 		<p class="lead">You choose once. Your save, your score and your trades stay with this version.</p>
 		<div class="carts" role="radiogroup" aria-labelledby="pick-title">
 			{#each available as c (c.id)}
+				{@const art = cover(c)}
 				<button type="button" class="cart-card" role="radio" aria-checked={choice === c.id} onclick={() => (choice = c.id)}>
-					<span class="cart" style:background={plastic(c.id)} aria-hidden="true">
-						<span class="sticker pixel">{c.title || c.id}<small>{c.cgb ? 'GAME BOY COLOR' : 'GAME BOY'}</small></span>
-					</span>
-					<span class="name"><b>{label(c.id)}</b><span class="radio" aria-hidden="true"></span></span>
+					{#if art}
+						<img class="art" src={art} alt="" width="360" height="360" />
+					{:else}
+						<span class="art blank pixel" aria-hidden="true">{c.title || c.id}</span>
+					{/if}
+					<span class="name"><b>{c.name}</b><span class="radio" aria-hidden="true"></span></span>
+					<span class="system">{c.cgb ? 'Game Boy Color' : 'Game Boy'}</span>
 				</button>
 			{/each}
 		</div>
 		<div class="go">
 			<button type="button" class="start" disabled={!choice || saving} onclick={start}>
-				{choice ? `Start ${label(choice)}` : 'Choose a game'}
+				{chosen ? `Start ${chosen.name}` : 'Choose a game'}
 			</button>
 			<p class="note">This can't be changed later.</p>
 			{#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -108,32 +108,36 @@
 		outline: 2px solid var(--accent-text);
 		outline-offset: 2px;
 	}
-	.cart {
-		height: 132px;
-		border-radius: 8px 8px 22px 8px;
-		padding: 10px;
-		display: flex;
+	.art {
+		display: block;
+		width: 100%;
+		max-width: 100%;
+		aspect-ratio: 1;
+		object-fit: cover;
+		border-radius: 8px;
+		background: var(--border);
 	}
-	.sticker {
-		flex: 1;
-		min-width: 0;
-		border-radius: 4px;
-		background: rgba(255, 255, 255, 0.55);
-		color: #1d1f1c;
+	.blank {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 10px;
+		padding: 12px;
 		font-size: 11px;
 		line-height: 1.6;
 		text-align: center;
 		overflow-wrap: anywhere;
-		padding: 0 6px;
+		color: var(--muted);
 	}
-	.sticker small {
-		font: 600 11px var(--body-font);
+	.cart-card[aria-checked='false'] .art {
+		filter: saturate(0.85);
+	}
+	.system {
+		margin-top: -8px;
+		font-size: 12px;
+		font-weight: 600;
 		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted);
 	}
 	.name {
 		display: flex;

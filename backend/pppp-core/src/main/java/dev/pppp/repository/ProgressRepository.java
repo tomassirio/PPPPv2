@@ -12,6 +12,7 @@ import org.springframework.data.domain.Range;
 import org.springframework.data.redis.connection.Limit;
 import org.springframework.data.redis.connection.RedisStreamCommands.XAddOptions;
 import org.springframework.data.redis.connection.stream.MapRecord;
+import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.SessionCallback;
@@ -64,6 +65,18 @@ public class ProgressRepository {
                 return ops.exec();
             }
         });
+    }
+
+    /** Removes the player's progress, points and every activity entry of theirs. */
+    public void delete(String userId) {
+        redis.delete(key(userId));
+        redis.opsForZSet().remove(SCOREBOARD, userId);
+        List<MapRecord<String, Object, Object>> all = redis.opsForStream().range(EVENTS, Range.unbounded());
+        if (all == null) return;
+        // ponytail: scans the whole stream (capped at ~10,000); fine for a rare admin action.
+        RecordId[] theirs = all.stream().filter(r -> userId.equals(r.getValue().get("user")))
+                .map(MapRecord::getId).toArray(RecordId[]::new);
+        if (theirs.length > 0) redis.opsForStream().delete(EVENTS, theirs);
     }
 
     /** Points per user id, most first. */

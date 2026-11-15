@@ -18,6 +18,11 @@ public class PlayerRepository {
         return redis.opsForHash().putIfAbsent(key(userId), "game", cartridgeId);
     }
 
+    /** Forgets the pick, so the player chooses again. */
+    public void delete(String userId) {
+        redis.delete(key(userId));
+    }
+
     /** The picked cartridge id, or null. */
     public String game(String userId) {
         Object game = redis.opsForHash().get(key(userId), "game");

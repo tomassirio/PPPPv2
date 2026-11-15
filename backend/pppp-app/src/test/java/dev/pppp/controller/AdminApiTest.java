@@ -76,6 +76,7 @@ class AdminApiTest {
 
         mvc.perform(get("/api/v1/admin/cartridges").with(ADMIN))
                 .andExpect(jsonPath("$[?(@.id=='pokemon-red')].title").value("POKEMON RED"))
+                .andExpect(jsonPath("$[?(@.id=='pokemon-red')].name").value("Pokémon Red"))
                 .andExpect(jsonPath("$[?(@.id=='pokemon-red')].cgb").value(false))
                 .andExpect(jsonPath("$[?(@.id=='crystal')].cgb").value(true))
                 .andExpect(jsonPath("$[?(@.id=='crystal')].size").value(32 * 1024));
