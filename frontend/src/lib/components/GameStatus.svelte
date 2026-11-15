@@ -1,4 +1,4 @@
-<!-- "Your run": the player's Trainer Score, grade, title and rank (scoreboard), their party as cards (icon, name,
+<!-- "Your run": the player's trainer name, points (uncapped), rank, and capped rating (grade, title, x / 1000), their party as cards (icon, name,
      level, status, HP; from the game summary where it has a party box, else their scoreboard row), badges, Pokédex
      progress, play time, and achievements linking to their profile. The game summary is read from the console's RAM
      (GET /api/v1/game/state, kept current by GAME_STATE). Badges are sprites, greyed out until earned: the Kanto ones
@@ -8,7 +8,7 @@
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
-	import { hpColor, ordinal, score } from '#lib/play.ts';
+	import { hpColor, score } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 
@@ -70,16 +70,30 @@
 <section class="panel card" aria-labelledby="run-h">
 	<div class="head">
 		<h2 id="run-h">Your run</h2>
-		{#if mine}
-			<span class="score"
-				><span class="pts">{score(mine)}<span class="sr-only"> points, grade</span></span> <GradeChip grade={mine.grade} rating={mine.trainerScore} />
-				<span class="muted">{ordinal(rank + 1)}</span></span
-			>
-		{/if}
+		{#if mine?.trainerName}<span class="trainer"><span class="muted xs">Trainer</span> <b class="pixel">{mine.trainerName}</b></span>{/if}
 	</div>
 	{#if mine}
-		{#if mine.trainerName}<div class="line"><span class="muted">Trainer</span><b>{mine.trainerName}</b></div>{/if}
-		<div class="line"><span class="muted">Title</span><b>{mine.title}</b></div>
+		<!-- Three separate numbers: uncapped points, place on the board, and the capped rating's grade and title. -->
+		<dl class="stats">
+			<div class="stat">
+				<dt>Points</dt>
+				<dd><span class="big">{score(mine).toLocaleString('en')}</span></dd>
+			</div>
+			<div class="stat">
+				<dt>Rank</dt>
+				<dd><span class="big pixel">#{rank + 1}</span> <span class="muted xs">of {board.rows.length}</span></dd>
+			</div>
+			<div class="stat rating">
+				<dt>Rating</dt>
+				<dd>
+					<span class="grade-line"><GradeChip grade={mine.grade} rating={mine.trainerScore} size={12} /> <b class="ell">{mine.title}</b></span>
+					<span class="meter" role="meter" aria-label="Trainer rating" aria-valuemin="0" aria-valuemax="1000" aria-valuenow={mine.trainerScore}
+						><b style:width="{Math.min(100, mine.trainerScore / 10)}%"></b></span
+					>
+					<span class="muted xs">{mine.trainerScore} / 1000</span>
+				</dd>
+			</div>
+		</dl>
 	{/if}
 	{#if party.length || mine}
 		<div class="line"><span class="muted">Party</span></div>
@@ -198,15 +212,75 @@
 		font-size: 13px;
 		line-height: 19px;
 	}
-	.pts {
+	.trainer {
+		white-space: nowrap;
+	}
+	.trainer b {
+		font-size: 10px;
+		margin-left: 4px;
+	}
+	.stats {
+		margin: 0;
+		display: grid;
+		grid-template-columns: auto auto minmax(0, 1fr);
+		gap: 8px;
+	}
+	.stat {
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--sunk);
+		border: 1px solid var(--border);
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		min-width: 0;
+	}
+	.stat dt {
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.stat dd {
+		margin: 0;
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+		flex-wrap: wrap;
+		min-width: 0;
+	}
+	.stat .big {
 		font-size: 22px;
 		font-weight: 700;
+		line-height: 1.1;
 		font-variant-numeric: tabular-nums;
 	}
-	.score {
+	.stat .big.pixel {
+		font-size: 16px;
+		font-weight: 400;
+	}
+	.rating dd {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 5px;
+	}
+	.grade-line {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		min-width: 0;
+	}
+	.meter {
+		height: 5px;
+		border-radius: 3px;
+		background: var(--border);
+		overflow: hidden;
+	}
+	.meter b {
+		display: block;
+		height: 100%;
+		background: var(--accent);
 	}
 	.xs {
 		font-size: 12px;
@@ -406,7 +480,7 @@
 			padding: 16px;
 			gap: 12px;
 		}
-		.pts {
+		.stat .big {
 			font-size: 20px;
 		}
 		/* Compact on the Scores tab: Kanto's row only once it starts. */

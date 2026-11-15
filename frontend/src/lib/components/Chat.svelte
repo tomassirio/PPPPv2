@@ -222,22 +222,24 @@
 		{#each shown as m (m.id)}
 			{@const system = isSystem(m)}
 			<li class:system class:mine={m.user === session.me?.id}>
-				<time class="ts" datetime={new Date(m.at).toISOString()}>{time(m.at)}</time>
-				{#if m.kind !== 'ADMIN'}
-					<button
-						type="button"
-						class="react"
-						class:open={picking === m.id}
-						aria-expanded={picking === m.id}
-						aria-label="React to {system ? 'system message' : `message from ${m.name}`}"
-						title="React"
-						onclick={() => (picking = picking === m.id ? null : m.id)}><img src={REACTIONS[0].src} alt="" /></button
-					>
-				{/if}
-				<!-- System lines need no sender; admin-only ones keep a tag so admins know players don't see them. -->
-				{#if system}<span class="sr-only">System: </span>{:else}<span class="who" style:--name={nameColor(m.user)}>{m.name}</span>{/if}
-				{#if m.kind === 'ADMIN'}<span class="tag admin-only">admin only</span>{/if}
-				<span class="text">{m.text}</span>
+				<!-- Name, react and time on one line; the message underneath. System lines keep their text on the first line. -->
+				<div class="head">
+					{#if system}<span class="sr-only">System: </span><span class="text grow">{m.text}</span>{:else}<span class="who grow" style:--name={nameColor(m.user)}>{m.name}</span>{/if}
+					{#if m.kind === 'ADMIN'}<span class="tag admin-only">admin only</span>{/if}
+					{#if m.kind !== 'ADMIN'}
+						<button
+							type="button"
+							class="react"
+							class:open={picking === m.id}
+							aria-expanded={picking === m.id}
+							aria-label="React to {system ? 'system message' : `message from ${m.name}`}"
+							title="React"
+							onclick={() => (picking = picking === m.id ? null : m.id)}><img src={REACTIONS[0].src} alt="" /></button
+						>
+					{/if}
+					<time class="ts" datetime={new Date(m.at).toISOString()}>{time(m.at)}</time>
+				</div>
+				{#if !system}<p class="text body">{m.text}</p>{/if}
 				{#if admin && !system}
 					<span class="mod">
 						<button type="button" onclick={() => del(m)} aria-label="Delete message from {m.name}">Delete</button>
@@ -328,9 +330,21 @@
 		accent-color: var(--accent-text);
 	}
 	/* First in the line but floated right, so long messages wrap under it. */
+	.head {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+	}
+	.grow {
+		flex: 1;
+		min-width: 0;
+	}
+	.body {
+		margin: 2px 0 0;
+	}
 	.ts {
-		float: right;
-		margin-left: 8px;
+		flex: none;
 		line-height: 20px;
 		font-size: 11px;
 		font-style: normal;
@@ -414,14 +428,13 @@
 		padding: 2px 4px;
 		text-decoration: underline;
 	}
-	/* React: a greyed Pikachu left of the time on every line; full colour on hover, focus or while open. */
+	/* React: a greyed Pikachu left of the time on every line's first row; full colour on hover, focus or while open. */
 	.react {
-		float: right;
+		flex: none;
 		display: grid;
 		place-items: center;
 		width: 24px;
 		height: 20px;
-		margin-left: 4px;
 		padding: 0;
 		background: none;
 		border: none;
