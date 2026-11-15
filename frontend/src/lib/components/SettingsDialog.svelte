@@ -2,7 +2,7 @@
      button's key, press the new one. A key already in use swaps over. Escape cancels a change, then closes. -->
 <script lang="ts">
 	import { BUTTONS, keyName, PRESETS, rebind, RESERVED_KEYS, type Bindings, type Button } from '#lib/play.ts';
-	import { keys, setBindings } from '#lib/keys.svelte.ts';
+	import { keys, loadKeys, setBindings } from '#lib/keys.svelte.ts';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -17,6 +17,7 @@
 	let note = $state('');
 
 	$effect(() => {
+		if (open) void loadKeys();
 		if (open && !dialog?.open) dialog?.showModal();
 		if (!open && dialog?.open) dialog.close();
 	});
@@ -51,7 +52,7 @@
 		e.preventDefault();
 		const b = listening;
 		const { bindings, swapped } = rebind(keys.bindings, b, e.key);
-		setBindings(bindings);
+		void setBindings(bindings);
 		listening = null;
 		note = swapped
 			? `${LABELS[b]} is now ${keyName(bindings[b])}; ${LABELS[swapped]} took ${keyName(bindings[swapped])}.`
@@ -103,7 +104,7 @@
 					</li>
 				{/each}
 			</ul>
-			<p class="note" role="status" aria-live="polite">{note || 'Click a key to change it. Saved in this browser.'}</p>
+			<p class="note" role="status" aria-live="polite">{keys.error || note || 'Click a key to change it. Saved to your account.'}</p>
 		</section>
 	</div>
 </dialog>

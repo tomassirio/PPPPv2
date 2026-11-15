@@ -6,7 +6,8 @@
 	import { keyToButton, type Button } from '#lib/play.ts';
 	import { sendKey, useInput } from '#lib/input.ts';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { keys } from '#lib/keys.svelte.ts';
+	import { keys, loadKeys } from '#lib/keys.svelte.ts';
+	$effect(() => void loadKeys());
 	// aria-keyshortcuts names (KeyboardEvent.key, Space for " ").
 	const shortcut = (b: Button) => (keys.bindings[b] === ' ' ? 'Space' : keys.bindings[b]);
 	import { shellVars } from '#lib/shells.ts';

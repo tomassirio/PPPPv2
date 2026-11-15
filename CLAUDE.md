@@ -13,7 +13,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Done: link cable in `EmulatorHost` (`link`, `unlink`, `isLinked`); `LinkCableTest` swaps bytes between two consoles.
 - Done: one private console per player. `PlayerConsoles` (core) boots it when `/ws/screen` connects, pauses it and
   parks its state in `saves/{user}/{cartridge}.state` when the player's last socket closes. The game is picked once
-  (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`.
+  (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`. Key bindings per user: `GET/PUT /api/v1/me/keys`, Redis hash `pibs:keys:{userId}` (kept across a reset).
   `/ws/screen` and `/ws/audio` carry only the caller's own console. /play shows `GamePicker` until a game is picked.
 - Done: lobby and link sessions. `LinkService` (core): ready to TRADE/BATTLE in Redis hash `pibs:lobby`, challenges
   (60 s) and sessions (15 min cap) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events

@@ -32,18 +32,6 @@ export function rebind(bindings: Bindings, button: Button, key: string): { bindi
 	return { bindings: next, swapped: other };
 }
 
-/** A saved value back to bindings: anything missing or broken falls back to the arrows layout. */
-export function parseBindings(raw: string | null): Bindings {
-	if (raw === 'wasd') return { ...PRESETS.wasd }; // stored by the old Arrows/WASD toggle
-	try {
-		const v = JSON.parse(raw ?? '');
-		if (BUTTONS.every((b) => typeof v?.[b] === 'string' && v[b])) return Object.fromEntries(BUTTONS.map((b) => [b, normKey(v[b])])) as Bindings;
-	} catch {
-		/* not JSON: the default */
-	}
-	return { ...PRESETS.arrows };
-}
-
 export type KeyLike = {
 	key: string;
 	repeat?: boolean;

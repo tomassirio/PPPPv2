@@ -121,4 +121,21 @@ class PlayerApiTest {
                 .content("{\"cartridgeId\":\"other\"}")).andExpect(status().isOk()); // a different game now
         mvc.perform(delete("/api/v1/admin/players/nobody@x.y").with(ADMIN).with(csrf())).andExpect(status().isNotFound());
     }
+
+    @Test
+    void keyBindingsArePerPlayerAndValidated() throws Exception {
+        mvc.perform(get("/api/v1/me/keys").with(PIB))
+                .andExpect(jsonPath("$.up").value("ArrowUp")).andExpect(jsonPath("$.a").value("z"));
+
+        String wasd = "{\"up\":\"W\",\"down\":\"s\",\"left\":\"a\",\"right\":\"d\",\"a\":\"k\",\"b\":\"j\",\"start\":\"Enter\",\"select\":\" \"}";
+        mvc.perform(json(put("/api/v1/me/keys"), wasd)).andExpect(status().isOk()).andExpect(jsonPath("$.up").value("w"));
+        mvc.perform(get("/api/v1/me/keys").with(PIB))
+                .andExpect(jsonPath("$.up").value("w")).andExpect(jsonPath("$.select").value(" "));
+        mvc.perform(get("/api/v1/me/keys").with(ADMIN)).andExpect(jsonPath("$.up").value("ArrowUp")); // someone else's
+
+        mvc.perform(json(put("/api/v1/me/keys"), wasd.replace("\"j\"", "\"K\""))).andExpect(status().isBadRequest()); // k twice
+        mvc.perform(json(put("/api/v1/me/keys"), wasd.replace("\"Enter\"", "\"Escape\""))).andExpect(status().isBadRequest());
+        mvc.perform(json(put("/api/v1/me/keys"), "{\"up\":\"w\"}")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/me/keys").with(PIB)).andExpect(jsonPath("$.b").value("j")); // unchanged
+    }
 }

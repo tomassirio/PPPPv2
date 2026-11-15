@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, ordinal, parseBindings, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, versionOf, type ScoreRow } from './play';
+import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, versionOf, type ScoreRow } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -28,12 +28,7 @@ describe('play helpers', () => {
 		expect(rebind(PRESETS.arrows, 'up', 'q')).toEqual({ bindings: { ...PRESETS.arrows, up: 'q' }, swapped: null });
 	});
 
-	it('reads saved bindings, old toggle values and junk', () => {
-		expect(parseBindings('wasd')).toEqual(PRESETS.wasd);
-		expect(parseBindings('arrows')).toEqual(PRESETS.arrows);
-		expect(parseBindings(null)).toEqual(PRESETS.arrows);
-		expect(parseBindings('{"up":"w"}')).toEqual(PRESETS.arrows);
-		expect(parseBindings(JSON.stringify({ ...PRESETS.wasd, a: 'L' }))).toEqual({ ...PRESETS.wasd, a: 'l' });
+	it('names keys for people', () => {
 		expect(keyName('ArrowUp')).toBe('↑');
 		expect(keyName(' ')).toBe('Space');
 		expect(keyName('k')).toBe('K');
