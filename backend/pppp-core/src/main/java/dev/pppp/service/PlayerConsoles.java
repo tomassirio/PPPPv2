@@ -220,6 +220,22 @@ public class PlayerConsoles {
         return c == null ? null : c.host().readBytes(address, length);
     }
 
+    /**
+     * The cartridge RAM as the game has it now: Coffee GB writes the .sav only when asked (power off, reset, this),
+     * so this flushes the battery to {dataDir}/saves/{user}/{cartridge}.sav and reads it back. Null when the
+     * player's console is not in memory or the file cannot be read.
+     */
+    public byte[] batterySave(String userId) {
+        Console c = consoles.get(userId);
+        if (c == null) return null;
+        c.host().flushBattery();
+        try {
+            return Files.readAllBytes(files.playerBatterySave(userId, c.cartridgeId()));
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     /** Every console's frames (every second one, RGB) and audio chunks, tagged with the player's id. */
     public void onFrame(BiConsumer<String, int[]> listener) {
         frameListeners.add(listener);

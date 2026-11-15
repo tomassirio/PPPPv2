@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
 import dev.pppp.model.TrainerCard;
+import dev.pppp.model.TrainerLog;
 import dev.pppp.model.TrainerScore;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +30,8 @@ import org.springframework.stereotype.Repository;
  * hallOfFame} of everything already awarded; "pibs:achievements:{userId}", a hash of achievement id -> unlock time
  * (epoch ms); "pibs:trainer:{userId}", a hash of the latest Trainer Score {score, title, grade, story, pokedex,
  * collection, team, keyItems, side, rarities} and card (JSON {@link TrainerCard}: party, location, playTime,
- * badge bitmasks); "pibs:scoreboard", the ranking: a sorted set of user ids by
+ * badge bitmasks, trainerName); "pibs:history:{userId}", a JSON {@link TrainerLog} (phone contacts and link partners
+ * ever seen, eggs hatched, trades, the Elite Four run, link battle record); "pibs:scoreboard", the ranking: a sorted set of user ids by
  * trainer score x 10,000 + achievement points (every player who picked a game is a member, from 0);
  * "pibs:events", the activity stream {user, type, detail, points, at} capped at ~10,000 entries.
  */
@@ -99,6 +101,25 @@ public class ProgressRepository {
         redis.opsForHash().delete(trainerKey(userId), "party");
     }
 
+    /** What the achievements remembered of the player; EMPTY when none or unreadable. */
+    public TrainerLog log(String userId) {
+        String v = redis.opsForValue().get(historyKey(userId));
+        if (v == null) return TrainerLog.EMPTY;
+        try {
+            return json.readValue(v, TrainerLog.class);
+        } catch (JsonProcessingException e) {
+            return TrainerLog.EMPTY;
+        }
+    }
+
+    public void saveLog(String userId, TrainerLog log) {
+        try {
+            redis.opsForValue().set(historyKey(userId), json.writeValueAsString(log));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     /** The player's latest Trainer Score; ZERO when none is stored. */
     public TrainerScore trainer(String userId) {
         Map<Object, Object> h = redis.opsForHash().entries(trainerKey(userId));
@@ -142,9 +163,9 @@ public class ProgressRepository {
         }
     }
 
-    /** Removes the player's progress, achievements, Trainer Score, rank and every activity entry of theirs. */
+    /** Removes the player's progress, achievements, Trainer Score, history, rank and every activity entry of theirs. */
     public void delete(String userId) {
-        redis.delete(List.of(key(userId), achievementsKey(userId), trainerKey(userId)));
+        redis.delete(List.of(key(userId), achievementsKey(userId), trainerKey(userId), historyKey(userId)));
         redis.opsForZSet().remove(SCOREBOARD, userId);
         List<MapRecord<String, Object, Object>> all = redis.opsForStream().range(EVENTS, Range.unbounded());
         if (all == null) return;
@@ -195,6 +216,10 @@ public class ProgressRepository {
 
     private static String trainerKey(String userId) {
         return "pibs:trainer:" + userId;
+    }
+
+    private static String historyKey(String userId) {
+        return "pibs:history:" + userId;
     }
 
     private static String s(int n) {

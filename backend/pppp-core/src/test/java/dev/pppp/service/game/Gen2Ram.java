@@ -8,16 +8,16 @@ final class Gen2Ram {
     record At(String header, int id, int hours, int coins, int badges, int tmsHms, int numItems, int numKeyItems,
               int numBalls, int numPcItems, int hof, int events, int phone, int party, int caught, int unown,
               int romNames, int romBase, int minutes, int mapGroup, int nicknames, int itemNames, int moveNames,
-              int landmarks, int mapGroups) {}
+              int landmarks, int mapGroups, int curBox) {}
 
     static final At GOLD = new At("POKEMON_GLDAAUE", 0xD1A1, 0xD1EB, 0xD57A, 0xD57C, 0xD57E, 0xD5B7, 0xD5E1, 0xD5FC,
             0xD616, 0xD683, 0xD7B7, 0xD9C6, 0xDA22, 0xDBE4, 0xDC24, 0x6C * 0x4000 + 0x0B74, 0x14 * 0x4000 + 0x1B0B,
             0xD1ED, 0xDA00, 0xDB8C, 0x6C * 0x4000, 0x6C * 0x4000 + 0x1574, 0x24 * 0x4000 + 0x2382,
-            0x25 * 0x4000 + 0x00ED);
+            0x25 * 0x4000 + 0x00ED, 0xD8BC);
     static final At CRYSTAL = new At("PM_CRYSTAL\0BYTE", 0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD892, 0xD8BC,
             0xD8D7, 0xD8F1, 0xD95E, 0xDA72, 0xDC7C, 0xDCD7, 0xDE99, 0xDED9, 0x14 * 0x4000 + 0x3384,
             0x14 * 0x4000 + 0x1424, 0xD4C6, 0xDCB5, 0xDE41, 0x72 * 0x4000, 0x72 * 0x4000 + 0x1F29,
-            0x72 * 0x4000 + 0x28C3, 0x25 * 0x4000);
+            0x72 * 0x4000 + 0x28C3, 0x25 * 0x4000, 0xDB72);
     static final int PLAYER_ID = 0x1234;
     /** pret type ids (constants/type_constants.asm). */
     static final int NORMAL = 0x00, FLYING = 0x02, WATER = 0x15, FIRE = 0x14, GRASS = 0x16, PSYCHIC = 0x18, DRAGON = 0x1A;
@@ -97,6 +97,15 @@ final class Gen2Ram {
         System.arraycopy(b, 0, mem, at.nicknames + slot * 11 - at.id, b.length);
     }
 
+    void map(int group, int number) {
+        set(at.mapGroup, group);
+        set(at.mapGroup + 1, number);
+    }
+
+    void curBox(int box) {
+        set(at.curBox, box);
+    }
+
     void minutes(int n) {
         set(at.minutes, n);
     }
@@ -117,15 +126,17 @@ final class Gen2Ram {
     }
 
     /**
-     * Puts the player on map group.number, whose header gives this landmark; the landmark's name goes to the
-     * end of its bank (raw bytes, so 0x1F line breaks can be written). Map headers go to the end of their bank.
+     * Puts the player on map group.number, whose header gives this environment (1 TOWN, 2 ROUTE, 3 INDOOR, ...)
+     * and landmark; the landmark's name goes to the end of its bank (raw bytes, so 0x1F line breaks can be
+     * written). Map headers go to the end of their bank.
      */
-    void location(int group, int number, int landmark, byte[] name) {
+    void location(int group, int number, int env, int landmark, byte[] name) {
         set(at.mapGroup, group);
         set(at.mapGroup + 1, number);
         int bank = at.mapGroups / 0x4000 * 0x4000, headers = 0x7000;
         rom[at.mapGroups + (group - 1) * 2] = (byte) headers;
         rom[at.mapGroups + (group - 1) * 2 + 1] = (byte) (headers >> 8);
+        rom[bank - 0x4000 + headers + (number - 1) * 9 + 2] = (byte) env;
         rom[bank - 0x4000 + headers + (number - 1) * 9 + 5] = (byte) landmark;
         int names = at.landmarks / 0x4000 * 0x4000, at7 = 0x7F00;
         System.arraycopy(name, 0, rom, names - 0x4000 + at7, name.length);

@@ -60,7 +60,12 @@ class Gen2AchievementsTest {
                     expected.kantoBadges(), expected.hallOfFame(), expected.redBeaten(), expected.gotStarter(),
                     expected.radioTowerCleared(), expected.gotMasterBall(), expected.caught(), expected.seen(),
                     expected.partyCount(), expected.party(), expected.items(), expected.hms(), expected.coins(),
-                    expected.unownForms(), expected.phoneContacts(), expected.playHours(), 0, null, read.members()));
+                    expected.unownForms(), expected.phoneContacts(), expected.playHours(), 0, null, read.members(),
+                    "KRIS", at == Gen2Ram.CRYSTAL, null, 0, Set.of(1, 5), read.slots()));
+            assertThat(read.slots()).containsExactly(
+                    new Gen2Save.Slot(130, false, true, 70, Gen2Ram.PLAYER_ID, 0x2AAA, false),
+                    new Gen2Save.Slot(175, true, false, 12, Gen2Ram.PLAYER_ID, 0, false),
+                    new Gen2Save.Slot(155, false, false, 52, 0x4321, 0, false));
         }
     }
 
@@ -167,14 +172,17 @@ class Gen2AchievementsTest {
     @Test
     void theCatalogueIsTheDesigns() {
         List<Achievement> all = Achievements.catalogue();
-        assertThat(all).hasSize(52);
-        assertThat(all).extracting(Achievement::id).doesNotHaveDuplicates();
+        assertThat(all).hasSize(55);
+        assertThat(all).extracting(Achievement::id).doesNotHaveDuplicates()
+                .doesNotContain("johto-complete", "bug-champion", "no-shopping"); // not told by the RAM: removed
         assertThat(all).extracting(Achievement::category).containsOnly("Story", "Pokédex", "Legends", "Training",
-                "Items", "Side", "Challenge");
-        assertThat(all).allMatch(a -> a.note() != null && !a.note().isBlank() && a.unlockedAt() == null);
-        assertThat(all.stream().mapToInt(Achievement::points).sum()).isEqualTo(902); // "about 900"
-        assertThat(all).filteredOn(a -> !a.implemented()).extracting(Achievement::id).containsExactlyInAnyOrder(
-                "johto-complete", "living-history", "bug-champion", "breeder", "odd-one", "tower-climber",
-                "card-collector", "untouchable", "no-shopping");
+                "Items", "Side", "Challenge", "Link");
+        assertThat(all).allMatch(a -> a.note() != null && !a.note().isBlank() && a.unlockedAt() == null
+                && a.implemented() && !a.hidden() && a.rarity().equals(Achievement.rarity(a.points())));
+        assertThat(all).extracting(Achievement::points).containsOnly(1, 3, 5, 10, 25, 50);
+        assertThat(all.stream().mapToInt(Achievement::points).sum()).isEqualTo(886);
+        assertThat(all).filteredOn(a -> a.rarity().equals("legendary")).extracting(Achievement::id)
+                .containsExactlyInAnyOrder("the-silent-summit", "250-club", "living-history", "the-time-traveller",
+                        "full-house", "low-level");
     }
 }
