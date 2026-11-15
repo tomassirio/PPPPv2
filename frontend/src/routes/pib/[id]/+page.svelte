@@ -29,8 +29,7 @@
 		versionOf,
 		type CatalogueEntry,
 		type Profile,
-		type ScoreRow
-	} from '#lib/play.ts';
+		type ScoreRow, score } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -136,7 +135,7 @@
 					<div class="col end tight"><span class="pixel rank">#{rank + 1}</span><span class="muted xs">of {board.rows.length}</span></div>
 				{/if}
 				<div class="col end tight">
-					<span class="pts big">{row.trainerScore}<span class="sr-only"> points</span></span>
+					<span class="pts big">{score(row)}<span class="sr-only"> points</span></span>
 					<span class="xs"><span class="grade pixel">{row.grade}</span> <span class="muted">{row.title}</span></span>
 				</div>
 				{#if !you}

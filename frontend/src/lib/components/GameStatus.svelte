@@ -7,7 +7,7 @@
 <script lang="ts">
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
-	import { hpColor, ordinal } from '#lib/play.ts';
+	import { hpColor, ordinal, score } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 
@@ -71,7 +71,7 @@
 		<h2 id="run-h">Your run</h2>
 		{#if mine}
 			<span class="score"
-				><span class="pts">{mine.trainerScore}<span class="sr-only"> of 1000, grade</span></span> <span class="grade pixel">{mine.grade}</span>
+				><span class="pts">{score(mine)}<span class="sr-only"> points, grade</span></span> <span class="grade pixel">{mine.grade}</span>
 				<span class="muted">{ordinal(rank + 1)}</span></span
 			>
 		{/if}
@@ -81,7 +81,7 @@
 		<div class="line"><span class="muted">Title</span><b>{mine.title}</b></div>
 	{/if}
 	{#if party.length || mine}
-		<div class="line"><span class="muted">Party</span><span class="muted xs">live from your game</span></div>
+		<div class="line"><span class="muted">Party</span></div>
 		<ul class="cards" aria-label="Your party">
 			{#each party as m, i (i)}
 				<li class="pslot">

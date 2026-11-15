@@ -67,7 +67,11 @@ export const backoff = (attempt: number) => Math.min(30_000, 500 * 2 ** attempt)
 export const shortUser = (id: string) => id.split('@')[0];
 
 /** Shapes from ScoreRow / ScoreEvent (GET /scoreboard, /activity; SCOREBOARD_CHANGED, PROGRESS). */
-/** Ranked by trainerScore (0–1000), achievementPoints breaking ties; points is the older per-step tally. */
+/** score(row) = points (every catch, sighting, badge…) + achievementPoints: no cap, it only grows. trainerScore (0–1000)
+ *  is the design's capped rating behind title and grade. */
+/** A Pib's points: everything in their activity feed added up, no cap. */
+export const score = (r: Pick<ScoreRow, 'points' | 'achievementPoints'>) => (r.points ?? 0) + (r.achievementPoints ?? 0);
+
 export type ScoreRow = {
 	userId: string;
 	points: number;
@@ -181,7 +185,7 @@ export type BoardSort = 'points' | 'badges' | 'dex' | 'level';
 /** Best Pokémon level in a party (eggs don't count). */
 export const topLevel = (party: PartyMon[] | undefined) => Math.max(0, ...(party ?? []).filter((m) => !m.egg).map((m) => m.level));
 const SORT_KEY: Record<BoardSort, (r: ScoreRow) => number> = {
-	points: (r) => r.trainerScore,
+	points: (r) => score(r),
 	badges: (r) => r.badges,
 	dex: (r) => r.caught,
 	level: (r) => topLevel(r.party)

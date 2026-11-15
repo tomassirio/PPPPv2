@@ -7,7 +7,7 @@
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { link, watchLink } from '#lib/link.svelte.ts';
-	import { place, playerStatus } from '#lib/play.ts';
+	import { place, playerStatus, score } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -39,7 +39,7 @@
 							{#if r.party?.length}<PartyIcons party={r.party} size={22} hp={false} />{/if}
 						</span>
 						<span class="score">
-							<span class="pts">{r.trainerScore}<span class="sr-only"> Trainer Score, grade</span></span>
+							<span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span>
 							<span class="grade pixel">{r.grade}</span>
 						</span>
 					</a>

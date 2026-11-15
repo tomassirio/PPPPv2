@@ -7,7 +7,7 @@
 	import SubPage from '#lib/components/SubPage.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { link, watchLink } from '#lib/link.svelte.ts';
-	import { boardRows, place, playerStatus, versionOf, type BoardSort, type Version } from '#lib/play.ts';
+	import { boardRows, place, playerStatus, versionOf, type BoardSort, type Version, score } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -58,7 +58,7 @@
 					<a class="card pod" class:first={i === 0} href={href(r.userId)}>
 						<span class="between">
 							<span class="place pixel">{i + 1}</span>
-							<span><span class="pts big">{r.trainerScore}</span> <span class="grade pixel">{r.grade}</span></span>
+							<span><span class="pts big">{score(r)}</span> <span class="grade pixel">{r.grade}</span></span>
 						</span>
 						<span class="row">
 							<Avatar user={r.userId} size={44} />
@@ -100,7 +100,7 @@
 							<span class="small"><b>{r.caught}</b> <span class="muted">caught · {r.seen} seen</span></span>
 							<span class="bar"><b style:width="{(r.caught * 100) / 251}%"></b></span>
 						</span>
-						<span class="num"><span class="pts">{r.trainerScore}<span class="sr-only"> points, grade</span></span> <span class="grade pixel">{r.grade}</span></span>
+						<span class="num"><span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span> <span class="grade pixel">{r.grade}</span></span>
 					</a>
 				{/each}
 			</div>
