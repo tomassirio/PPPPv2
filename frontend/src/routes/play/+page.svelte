@@ -185,22 +185,42 @@
 
 	// The screen frame sizes itself to the height left over; on desktop the controller matches its width.
 	let screenSlot = $state<HTMLDivElement>();
-	// Desktop: the game column is exactly as wide as the biggest screen that fits the height it has, so screen and
-	// controller fill it top to bottom with no gap; Link + Your run and the board share the rest of the width.
-	// Bezel: 32px of padding across, 68px of padding + LIVE strip down, the LCD 160:144.
-	let slotH = $state(0);
+	// Desktop: the game column is as wide as the biggest screen that fits the height left after the location sign
+	// and the controller's own height, capped by the width the row leaves after the other two columns' minimums
+	// (340 + 360), the two 24px gaps and main's 32px side padding. The screen slot gets exactly the bezel's height;
+	// whatever height is left (when the width cap wins) goes to the controller, which stretches: never a gap between
+	// screen and controls. Bezel: 32px of padding across, 68px of padding + LIVE strip down, the LCD 160:144.
+	let gameEl = $state<HTMLElement>();
+	let mainW = $state(0);
+	let fit = $state({ w: 0, slot: 0 });
+	function measure() {
+		const g = gameEl;
+		if (!g) return;
+		const pad = g.querySelector<HTMLElement>('.pad');
+		const shell = pad?.querySelector<HTMLElement>('.shell');
+		const parts = shell ? [...shell.children].filter((c) => getComputedStyle(c).position !== 'absolute') : [];
+		if (!pad || !shell || !parts.length) return;
+		const cs = getComputedStyle(shell);
+		const shellH = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parts.reduce((h, c) => h + (c as HTMLElement).offsetHeight, 0) + (parts.length - 1) * parseFloat(cs.rowGap || '0');
+		const padExtra = [...pad.children].filter((c) => c !== shell).reduce((h, c) => h + (c as HTMLElement).offsetHeight, 0);
+		const shown = [...g.children].filter((c) => getComputedStyle(c).display !== 'none') as HTMLElement[];
+		const others = shown.filter((c) => c !== screenSlot && c !== pad).reduce((h, c) => h + c.offsetHeight, 0);
+		const gaps = (shown.length - 1) * parseFloat(getComputedStyle(g).rowGap || '0');
+		const avail = g.clientHeight - others - gaps - shellH - padExtra; // height the screen slot may take
+		const cap = mainW ? mainW - 64 - 48 - 340 - 360 : Infinity;
+		const w = Math.max(0, Math.round(Math.min(((avail - 68) * 160) / 144 + 32, cap)));
+		fit = { w, slot: Math.round(((w - 32) * 144) / 160 + 68) };
+	}
 	$effect(() => {
-		if (!screenSlot) return;
-		const watch = new ResizeObserver(([e]) => (slotH = e.contentRect.height));
-		watch.observe(screenSlot);
+		if (!gameEl) return;
+		void mainW;
+		void where.city; // the location sign coming or going changes the height left
+		void link.state?.session;
+		queueMicrotask(measure); // after the sign is (un)rendered
+		const watch = new ResizeObserver(() => measure());
+		watch.observe(gameEl);
 		return () => watch.disconnect();
 	});
-	// ...but never wider than what the row leaves after the other two columns' minimums (340 + 360), the two 24px gaps
-	// and main's 32px side padding: then the screen is width-bound instead and nothing gets pushed off the page.
-	let mainW = $state(0);
-	const gameW = $derived(
-		slotH > 68 ? Math.round(Math.min(((slotH - 68) * 160) / 144 + 32, mainW ? mainW - 64 - 48 - 340 - 360 : Infinity)) : 0
-	); // used by the desktop CSS only
 	let frameWidth = $state(0);
 	$effect(() => {
 		const frame = screenSlot?.querySelector('.bezel');
@@ -246,7 +266,7 @@
 		<div class="stage">
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner half={1} /></aside>
 		<main bind:clientWidth={mainW}>
-			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null} style:--game-w={gameW > 0 ? `${gameW}px` : null}>
+			<section class="game" aria-label="Game" bind:this={gameEl} style:--frame-w={frameWidth ? `${frameWidth}px` : null} style:--game-w={fit.w > 0 ? `${fit.w}px` : null} style:--slot-h={fit.slot > 68 ? `${fit.slot}px` : null}>
 				{#if link.state?.session}
 					{@const ls = link.state.session}
 					<div class="linked-banner">
@@ -617,8 +637,16 @@
 			min-width: 360px;
 		}
 		.screen-slot {
-			flex: 1 1 0;
+			flex: 0 0 var(--slot-h, 60%);
 			min-height: 200px;
+		}
+		/* The controller takes whatever height is left and spreads its buttons over it. */
+		.pad {
+			flex: 1 1 auto;
+		}
+		.pad :global(.shell) {
+			flex: 1 1 auto;
+			justify-content: space-evenly;
 		}
 		.screen-slot :global(.fit) {
 			container-type: size;
