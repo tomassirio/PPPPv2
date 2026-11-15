@@ -64,18 +64,22 @@
 					><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8" /></svg
 				>Link cable
 			</h2>
-			<span class="record" title="Your link record"
-				><b class="w">{mine?.wins ?? 0}</b>–<b class="l">{mine?.losses ?? 0}</b><span class="muted"> · {mine?.trades ?? 0} {mine?.trades === 1 ? 'trade' : 'trades'}</span></span
-			>
+			<span class="record" aria-label="Your link record: {mine?.wins ?? 0} won, {mine?.losses ?? 0} lost, {mine?.trades ?? 0} trades">
+				<span><b class="w">{mine?.wins ?? 0}</b> W</span>
+				<span><b class="l">{mine?.losses ?? 0}</b> L</span>
+				<span class="sep"></span>
+				<span><b>{mine?.trades ?? 0}</b> {mine?.trades === 1 ? 'trade' : 'trades'}</span>
+			</span>
 		</div>
-		<div class="toggles" role="group" aria-label="Let others offer you">
+		<div class="toggles-head"><span class="label">I'm up for</span><span class="muted xs">others can offer me one</span></div>
+		<div class="toggles" role="group" aria-label="I'm up for">
 			{#each ['TRADE', 'BATTLE'] as const as kind (kind)}
 				{@const on = s?.ready === kind}
-				<button class="toggle {kind === 'TRADE' ? 't-trade' : 't-battle'}" class:on aria-pressed={on} onclick={() => act('PUT', '/link/ready', { kind: on ? null : kind })}>
+				<button class="toggle {kind === 'TRADE' ? 't-trade' : 't-battle'}" class:on aria-pressed={on} title="Let others offer you a {verb(kind)}" onclick={() => act('PUT', '/link/ready', { kind: on ? null : kind })}>
 					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 						{#if kind === 'TRADE'}<path d="M4 8h13l-3-3M20 16H7l3 3" />{:else}<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M9.5 17.5L21 6V3h-3L6.5 14.5M5 13l6 6M8 16l-4 4M3 19l2 2" />{/if}
 					</svg>
-					<span class="tl"><b>{on ? '✓ ' : ''}Ready to {verb(kind)}</b></span>
+					<span class="tl"><b>{on ? '✓ ' : ''}{kind === 'TRADE' ? 'Trade' : 'Battle'}</b><span class="sr"> ready</span></span>
 				</button>
 			{/each}
 		</div>
@@ -148,16 +152,41 @@
 		align-items: center;
 		gap: 8px;
 	}
+	/* Your record as one pill: won, lost | trades. */
 	.record {
-		font-size: 13px;
-		font-variant-numeric: tabular-nums;
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		padding: 4px 12px;
+		border-radius: 999px;
+		background: var(--sunk);
+		border: 1px solid var(--border);
+		font-size: 12px;
+		color: var(--muted);
 		white-space: nowrap;
 	}
-	.record .w {
+	.record b {
+		font-size: 14px;
+		color: var(--text);
+		font-variant-numeric: tabular-nums;
+	}
+	.record b.w {
 		color: var(--grass, #3fae4a);
 	}
-	.record .l {
+	.record b.l {
 		color: var(--danger);
+	}
+	.record .sep {
+		width: 1px;
+		height: 14px;
+		background: var(--border-strong);
+	}
+	.toggles-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 8px;
+		margin-bottom: -6px;
 	}
 	.xs {
 		font-size: 12px;
@@ -194,8 +223,6 @@
 	.tl b {
 		font-size: 14px;
 		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 	.toggle.t-trade.on {
 		border-color: var(--accent-text);
