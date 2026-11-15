@@ -95,4 +95,17 @@ class Gen2PicTest {
         assertThat(img.getWidth()).isEqualTo(img.getHeight());
         return img.getWidth();
     }
+
+    @Test
+    void iconsAreCentredOnTheirDrawnPixels() throws IOException {
+        int[][] px = new int[56][56];
+        for (int y = 40; y < 56; y++) for (int x = 8; x < 24; x++) px[y][x] = 3; // a 16x16 block, bottom-left
+        BufferedImage img = ImageIO.read(new ByteArrayInputStream(Gen2Pic.png(px, new int[] {0xFFFFFFFF, 0, 0, 0xFF000000})));
+        int minX = 56, minY = 56, maxX = -1, maxY = -1;
+        for (int y = 0; y < 56; y++) for (int x = 0; x < 56; x++) {
+            if ((img.getRGB(x, y) >>> 24) == 0) continue;
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+        assertThat(new int[] {minX, minY, maxX, maxY}).containsExactly(20, 20, 35, 35);
+    }
 }

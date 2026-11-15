@@ -95,9 +95,22 @@ final class Gen2Pic {
     static byte[] png(int[][] px, int[] argb) {
         int h = px.length, w = px[0].length;
         boolean[][] outside = GenOnePic.outside(px);
+        // The game draws smaller pics bottom-aligned in the 7x7-tile box (they stand on the ground); as an icon the
+        // Pokémon is centred on its drawn pixels instead.
+        int minX = w, minY = h, maxX = -1, maxY = -1;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                if (outside[y][x]) continue;
+                minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+            }
+        }
+        int dx = maxX < 0 ? 0 : (w - (maxX - minX + 1)) / 2 - minX, dy = maxY < 0 ? 0 : (h - (maxY - minY + 1)) / 2 - minY;
         BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) img.setRGB(x, y, outside[y][x] ? 0 : argb[px[y][x]]);
+            for (int x = 0; x < w; x++) {
+                if (!outside[y][x]) img.setRGB(x + dx, y + dy, argb[px[y][x]]);
+            }
         }
         return GenOnePic.encode(img);
     }

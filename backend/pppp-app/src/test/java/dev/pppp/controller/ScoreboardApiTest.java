@@ -96,27 +96,28 @@ class ScoreboardApiTest {
         consoles.open("pibette@x.y"); // the test ROM has no profile, so the job itself scores nothing
         tracker.record("pibette@x.y", new Progress(Set.of("Boulder"), Set.of("Pidgey"), Set.of("Pidgey", "Rattata"), 12, false));
         tracker.record("pibette@x.y", new Progress(Set.of("Boulder"), Set.of("Pidgey"), Set.of("Pidgey"), 12, false)); // again: nothing
-        // A Gen 2 save: Zephyr (10 story) ranks pib above pibette's points, which no longer rank anyone.
+        // Ranked by the uncapped total (points + achievement points): pibette's 119 beat pib's 2 + 4, although pib's
+        // Trainer Score (10) is higher.
         tracker.record("pib@x.y", new Progress(Set.of(), Set.of(), Set.of("Pidgey"), 5, false), save(0b1));
 
         mvc.perform(get("/api/v1/scoreboard").with(pib)).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].userId").value("pib@x.y"))
-                .andExpect(jsonPath("$[0].points").value(2))
-                .andExpect(jsonPath("$[0].online").value(false))
-                .andExpect(jsonPath("$[0].trainerScore").value(10))
-                .andExpect(jsonPath("$[0].title").value("Youngster"))
-                .andExpect(jsonPath("$[0].grade").value("F"))
-                .andExpect(jsonPath("$[0].achievementPoints").value(1 + 3))
-                .andExpect(jsonPath("$[0].achievementsUnlocked").value(2))
-                .andExpect(jsonPath("$[1].userId").value("pibette@x.y"))
-                .andExpect(jsonPath("$[1].points").value(100 + 10 + 2 + 2 + 5))
-                .andExpect(jsonPath("$[1].badges").value(1))
-                .andExpect(jsonPath("$[1].caught").value(1))
-                .andExpect(jsonPath("$[1].seen").value(2))
-                .andExpect(jsonPath("$[1].game").value("test"))
-                .andExpect(jsonPath("$[1].online").value(true))
-                .andExpect(jsonPath("$[1].trainerScore").value(0))
-                .andExpect(jsonPath("$[1].achievementsUnlocked").value(0));
+                .andExpect(jsonPath("$[1].userId").value("pib@x.y"))
+                .andExpect(jsonPath("$[1].points").value(2))
+                .andExpect(jsonPath("$[1].online").value(false))
+                .andExpect(jsonPath("$[1].trainerScore").value(10))
+                .andExpect(jsonPath("$[1].title").value("Youngster"))
+                .andExpect(jsonPath("$[1].grade").value("F"))
+                .andExpect(jsonPath("$[1].achievementPoints").value(1 + 3))
+                .andExpect(jsonPath("$[1].achievementsUnlocked").value(2))
+                .andExpect(jsonPath("$[0].userId").value("pibette@x.y"))
+                .andExpect(jsonPath("$[0].points").value(100 + 10 + 2 + 2 + 5))
+                .andExpect(jsonPath("$[0].badges").value(1))
+                .andExpect(jsonPath("$[0].caught").value(1))
+                .andExpect(jsonPath("$[0].seen").value(2))
+                .andExpect(jsonPath("$[0].game").value("test"))
+                .andExpect(jsonPath("$[0].online").value(true))
+                .andExpect(jsonPath("$[0].trainerScore").value(0))
+                .andExpect(jsonPath("$[0].achievementsUnlocked").value(0));
         mvc.perform(get("/api/v1/activity?limit=3").with(pib)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[0].user").value("pib@x.y"))

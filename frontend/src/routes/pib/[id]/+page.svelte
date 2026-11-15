@@ -284,7 +284,7 @@
 						<dt>Pokédex</dt>
 						<dd>{profile.stats.caught} caught · {profile.stats.seen} seen</dd>
 						{#if profile.stats.trades != null}<dt>Trades</dt><dd>{profile.stats.trades}</dd>{/if}
-						{#if profile.stats.linkBattles != null}<dt>Link battles</dt><dd>{profile.stats.linkBattles}</dd>{/if}
+						{#if profile.stats.linkWins != null}<dt>Link battles</dt><dd>{profile.stats.linkWins} won · {profile.stats.linkLosses ?? 0} lost</dd>{/if}
 						{#if profile.stats.playTime ?? row.playTime}<dt>Playtime</dt><dd>{profile.stats.playTime ?? row.playTime}</dd>{/if}
 						<dt>Achievements</dt>
 						<dd>{row.achievementsUnlocked} · {row.achievementPoints} pts</dd>

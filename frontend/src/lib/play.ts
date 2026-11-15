@@ -236,7 +236,7 @@ export type Profile = {
 	row: ScoreRow;
 	party: ProfileMon[];
 	achievements: ProfileAchievement[];
-	stats: { caught: number; seen: number; trades: number | null; linkBattles: number | null; playTime: string | null };
+	stats: { caught: number; seen: number; trades?: number | null; linkWins?: number | null; linkLosses?: number | null; playTime: string | null };
 	recent: ScoreEvent[];
 };
 /** GET /players/{userId}/achievements (Achievement.java): the older backend's catalogue with unlock times. */
@@ -264,7 +264,7 @@ export function profileFrom(row: ScoreRow, catalogue: CatalogueEntry[], activity
 			types: []
 		})),
 		achievements: catalogue.map((a) => ({ id: a.id, name: a.name, description: a.description, points: a.points, unlocked: a.unlockedAt != null })),
-		stats: { caught: row.caught, seen: row.seen, trades: null, linkBattles: null, playTime: row.playTime ?? null },
+		stats: { caught: row.caught, seen: row.seen, trades: null, linkWins: null, linkLosses: null, playTime: row.playTime ?? null },
 		recent: activity.filter((e) => e.user === row.userId)
 	};
 }

@@ -62,7 +62,8 @@
 	}
 	.mon {
 		position: relative;
-		display: block;
+		display: grid; /* the sprite centred in its slot */
+		place-items: center;
 		width: var(--s);
 		height: var(--s);
 		border-radius: 5px;

@@ -227,7 +227,7 @@ public class ProgressTracker {
         return profile(userId) instanceof PokemonGen2 g ? g.version() : consoles.game(userId);
     }
 
-    /** The pibs:scoreboard score: Trainer Score first, achievement points (under 1,000 in all) break ties. */
+    /** The pibs:scoreboard score: Trainer Score first, achievement points break ties. Only a tie-break now: scoreboard() ranks by the uncapped total. */
     private static long rank(TrainerScore score, Map<String, Long> unlocked) {
         return score.score() * 10_000L + points(unlocked);
     }
@@ -292,6 +292,9 @@ public class ProgressTracker {
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
                     a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges(), c.trainerName()));
         }
+        // Ranked by the uncapped total (activity points + achievement points); the capped Trainer Score order of
+        // pibs:scoreboard breaks ties (the sort is stable).
+        rows.sort(java.util.Comparator.comparingInt((ScoreRow r) -> r.points() + r.achievementPoints()).reversed());
         return rows;
     }
 

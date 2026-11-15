@@ -353,11 +353,14 @@
 	}
 	.mon {
 		position: relative;
+		display: grid; /* the sprite centred in its slot */
+		place-items: center;
 		flex: none;
 		width: 30px;
 		height: 30px;
 	}
 	.mon img {
+		display: block;
 		width: 100%;
 		height: 100%;
 		image-rendering: pixelated;
