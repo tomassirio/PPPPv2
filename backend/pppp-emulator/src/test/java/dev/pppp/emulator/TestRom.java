@@ -91,12 +91,32 @@ public final class TestRom {
             0x18, 0xE4,             // JR loop
     };
 
+    /** Game Boy Color: $11 to $D000 in WRAM bank 1, $22 in bank 2, then it stays on bank {@code svbk}. */
+    static int[] wramBanks(int svbk) {
+        return new int[] {
+                0x3E, 0x01, 0xE0, 0x70, // SVBK = 1
+                0x3E, 0x11,             // LD A,$11
+                0xEA, 0x00, 0xD0,       // LD ($D000),A
+                0x3E, 0x02, 0xE0, 0x70, // SVBK = 2
+                0x3E, 0x22,             // LD A,$22
+                0xEA, 0x00, 0xD0,       // LD ($D000),A
+                0x3E, svbk, 0xE0, 0x70, // SVBK = svbk
+                0x18, 0xFE,             // JR -2          forever
+        };
+    }
+
     public static Path write(Path dir) throws IOException {
         return write(dir, "test.gb", PROGRAM);
     }
 
     static Path write(Path dir, String name, int[] program) throws IOException {
+        return write(dir, name, program, false);
+    }
+
+    /** cgb: a Game Boy Color-only cartridge (header byte $143 = $C0). */
+    static Path write(Path dir, String name, int[] program, boolean cgb) throws IOException {
         byte[] rom = new byte[0x8000];
+        if (cgb) rom[0x143] = (byte) 0xC0;
         rom[0x100] = 0x00;                          // NOP
         rom[0x101] = (byte) 0xC3;                   // JP $0150
         rom[0x102] = 0x50;

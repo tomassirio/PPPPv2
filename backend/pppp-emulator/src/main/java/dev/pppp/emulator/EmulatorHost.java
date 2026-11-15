@@ -297,18 +297,27 @@ public class EmulatorHost {
         if (address < 0 || address > 0xFFFE || (address >= 0xFF00 && address < 0xFF80)) {
             throw new IllegalArgumentException("Address not readable: " + Integer.toHexString(address));
         }
-        return readBytes(address, 1)[0] & 0xFF;
+        byte[] b = readBytes(address, 1);
+        if (b == null) throw new IllegalStateException("Another WRAM bank is switched in");
+        return b[0] & 0xFF;
     }
 
-    /** Like {@link #readByte} for {@code length} consecutive bytes, all from the same frame. */
+    /**
+     * Like {@link #readByte} for {@code length} consecutive bytes, all from the same frame. A range touching
+     * D000-DFFF reads WRAM bank 1 or nothing: null while a Game Boy Color game has another bank switched in.
+     */
     public byte[] readBytes(int address, int length) {
         int end = address + length - 1;
         if (length < 1 || address < 0 || end > 0xFFFE || (address < 0xFF80 && end >= 0xFF00)) {
             throw new IllegalArgumentException("Range not readable: " + Integer.toHexString(address) + "+" + length);
         }
         return call(() -> {
-            byte[] out = new byte[length];
             var bus = gb.getAddressSpace();
+            // SVBK (FF70) reads back the switched-in bank (0 means 1) without side effects; FF in DMG mode,
+            // which has no banks.
+            int svbk = bus.getByte(0xFF70);
+            if (address <= 0xDFFF && end >= 0xD000 && svbk != 0xFF && (svbk & 7) > 1) return null;
+            byte[] out = new byte[length];
             for (int i = 0; i < length; i++) out[i] = (byte) bus.getByte(address + i);
             return out;
         });

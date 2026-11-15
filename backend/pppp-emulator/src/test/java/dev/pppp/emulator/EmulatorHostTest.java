@@ -70,6 +70,23 @@ class EmulatorHostTest {
     }
 
     @Test
+    void readsWramBankOneOrNothing() throws Exception {
+        host.insert("bank2", TestRom.write(dir, "bank2.gbc", TestRom.wramBanks(2), true), dir.resolve("bank2.sav"));
+        host.powerOn();
+        host.press(Button.WAIT, 2, 0);
+        assertThat(host.readBytes(0xD000, 1)).isNull(); // bank 2 is switched in
+        assertThat(host.readBytes(0xCFFF, 2)).isNull(); // any range touching D000-DFFF
+        assertThat(host.readBytes(0xC000, 1)).isNotNull(); // bank 0 is fixed
+        host.powerOff();
+        host.eject();
+
+        host.insert("bank0", TestRom.write(dir, "bank0.gbc", TestRom.wramBanks(0), true), dir.resolve("bank0.sav"));
+        host.powerOn();
+        host.press(Button.WAIT, 2, 0);
+        assertThat(host.readBytes(0xD000, 1)).containsExactly(0x11); // SVBK 0 selects bank 1
+    }
+
+    @Test
     void producesFramesUnlessPaused() throws Exception {
         var frames = new ArrayBlockingQueue<int[]>(100);
         host.onFrame(frames::offer);
