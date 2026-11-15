@@ -249,7 +249,7 @@
 						>
 						<span class="sr-only">You are at </span>
 						<span class="place pixel">{ls ? 'TRADE CENTER' : where.city.toUpperCase()}</span>
-						<span class="sub">{ls ? `Cable Club · with ${nameOf(ls.peer)}` : where.spot || 'Johto'}</span>
+						{#if ls || where.spot}<span class="sub">{ls ? `Cable Club · with ${nameOf(ls.peer)}` : where.spot}</span>{/if}
 					</p>
 				{/if}
 				<div class="screen-slot" bind:this={screenSlot}>
