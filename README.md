@@ -29,17 +29,17 @@ The sequel to Pibs&PibettesPlayPokemon, where everyone shared one Game Boy.
 ## How it's built
 
 ```
-browser ──HTTP/SSE──▶ nginx ──▶ Spring Boot ──▶ Redis   (players, lobby, scoreboard, activity, chat, sessions)
+browser ──HTTP/WS───▶ nginx ──▶ Spring Boot ──▶ Redis   (players, lobby, scoreboard, activity, chat, sessions)
    ▲                              │
    └──── screen + audio (WS) ─────┘ one Coffee GB per player; ROMs, battery saves and parked states on disk
 ```
 
 | Part | Stack |
 | --- | --- |
-| `backend/` | Java 21, Spring Boot 3.5, Maven modules: `pppp-emulator` (Coffee GB wrapper and link cable, no Spring), `pppp-core` (services, Redis repositories, scoring), `pppp-app` (controllers, security, SSE and WebSockets) |
+| `backend/` | Java 21, Spring Boot 3.5, Maven modules: `pppp-emulator` (Coffee GB wrapper and link cable, no Spring), `pppp-core` (services, Redis repositories, scoring), `pppp-app` (controllers, security, WebSockets) |
 | `frontend/` | SvelteKit + Svelte 5 runes, TypeScript, Vite, static SPA served by nginx |
 | Auth | Google sign-in (OIDC), only for emails on the allowlist. Sessions in Redis |
-| Live updates | Server-sent events (`/api/v1/events`) for chat, lobby, link sessions, scores; WebSockets for each player's screen and audio |
+| Live updates | WebSockets: `/ws/events` (one per tab) for scoreboard, chat, who is online, lobby, link sessions and progress; `/ws/screen`, `/ws/audio` and `/ws/input` for each player's own console |
 
 Not included: ROMs. Bring your own legally dumped cartridges and upload them from the admin page (or drop them in
 `data/roms/`).

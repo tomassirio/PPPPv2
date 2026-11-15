@@ -66,7 +66,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Spring Boot 3.5, Java 21, Maven multi-module, MVC layers. Package root `dev.pppp`.
   - `pppp-emulator`: `dev.pppp.emulator` — Coffee GB on its own thread. Plain Java, no Spring.
   - `pppp-core`: `model`, `exception`, `service`, `repository`, `job`, `config` — business logic. No web dependencies; Redis access only in `repository`.
-  - `pppp-app`: `controller` (+ `ApiExceptionHandler`), `security`, `realtime` (SSE, screen WebSocket), `config`, `PpppApplication`.
+  - `pppp-app`: `controller` (+ `ApiExceptionHandler`), `security`, `realtime` (WebSockets: events, screen, audio, input), `config`, `PpppApplication`.
   - Dependencies point one way: app -> core -> emulator.
 - Build/test: `cd backend && mvn -q test`. Run: `mvn -q package -DskipTests && java -jar pppp-app/target/pppp-app-*.jar` with the repo-root `.env` exported (`set -a; . ../.env; set +a`). Integration tests live in pppp-app: `@SpringBootTest @DirtiesContext @AutoConfigureMockMvc @Import(TestRedis.class)` (Testcontainers Redis; Docker required). `@DirtiesContext` gives each class its own context and Redis: shared contexts leak consoles and Redis state between classes.
 - Auth in tests: `.with(user("x@y.z").roles("PLAYER"))` or `oidcLogin()`; mutating calls need `.with(csrf())`.
@@ -75,7 +75,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 ## Conventions
 - User id = lower-cased email: `CurrentUser.id(authentication)`.
 - Errors: services throw domain exceptions, `ApiExceptionHandler` alone maps them to ProblemDetail: IllegalArgumentException 400, ForbiddenException 403, NotFoundException 404, IllegalStateException 409, RateLimitedException 429 (chat).
-- Live events to browsers: services publish `new LiveEvent(type, payload)` via `ApplicationEventPublisher`; `LiveEventRelay` forwards to SSE (`/api/v1/events`).
+- Live events to browsers: services publish `new LiveEvent(type, payload)` via `ApplicationEventPublisher`; `LiveEventRelay` forwards to every `/ws/events` WebSocket (`EventPublisher`, JSON `{type, data}`).
 - Input: keys and pad buttons go down and up over `/ws/input` ("down UP" / "up UP", `InputWebSocketHandler` -> `PlayerConsoles.hold` -> `EmulatorHost.hold`), so a held key stays held on the Game Boy; closing the socket or leaving lets go of everything. `POST /api/v1/me/inputs` is only the fallback single tap. No admin input settings.
 - Admin actions announce themselves via `ChatService.postSystem(text)`.
 - Redis keys follow the design doc's key layout table exactly.
@@ -86,7 +86,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Commands: `cd frontend && npm run check && npm test && npm run build`. Dev: `npm run dev` proxies /api, /ws, /oauth2, /login/oauth2 to localhost:8080.
 - Screen designs to match for /play: `frontend/design/Play*.dc.html`. The sign-in page (`/`) is the handheld boot-up. Tokens in `src/app.css` have dark and light values (theme: `src/lib/theme.svelte.ts`, Auto/Light/Dark); use tokens, not hex, for anything that sits on the page background.
 - Backend calls only through `src/lib/api.ts` (`api(method, path, body)`, adds X-XSRF-TOKEN, throws `ApiError{status, detail}`).
-- Live events only through `src/lib/events.ts` (`on(type, handler)` returns unsubscribe; one shared EventSource).
+- Live events only through `src/lib/events.ts` (`on(type, handler)` returns unsubscribe; `onOpen` re-fetches snapshots on reconnect; one shared WebSocket).
 - Imports via `#lib/*` need the emitted extension: `#lib/session.svelte.js`, `#lib/api.js`.
 - Session: `src/lib/session.svelte.ts` (`session.me`, `loadMe()`, `isAdmin()`, `logout()`).
 - Backend payload shapes: read the controllers/records in `backend/src/main/java/dev/pppp` rather than guessing.

@@ -1,6 +1,9 @@
 package dev.pppp.realtime;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.pppp.model.Viewer;
+import dev.pppp.security.CurrentUser;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
@@ -10,39 +13,60 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.Authentication;
 import org.springframework.session.events.SessionDestroyedEvent;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.PingMessage;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 /**
- * Fan-out for GET /api/v1/events. Event types: CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, CHAT_CLEARED,
- * GAME_STATE, PROGRESS, SCOREBOARD_CHANGED, LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION, PRESENCE.
+ * /ws/events: everything that changes for everyone while people play, pushed to every open tab as one JSON text
+ * message per event, {"type": ..., "data": ...}. Types: CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, CHAT_CLEARED,
+ * GAME_STATE, PROGRESS, ACHIEVEMENT_UNLOCKED, SCOREBOARD_CHANGED, LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION,
+ * PLAYER_RESET, ACCESS_REQUESTS, PRESENCE. Server to browser only; anything the browser sends is ignored.
  *
- * <p>Presence = who has a stream open, kept in memory (single instance). PRESENCE carries the list of
- * viewers, one entry per user however many tabs they have open.
+ * <p>Presence = who has a socket open, kept in memory (single instance). PRESENCE carries the list of viewers,
+ * one entry per user however many tabs they have open.
  */
 @Component
-public class EventPublisher {
-    /** sessionId: the login session that opened the stream (null in tests); it closes when that session ends. */
-    private record Stream(Viewer viewer, boolean admin, String sessionId) {}
+public class EventPublisher extends TextWebSocketHandler {
+    /** sessionId: the login session that opened the socket (null in tests); it closes when that session ends. */
+    private record Stream(WebSocketSession socket, Viewer viewer, boolean admin, String sessionId) {}
+    private record Message(String type, Object data) {}
     private static final Logger log = LoggerFactory.getLogger(EventPublisher.class);
 
-    private final Map<SseEmitter, Stream> emitters = new ConcurrentHashMap<>();
+    private final Map<WebSocketSession, Stream> streams = new ConcurrentHashMap<>();
+    private final ObjectMapper json;
 
-    public SseEmitter subscribe(Viewer viewer, boolean admin, String sessionId) {
-        var emitter = new SseEmitter(0L);
-        emitters.put(emitter, new Stream(viewer, admin, sessionId));
-        log.info("Stream opened for {} ({} streams)", viewer.id(), emitters.size());
-        emitter.onCompletion(() -> drop(emitter));
-        emitter.onTimeout(() -> drop(emitter));
-        emitter.onError(e -> drop(emitter));
+    public EventPublisher(ObjectMapper json) {
+        this.json = json;
+    }
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) {
+        var auth = (Authentication) session.getPrincipal();
+        var sessionId = (String) session.getAttributes().get(HttpSessionHandshakeInterceptor.HTTP_SESSION_ID_ATTR_NAME);
+        // Sends come from many threads; a client that falls 5 s or 1 MB behind is dropped and reconnects.
+        var socket = new ConcurrentWebSocketSessionDecorator(session, 5_000, 1 << 20);
+        streams.put(session, new Stream(socket, CurrentUser.viewer(auth), CurrentUser.isAdmin(auth), sessionId));
+        log.info("Events socket opened for {} ({} open)", CurrentUser.id(auth), streams.size());
         publish("PRESENCE", viewers());
-        return emitter;
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        drop(session);
     }
 
     /** Distinct viewers, sorted by name. */
     public List<Viewer> viewers() {
-        return emitters.values().stream()
+        return streams.values().stream()
                 .map(Stream::viewer)
                 .distinct()
                 .sorted(Comparator.comparing(Viewer::name, String.CASE_INSENSITIVE_ORDER))
@@ -53,53 +77,57 @@ public class EventPublisher {
         send(type, data, false);
     }
 
-    /** Only to admins' streams (ADMIN chat lines). */
+    /** Only to admins' sockets (ADMIN chat lines). */
     public void publishToAdmins(String type, Object data) {
         send(type, data, true);
     }
 
     private void send(String type, Object data, boolean adminsOnly) {
-        for (var entry : emitters.entrySet()) {
-            if (adminsOnly && !entry.getValue().admin()) continue;
-            var emitter = entry.getKey();
-            try {
-                emitter.send(SseEmitter.event().name(type).data(data));
-            } catch (IOException | IllegalStateException e) {
-                drop(emitter);
-            }
+        TextMessage message;
+        try {
+            message = new TextMessage(json.writeValueAsString(new Message(type, data)));
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Cannot serialise " + type, e);
         }
+        streams.forEach((session, stream) -> {
+            if (!adminsOnly || stream.admin()) write(session, stream, message);
+        });
     }
 
     /**
-     * Sign-out, expiry or revocation: close that session's streams. Other tabs of a signed-out user would
-     * otherwise keep their streams (authorised when opened) and stay online; they cannot reconnect after this.
+     * Sign-out, expiry or revocation: close that session's sockets. Other tabs of a signed-out user would
+     * otherwise stay connected (authorised when opened) and online; they cannot reconnect after this.
      */
     @EventListener
     public void onSessionEnded(SessionDestroyedEvent e) {
-        emitters.forEach((emitter, stream) -> {
+        streams.forEach((session, stream) -> {
             if (e.getSessionId().equals(stream.sessionId())) {
-                emitter.complete();
-                drop(emitter);
+                ScreenWebSocketHandler.close(session, CloseStatus.POLICY_VIOLATION);
+                drop(session);
             }
         });
     }
 
-    /** A closed tab is only noticed on the next write; ping so presence drops it within ~15 s. */
+    /** Keeps idle sockets alive through proxies, and a vanished tab fails the write and leaves presence. */
     @Scheduled(fixedDelay = 15_000)
     void heartbeat() {
-        for (var emitter : emitters.keySet()) {
-            try {
-                emitter.send(SseEmitter.event().comment("ping"));
-            } catch (IOException | IllegalStateException e) {
-                drop(emitter);
-            }
+        var ping = new PingMessage();
+        streams.forEach((session, stream) -> write(session, stream, ping));
+    }
+
+    private void write(WebSocketSession session, Stream stream, WebSocketMessage<?> message) {
+        try {
+            stream.socket().sendMessage(message);
+        } catch (IOException | IllegalStateException e) {
+            ScreenWebSocketHandler.close(session, CloseStatus.SESSION_NOT_RELIABLE);
+            drop(session);
         }
     }
 
-    private void drop(SseEmitter emitter) {
-        Stream gone = emitters.remove(emitter);
+    private void drop(WebSocketSession session) {
+        Stream gone = streams.remove(session);
         if (gone == null) return;
-        log.info("Stream closed for {} ({} streams)", gone.viewer().id(), emitters.size());
+        log.info("Events socket closed for {} ({} open)", gone.viewer().id(), streams.size());
         publish("PRESENCE", viewers());
     }
 }

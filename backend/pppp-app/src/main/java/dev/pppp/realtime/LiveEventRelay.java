@@ -5,18 +5,18 @@ import dev.pppp.model.LiveEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-/** Forwards LiveEvents published by core services to every SSE client; ADMIN chat lines to admins only. */
+/** Forwards LiveEvents published by core services to every /ws/events socket; ADMIN chat lines to admins only. */
 @Component
 public class LiveEventRelay {
-    private final EventPublisher sse;
+    private final EventPublisher events;
 
-    public LiveEventRelay(EventPublisher sse) {
-        this.sse = sse;
+    public LiveEventRelay(EventPublisher events) {
+        this.events = events;
     }
 
     @EventListener
     public void relay(LiveEvent event) {
-        if (event.payload() instanceof ChatMessage m && "ADMIN".equals(m.kind())) sse.publishToAdmins(event.type(), m);
-        else sse.publish(event.type(), event.payload());
+        if (event.payload() instanceof ChatMessage m && "ADMIN".equals(m.kind())) events.publishToAdmins(event.type(), m);
+        else events.publish(event.type(), event.payload());
     }
 }

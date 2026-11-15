@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
-/** Chat rules: length, mutes, one message per second; delivered over SSE. Other workstreams call postSystem. */
+/** Chat rules: length, mutes, one message per second; delivered over /ws/events. Other workstreams call postSystem. */
 @Service
 public class ChatService {
     static final int MAX_LENGTH = 300;

@@ -21,7 +21,7 @@ describe('chat messages', () => {
 	it('merges newest-first history and live messages oldest-first without duplicates', () => {
 		let list = merge([], [msg('3-0'), msg('2-0'), msg('1-0')]); // history is newest first
 		list = merge(list, [msg('4-0')]); // POST response
-		list = merge(list, [msg('4-0')]); // same message via SSE
+		list = merge(list, [msg('4-0')]); // same message via the events socket
 		list = merge(list, [msg('0-1'), msg('0-0')]); // older page
 		expect(ids(list)).toEqual(['0-0', '0-1', '1-0', '2-0', '3-0', '4-0']);
 	});
