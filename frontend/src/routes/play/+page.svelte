@@ -195,7 +195,12 @@
 		watch.observe(screenSlot);
 		return () => watch.disconnect();
 	});
-	const gameW = $derived(slotH > 68 ? Math.round(((slotH - 68) * 160) / 144 + 32) : 0); // used by the desktop CSS only
+	// ...but never wider than what the row leaves after the other two columns' minimums (340 + 360), the two 24px gaps
+	// and main's 32px side padding: then the screen is width-bound instead and nothing gets pushed off the page.
+	let mainW = $state(0);
+	const gameW = $derived(
+		slotH > 68 ? Math.round(Math.min(((slotH - 68) * 160) / 144 + 32, mainW ? mainW - 64 - 48 - 340 - 360 : Infinity)) : 0
+	); // used by the desktop CSS only
 	let frameWidth = $state(0);
 	$effect(() => {
 		const frame = screenSlot?.querySelector('.bezel');
@@ -240,7 +245,7 @@
 
 		<div class="stage">
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner half={1} /></aside>
-		<main>
+		<main bind:clientWidth={mainW}>
 			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null} style:--game-w={gameW > 0 ? `${gameW}px` : null}>
 				{#if link.state?.session}
 					{@const ls = link.state.session}
@@ -595,12 +600,17 @@
 			justify-content: flex-start;
 			flex: 0 0 var(--game-w, 40%);
 			min-width: 380px;
-			/* Leaves room for the other two columns' minimum widths and the gaps. */
-			max-width: calc(100% - 340px - 360px - 48px);
 		}
 		.mid {
 			flex: 1 1 0;
 			min-width: 340px;
+		}
+		/* Your run stretches to the bottom edge, level with the controller and the board. */
+		.mid > .slot.run {
+			flex: 1 0 auto;
+		}
+		.mid > .slot.run > :global(.card) {
+			flex: 1 0 auto;
 		}
 		.board {
 			flex: 1 1 0;
@@ -646,8 +656,8 @@
 			display: none; /* turned off in the account menu */
 		}
 		.dex {
-			flex: 0 0 clamp(210px, 13vw, 260px);
-			min-width: 210px;
+			flex: 0 1 clamp(210px, 13vw, 260px);
+			min-width: 160px;
 			padding: 16px 12px;
 			box-sizing: border-box;
 		}
