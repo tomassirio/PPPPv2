@@ -1,9 +1,9 @@
-<!-- The avatar in the top bar opens this menu: who you are, light/dark (sun/moon), Pokédex banners (wide desktops), My profile, Settings (key bindings), Admin (admins only; Play when
+<!-- The avatar in the top bar opens this menu: who you are, light/dark (Solrock/Lunatone, with a reveal animation), Pokédex banners (wide desktops), My profile, Settings (key bindings), Admin (admins only; Play when
      already on /admin), Sign out. -->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { isAdmin, logout, type Me } from '#lib/session.svelte.ts';
-	import { setTheme, theme } from '#lib/theme.svelte.ts';
+	import { switchTheme, theme } from '#lib/theme.svelte.ts';
 	import { dexBanners, setDexBanners } from '#lib/dex.svelte.ts';
 	import SettingsDialog from '#lib/components/SettingsDialog.svelte';
 
@@ -83,16 +83,11 @@
 			<div class="row">
 				<span id="theme-label">Theme</span>
 				<div class="toggle" role="group" aria-labelledby="theme-label">
-					<button type="button" aria-pressed={!dark} aria-label="Light" title="Light" onclick={() => setTheme('light')}>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-							<circle cx="12" cy="12" r="4" />
-							<path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-						</svg>
+					<button type="button" aria-pressed={!dark} aria-label="Light" title="Light (Solrock)" onclick={(e) => switchTheme('light', e.currentTarget)}>
+						<img src="/theme/solrock.png" alt="" width="22" height="22" />
 					</button>
-					<button type="button" aria-pressed={dark} aria-label="Dark" title="Dark" onclick={() => setTheme('dark')}>
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-							<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
-						</svg>
+					<button type="button" aria-pressed={dark} aria-label="Dark" title="Dark (Lunatone)" onclick={(e) => switchTheme('dark', e.currentTarget)}>
+						<img src="/theme/lunatone.png" alt="" width="22" height="22" />
 					</button>
 				</div>
 			</div>
@@ -236,6 +231,25 @@
 		background: none;
 		color: var(--muted);
 		cursor: pointer;
+	}
+	.toggle img {
+		display: block;
+		filter: grayscale(0.85) opacity(0.55);
+	}
+	.toggle button[aria-pressed='true'] img {
+		filter: none;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.toggle img {
+			transition: filter 0.3s, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+		/* Solrock spins up, Lunatone rocks into place when picked. */
+		.toggle button[aria-label='Light'][aria-pressed='true'] img {
+			transform: rotate(180deg);
+		}
+		.toggle button[aria-label='Dark'][aria-pressed='true'] img {
+			transform: rotate(-25deg);
+		}
 	}
 	.toggle button[aria-pressed='true'] {
 		background: var(--panel);
