@@ -577,12 +577,24 @@
 		}
 		/* Windows taller than the reference shape: the screen is width-bound, so the slot stops at the bezel's
 		   height and screen + controller stay together, centred, instead of leaving a gap between them. */
+		/* All three columns share the same top and bottom edges: the game starts at the top, the screen takes every
+		   pixel of height the controller leaves, and the controller sits on the bottom edge. */
 		.game {
 			container-type: inline-size;
-			justify-content: center;
+			justify-content: flex-start;
+			flex: 1.3 1 0;
+			max-width: none;
+		}
+		.mid {
+			flex: 1 1 0;
+			min-width: 340px;
+		}
+		.board {
+			flex: 1 1 0;
+			min-width: 360px;
 		}
 		.screen-slot {
-			flex: 0 1 calc((100cqw - 32px) * 144 / 160 + 68px);
+			flex: 1 1 0;
 			min-height: 200px;
 		}
 		.screen-slot :global(.fit) {
@@ -621,13 +633,15 @@
 			display: none; /* turned off in the account menu */
 		}
 		.dex {
-			flex: 1 1 0;
+			flex: 0 0 clamp(210px, 13vw, 260px);
 			min-width: 210px;
 			padding: 16px 12px;
 			box-sizing: border-box;
 		}
+		/* The columns take the whole width between the Pokédex banners; the banners keep their own width. */
 		main {
-			flex: 0 1 1440px;
+			flex: 1 1 auto;
+			max-width: none;
 		}
 	}
 	:global(.page :focus-visible) {
