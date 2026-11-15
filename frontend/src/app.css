@@ -28,6 +28,12 @@
 	--cart-gold: #d2aa2e;
 	--cart-silver: #b9c1c9;
 	--cart-crystal: #7ccbe0;
+	/* Achievement rarity frames (common..legendary). */
+	--r-common: #8fa39a;
+	--r-uncommon: #5cbf63;
+	--r-rare: #5b9bf0;
+	--r-epic: #b07ce8;
+	--r-legendary: #f2b53c;
 	--pixel-font: 'Press Start 2P', monospace;
 	--body-font: Inter, system-ui, sans-serif;
 	color-scheme: dark;
@@ -54,6 +60,11 @@
 	--pad-edge: #c2bba8;
 	--glow: #e6e0f2;
 	--scenery-filter: none;
+	--r-common: #6b7d74;
+	--r-uncommon: #2f8a3a;
+	--r-rare: #2a64c8;
+	--r-epic: #7d3fc0;
+	--r-legendary: #a86f00;
 	color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
@@ -77,6 +88,11 @@
 		--pad-edge: #c2bba8;
 		--glow: #e6e0f2;
 		--scenery-filter: none;
+		--r-common: #6b7d74;
+		--r-uncommon: #2f8a3a;
+		--r-rare: #2a64c8;
+		--r-epic: #7d3fc0;
+		--r-legendary: #a86f00;
 		color-scheme: light;
 	}
 }

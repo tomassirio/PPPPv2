@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, versionOf, type ScoreRow } from './play';
+import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, shownAchievements, versionOf, type ScoreRow } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -112,6 +112,8 @@ describe('scoreboard helpers', () => {
 		expect(bitCount(0b1011)).toBe(3);
 		expect(place('Ecruteak City · Pokémon Center')).toEqual({ city: 'Ecruteak City', spot: 'Pokémon Center' });
 		expect(place(null)).toEqual({ city: '', spot: '' });
+		expect(place("New Bark Town · Elm's Lab")).toEqual({ city: 'New Bark Town', spot: "Elm's Lab" });
+		expect(place('Pokémon Center 2F')).toEqual({ city: 'Pokémon Center 2F', spot: '' }); // a room alone is the place
 	});
 });
 
@@ -131,5 +133,29 @@ describe('profile helpers', () => {
 		expect(progressPct({ unlocked: true, progress: 3, goal: 10 })).toBeNull();
 		expect(progressPct({ unlocked: false, progress: 0, goal: 1 })).toBeNull();
 		expect(progressPct({ unlocked: false })).toBeNull();
+	});
+
+	it('rates achievements by points when the backend sends no rarity', () => {
+		expect([1, 3, 5, 10, 25, 50].map(rarityOf)).toEqual(['common', 'common', 'uncommon', 'rare', 'epic', 'legendary']);
+	});
+
+	it('sorts achievements by rarity and masks hidden ones until unlocked', () => {
+		const a = (id: string, points: number, unlocked: boolean, extra = {}) => ({ id, name: id, description: `${id}!`, points, unlocked, ...extra });
+		// Older backend: rarity from points, a locked legendary is hidden, an unlocked one is not.
+		const old = shownAchievements([a('leg', 50, false), a('epic', 25, true), a('c1', 1, false), a('leg2', 50, true), a('c2', 2, true)]);
+		expect(old.map((x) => x.id)).toEqual(['c1', 'c2', 'epic', 'leg', 'leg2']);
+		expect(old[3]).toMatchObject({ name: '???', description: '???', rarity: 'legendary', masked: true });
+		expect(old[4]).toMatchObject({ name: 'leg2', masked: false });
+		// Newer backend: its rarity wins over points; hidden=true masks (with the legendary frame), hidden=false never does.
+		const neu = shownAchievements([
+			a('h', 10, false, { rarity: 'rare', hidden: true, name: null, description: null }),
+			a('l', 50, false, { rarity: 'legendary', hidden: false }),
+			a('u', 50, false, { rarity: 'uncommon', hidden: false })
+		]);
+		expect(neu.map((x) => [x.id, x.rarity, x.name])).toEqual([
+			['u', 'uncommon', 'u'],
+			['h', 'legendary', '???'],
+			['l', 'legendary', 'l']
+		]);
 	});
 });

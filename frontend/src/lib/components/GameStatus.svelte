@@ -77,6 +77,7 @@
 		{/if}
 	</div>
 	{#if mine}
+		{#if mine.trainerName}<div class="line"><span class="muted">Trainer</span><b>{mine.trainerName}</b></div>{/if}
 		<div class="line"><span class="muted">Title</span><b>{mine.title}</b></div>
 	{/if}
 	{#if party.length || mine}

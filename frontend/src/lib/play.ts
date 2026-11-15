@@ -90,6 +90,8 @@ export type ScoreRow = {
 	/** Bitmasks, bit i = the i-th badge (Zephyr..Rising, Boulder..Earth). */
 	johtoBadges?: number;
 	kantoBadges?: number;
+	/** The name the player typed in the game ("TOMAS"). */
+	trainerName?: string | null;
 };
 export type MonStatus = 'PSN' | 'PAR' | 'SLP' | 'BRN' | 'FRZ' | 'FNT';
 export type PartyMon = { species: number; level: number; hpPercent?: number; status?: MonStatus | null; shiny?: boolean; egg?: boolean };
@@ -159,7 +161,7 @@ export function badgeMasks(r: Pick<ScoreRow, 'badges' | 'johtoBadges' | 'kantoBa
 	};
 }
 
-/** "Ecruteak City · Pokémon Center" -> landmark and spot ("" when there is none). */
+/** "Ecruteak City · Pokémon Center" -> landmark and spot ("" when there is none); a room alone is the city. */
 export function place(location: string | null | undefined): { city: string; spot: string } {
 	const [city = '', ...rest] = (location ?? '').split(' · ');
 	return { city, spot: rest.join(' · ') };
@@ -212,7 +214,20 @@ export type ProfileMon = {
 	egg: boolean;
 	types: string[];
 };
-export type ProfileAchievement = { id: string; name: string; description: string; points: number; unlocked: boolean; progress?: number | null; goal?: number | null };
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export const RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+/** A hidden one has name and description null until unlocked. rarity/hidden: newer backend only. */
+export type ProfileAchievement = {
+	id: string;
+	name: string | null;
+	description: string | null;
+	points: number;
+	unlocked: boolean;
+	progress?: number | null;
+	goal?: number | null;
+	rarity?: Rarity;
+	hidden?: boolean;
+};
 export type Profile = {
 	row: ScoreRow;
 	party: ProfileMon[];
@@ -254,4 +269,25 @@ export function profileFrom(row: ScoreRow, catalogue: CatalogueEntry[], activity
 export function progressPct(a: Pick<ProfileAchievement, 'unlocked' | 'progress' | 'goal'>): number | null {
 	if (a.unlocked || a.progress == null || !a.goal || a.goal <= 1) return null;
 	return Math.min(99, Math.floor((a.progress * 100) / a.goal));
+}
+
+/** An older backend has no rarity: 1-3 points common, 5 uncommon, 10 rare, 25 epic, 50 legendary. */
+export const rarityOf = (points: number): Rarity =>
+	points <= 3 ? 'common' : points <= 5 ? 'uncommon' : points <= 10 ? 'rare' : points <= 25 ? 'epic' : 'legendary';
+
+export type ShownAchievement = ProfileAchievement & { name: string; description: string; rarity: Rarity; masked: boolean };
+/**
+ * Achievements as the grid shows them: a locked hidden one (or, without rarity from the backend, a locked legendary)
+ * is "???" with the legendary frame; sorted common..legendary, catalogue order within a tier.
+ */
+export function shownAchievements(list: ProfileAchievement[]): ShownAchievement[] {
+	return list
+		.map((a) => {
+			const rarity = a.rarity ?? rarityOf(a.points);
+			const masked = !a.unlocked && (a.hidden ?? (!a.rarity && rarity === 'legendary'));
+			return masked
+				? { ...a, name: '???', description: '???', rarity: 'legendary' as const, masked, progress: null, goal: null }
+				: { ...a, name: a.name ?? '???', description: a.description ?? '', rarity, masked };
+		})
+		.sort((x, y) => RARITIES.indexOf(x.rarity) - RARITIES.indexOf(y.rarity)); // stable: catalogue order in a tier
 }

@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import RarityBall from '#lib/components/RarityBall.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 	import { api } from '#lib/api.ts';
@@ -21,6 +22,8 @@
 		playerStatus,
 		profileFrom,
 		progressPct,
+		RARITIES,
+		shownAchievements,
 		topLevel,
 		TYPE_COLORS,
 		versionOf,
@@ -79,7 +82,12 @@
 	const version = $derived(row ? versionOf(row.game, board.names) : null);
 	const masks = $derived(row ? badgeMasks(row) : { johto: 0, kanto: 0 });
 	const johto = $derived(bitCount(masks.johto));
-	const got = $derived(profile?.achievements.filter((a) => a.unlocked).length ?? 0);
+	const achievements = $derived(shownAchievements(profile?.achievements ?? []));
+	const got = $derived(achievements.filter((a) => a.unlocked).length);
+	const tiers = $derived(
+		RARITIES.map((r) => ({ rarity: r, got: achievements.filter((a) => a.rarity === r && a.unlocked).length, of: achievements.filter((a) => a.rarity === r).length }))
+	);
+	const BALL = { common: 'Poké Ball', uncommon: 'Great Ball', rare: 'Ultra Ball', epic: 'Master Ball', legendary: 'GS Ball' };
 	const top = $derived(
 		profile?.party.filter((m) => !m.egg).reduce<Profile['party'][number] | null>((best, m) => (!best || m.level > best.level ? m : best), null)
 	);
@@ -108,6 +116,7 @@
 				<span class="av status-{status.kind}"><Avatar user={id} size={64} /><i class="status-dot" aria-hidden="true"></i></span>
 				<div class="col">
 					<h1 id="pib-h" class="pixel">{you ? 'Your profile' : nameOf(id)}</h1>
+					{#if row.trainerName}<span class="muted small">Trainer <b class="pixel tname">{row.trainerName}</b></span>{/if}
 					<div class="row xs wrap">
 						{#if version}<span class="chip g-{version}"><span class="cart-dot"></span>{version}</span>{/if}
 						<span class="chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
@@ -211,16 +220,28 @@
 				</section>
 
 				<section class="card" aria-labelledby="ach-h">
-					<div class="between"><h2 id="ach-h">Achievements</h2><span class="muted small">{got} of {profile.achievements.length}</span></div>
-					{#if profile.achievements.length}
+					<div class="between"><h2 id="ach-h">Achievements</h2><span class="muted small">{got} of {achievements.length}</span></div>
+					{#if achievements.length}
+						<ul class="legend" aria-label="Rarity tiers">
+							{#each tiers as t (t.rarity)}
+								<li class="r-{t.rarity}"><RarityBall rarity={t.rarity} size={18} /><span class="tier">{t.rarity}</span><span class="muted">{t.got} of {t.of}</span></li>
+							{/each}
+						</ul>
 						<ul class="ach">
-							{#each profile.achievements as a (a.id)}
+							{#each achievements as a (a.id)}
 								{@const pct = progressPct(a)}
-								<li class="ac" class:locked={!a.unlocked}>
-									<span class="medal pixel" aria-hidden="true">{a.unlocked ? '★' : pct != null ? `${pct}%` : ''}</span>
-									<div class="col tight">
-										<b class="small">{a.name}<span class="sr-only">{a.unlocked ? ', unlocked' : ', locked'}</span></b>
-										<span class="muted xs">{a.description}{#if pct != null} · {a.progress} of {a.goal}{/if}</span>
+								<li class="ac r-{a.rarity}" class:locked={!a.unlocked}>
+									<span title={BALL[a.rarity]}><RarityBall rarity={a.rarity} locked={!a.unlocked} /></span>
+									<div class="col tight grow">
+										<b class="small">{a.name}<span class="sr-only">, {a.rarity}, {a.unlocked ? 'unlocked' : 'locked'}</span></b>
+										<span class="muted xs">{a.description}</span>
+										{#if pct != null}
+											<span class="prog xs muted"
+												><span class="bar" role="meter" aria-label="Progress" aria-valuemin="0" aria-valuemax={a.goal} aria-valuenow={a.progress}
+													><b style:width="{pct}%"></b></span
+												>{pct}% · {a.progress} of {a.goal}</span
+											>
+										{/if}
 									</div>
 								</li>
 							{/each}
@@ -597,27 +618,58 @@
 		align-items: flex-start;
 		padding: 10px;
 		border-radius: 10px;
-		border: 1px solid var(--border);
+		border: 2px solid var(--r);
 	}
-	.medal {
-		flex: none;
-		width: 30px;
-		height: 30px;
-		border-radius: 8px;
+	/* Rarity: the frame keeps its colour when locked; only the content dims. */
+	.r-common {
+		--r: var(--r-common);
+	}
+	.r-uncommon {
+		--r: var(--r-uncommon);
+	}
+	.r-rare {
+		--r: var(--r-rare);
+	}
+	.r-epic {
+		--r: var(--r-epic);
+	}
+	.r-legendary {
+		--r: var(--r-legendary);
+	}
+	.ac.locked .col {
+		opacity: 0.6;
+	}
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 16px;
+		font-size: 12px;
+	}
+	.legend li {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		font-size: 9px;
-		background: var(--accent);
-		color: var(--ink);
+		gap: 6px;
 	}
-	.locked .medal {
-		background: var(--sunk);
-		color: var(--muted);
-		border: 1px dashed var(--border-strong);
+	.tier {
+		font-weight: 700;
+		text-transform: capitalize;
+		color: var(--r);
 	}
-	.ac.locked b {
-		color: var(--muted);
+	.prog {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.prog .bar {
+		flex: 1;
+		height: 4px;
+	}
+	.prog .bar b {
+		background: var(--r);
+	}
+	.tname {
+		font-size: 10px;
+		font-weight: 400;
 	}
 	.bdg {
 		display: grid;
