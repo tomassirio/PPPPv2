@@ -29,6 +29,11 @@ public interface GameProfile<S> {
     /** What the scoreboard counts in this state ({@link ProgressTracker}). */
     Progress progress(S state);
 
+    /** The save as achievements and the Trainer Score read it; null for games without them (all but Gen 2). */
+    default Gen2Save save(S state) {
+        return null;
+    }
+
     /** state is null before the game first comes into play: an empty summary (no party, nothing earned). */
     GameSummary summary(S state);
 

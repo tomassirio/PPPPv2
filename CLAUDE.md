@@ -31,7 +31,18 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   `PokedexBanner.svelte`; `GameToasts.svelte` shows the player's own `PROGRESS` events. Only `PokemonRed` has a party
   box; `PokemonGen2`'s summary is counters only. `/api/v1/public/teaser` is `{online, players}`. Admin has a
   read-only Players table (from the scoreboard).
-- Next: admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
+- Done: achievements and Trainer Score (design: https://claude.ai/artifact/GTd7t2WnQNqZzdwLdxngtJ). `PokemonGen2`
+  reads a `Gen2Save` (party DVs/OT/types, bag + PC items, HMs, event flags, coins, Unown Dex, phone list, play time;
+  every address/flag cited from pret in comments). `ProgressTracker.record` unlocks `Achievements` (52, 9 marked
+  unimplemented with the reason; Hall of Fame / Red ones only on the observed moment) into
+  `pibs:achievements:{userId}` (id -> unlockedAt, never re-awarded) and rates the save with `TrainerScoring`
+  (0-1000, title, grade; live, can drop) into `pibs:trainer:{userId}`. `PowerRating` is the design's 251-entry table.
+  `pibs:scoreboard` now ranks by trainerScore x 10,000 + achievement points; `ScoreRow.points` is the older per-step
+  tally, computed from `pibs:progress`. Feed types ACHIEVEMENT and TITLE; live `ACHIEVEMENT_UNLOCKED`
+  {user, id, name, points, at}. `GET /api/v1/achievements`, `GET /api/v1/players/{userId}/achievements`.
+  `EmulatorHost.readBytes` returns null for D000-DFFF while a CGB game has another WRAM bank in. Boxes (SRAM),
+  Bug Contest, eggs hatched, Battle Tower are not read. No UI yet.
+- Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, chart renames for deploy, README
   (still describes v1).
 - No deploy workflow yet. The charts are renamed; the cluster still needs the `ppppv2-data-pvc` volume and a workflow.

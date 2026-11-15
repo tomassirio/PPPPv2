@@ -2,8 +2,10 @@ package dev.pppp.repository;
 
 import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
+import dev.pppp.model.TrainerScore;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,9 +23,11 @@ import org.springframework.stereotype.Repository;
 
 /**
  * The scoreboard's Redis keys: "pibs:progress:{userId}", a hash {badges, caught, seen ('|'-joined names), level,
- * hallOfFame} of everything already awarded; "pibs:scoreboard", a sorted set of points per user id (every player
- * who picked a game is a member, from 0 points); "pibs:events", the activity stream {user, type, detail, points,
- * at} capped at ~10,000 entries.
+ * hallOfFame} of everything already awarded; "pibs:achievements:{userId}", a hash of achievement id -> unlock time
+ * (epoch ms); "pibs:trainer:{userId}", a hash of the latest Trainer Score {score, title, grade, story, pokedex,
+ * collection, team, keyItems, side, rarities}; "pibs:scoreboard", the ranking: a sorted set of user ids by
+ * trainer score x 10,000 + achievement points (every player who picked a game is a member, from 0);
+ * "pibs:events", the activity stream {user, type, detail, points, at} capped at ~10,000 entries.
  */
 @Repository
 public class ProgressRepository {
@@ -43,7 +47,7 @@ public class ProgressRepository {
                 Integer.parseInt((String) h.getOrDefault("level", "0")), "true".equals(h.get("hallOfFame")));
     }
 
-    /** Stores the progress, appends its events and adds their points, in one transaction. */
+    /** Stores the progress and appends its events, in one transaction. */
     public void award(String userId, Progress p, List<ScoreEvent> events) {
         Map<String, String> hash = Map.of("badges", String.join("|", p.badges()), "caught", String.join("|", p.caught()),
                 "seen", String.join("|", p.seen()), "level", Integer.toString(p.level()),
@@ -54,22 +58,66 @@ public class ProgressRepository {
             public Object execute(RedisOperations ops) {
                 ops.multi();
                 ops.opsForHash().putAll(key(userId), hash);
-                for (ScoreEvent e : events) {
-                    ops.opsForStream().add(StreamRecords.newRecord().in(EVENTS).ofMap(Map.of("user", e.user(),
-                                    "type", e.type(), "detail", e.detail(), "points", Integer.toString(e.points()),
-                                    "at", Long.toString(e.at()))),
-                            XAddOptions.maxlen(10_000).approximateTrimming(true));
-                }
-                // Also with 0 points: it makes the player a member of the scoreboard.
-                ops.opsForZSet().incrementScore(SCOREBOARD, userId, events.stream().mapToInt(ScoreEvent::points).sum());
+                append(ops, events);
+                ops.opsForZSet().addIfAbsent(SCOREBOARD, userId, 0); // makes the player a member of the scoreboard
                 return ops.exec();
             }
         });
     }
 
-    /** Removes the player's progress, points and every activity entry of theirs. */
+    /** Unlock time (epoch ms) per achievement id the player unlocked. */
+    public Map<String, Long> achievements(String userId) {
+        Map<String, Long> out = new HashMap<>();
+        redis.opsForHash().entries(achievementsKey(userId)).forEach((id, at) -> out.put((String) id, Long.parseLong((String) at)));
+        return out;
+    }
+
+    /** The player's latest Trainer Score; ZERO when none is stored. */
+    public TrainerScore trainer(String userId) {
+        Map<Object, Object> h = redis.opsForHash().entries(trainerKey(userId));
+        if (h.isEmpty()) return TrainerScore.ZERO;
+        return new TrainerScore(i(h, "score"), (String) h.get("title"), (String) h.get("grade"), i(h, "story"),
+                i(h, "pokedex"), i(h, "collection"), i(h, "team"), i(h, "keyItems"), i(h, "side"), i(h, "rarities"));
+    }
+
+    /**
+     * Stores the player's Trainer Score and newly unlocked achievements, sets their rank and appends the feed
+     * entries, in one transaction.
+     */
+    public void rate(String userId, TrainerScore t, Map<String, Long> unlocked, long rank, List<ScoreEvent> events) {
+        Map<String, String> trainer = new HashMap<>(Map.of("score", s(t.score()), "title", t.title(),
+                "grade", t.grade(), "story", s(t.story()), "pokedex", s(t.pokedex()), "collection", s(t.collection()),
+                "team", s(t.team()), "keyItems", s(t.keyItems()), "side", s(t.side())));
+        trainer.put("rarities", s(t.rarities()));
+        Map<String, String> fresh = new HashMap<>();
+        unlocked.forEach((id, at) -> fresh.put(id, Long.toString(at)));
+        redis.execute(new SessionCallback<Object>() {
+            @Override
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            public Object execute(RedisOperations ops) {
+                ops.multi();
+                ops.opsForHash().putAll(trainerKey(userId), trainer);
+                if (!fresh.isEmpty()) ops.opsForHash().putAll(achievementsKey(userId), fresh);
+                ops.opsForZSet().add(SCOREBOARD, userId, rank);
+                append(ops, events);
+                return ops.exec();
+            }
+        });
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void append(RedisOperations ops, List<ScoreEvent> events) {
+        for (ScoreEvent e : events) {
+            ops.opsForStream().add(StreamRecords.newRecord().in(EVENTS).ofMap(Map.of("user", e.user(),
+                            "type", e.type(), "detail", e.detail(), "points", Integer.toString(e.points()),
+                            "at", Long.toString(e.at()))),
+                    XAddOptions.maxlen(10_000).approximateTrimming(true));
+        }
+    }
+
+    /** Removes the player's progress, achievements, Trainer Score, rank and every activity entry of theirs. */
     public void delete(String userId) {
-        redis.delete(key(userId));
+        redis.delete(List.of(key(userId), achievementsKey(userId), trainerKey(userId)));
         redis.opsForZSet().remove(SCOREBOARD, userId);
         List<MapRecord<String, Object, Object>> all = redis.opsForStream().range(EVENTS, Range.unbounded());
         if (all == null) return;
@@ -79,12 +127,10 @@ public class ProgressRepository {
         if (theirs.length > 0) redis.opsForStream().delete(EVENTS, theirs);
     }
 
-    /** Points per user id, most first. */
-    public Map<String, Integer> scores() {
-        Map<String, Integer> scores = new LinkedHashMap<>();
-        var rows = redis.opsForZSet().reverseRangeWithScores(SCOREBOARD, 0, -1);
-        if (rows != null) rows.forEach(t -> scores.put(t.getValue(), t.getScore().intValue()));
-        return scores;
+    /** Every player on the scoreboard, best rank first. */
+    public List<String> ranking() {
+        Set<String> ids = redis.opsForZSet().reverseRange(SCOREBOARD, 0, -1);
+        return ids == null ? List.of() : new ArrayList<>(ids);
     }
 
     public List<ScoreEvent> newest(int limit) {
@@ -104,5 +150,21 @@ public class ProgressRepository {
 
     private static String key(String userId) {
         return "pibs:progress:" + userId;
+    }
+
+    private static String achievementsKey(String userId) {
+        return "pibs:achievements:" + userId;
+    }
+
+    private static String trainerKey(String userId) {
+        return "pibs:trainer:" + userId;
+    }
+
+    private static String s(int n) {
+        return Integer.toString(n);
+    }
+
+    private static int i(Map<Object, Object> h, String field) {
+        return Integer.parseInt((String) h.getOrDefault(field, "0"));
     }
 }

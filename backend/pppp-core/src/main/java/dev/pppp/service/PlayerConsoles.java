@@ -190,7 +190,7 @@ public class PlayerConsoles {
         return Set.copyOf(consoles.keySet());
     }
 
-    /** Bytes of the player's console memory, or null when their console is not in memory. */
+    /** Bytes of the player's console memory, or null when their console is not in memory or WRAM bank 1 is not switched in. */
     public byte[] readBytes(String userId, int address, int length) {
         Console c = consoles.get(userId);
         return c == null ? null : c.host().readBytes(address, length);
