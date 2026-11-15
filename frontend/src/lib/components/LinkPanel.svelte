@@ -75,7 +75,7 @@
 					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 						{#if kind === 'TRADE'}<path d="M4 8h13l-3-3M20 16H7l3 3" />{:else}<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M9.5 17.5L21 6V3h-3L6.5 14.5M5 13l6 6M8 16l-4 4M3 19l2 2" />{/if}
 					</svg>
-					<span class="tl"><b>{on ? '✓ ' : ''}Ready to {verb(kind)}</b><small>{on ? 'Others can offer you one' : 'Let others offer you one'}</small></span>
+					<span class="tl"><b>{on ? '✓ ' : ''}Ready to {verb(kind)}</b></span>
 				</button>
 			{/each}
 		</div>
@@ -91,11 +91,11 @@
 
 		<LinkChallenge />
 
-		<div class="sub">
-			<span class="label">Ready now</span>
-			<span class="muted xs">{others.length === 1 ? '1 Pib' : `${others.length} Pibs`}</span>
-		</div>
 		{#if others.length}
+			<div class="sub">
+				<span class="label">Ready now</span>
+				<span class="muted xs">{others.length === 1 ? '1 Pib' : `${others.length} Pibs`}</span>
+			</div>
 			<ul>
 				{#each others as p (p.userId)}
 					{@const g = gameOf(p.userId)}
@@ -118,10 +118,14 @@
 					</li>
 				{/each}
 			</ul>
+			<button class="find" onclick={() => (finding = true)}>Find someone else online</button>
 		{:else}
-			<p class="empty muted">Nobody is waiting right now. You can still offer a trade or a battle to anyone online.</p>
+			<!-- One line when nobody is waiting: the card stays short so the column never scrolls. -->
+			<div class="nobody">
+				<span class="muted">Nobody is waiting.</span>
+				<button class="find small" onclick={() => (finding = true)}>Find someone online</button>
+			</div>
 		{/if}
-		<button class="find" onclick={() => (finding = true)}>Find someone to link with</button>
 		<LinkFinder bind:open={finding} />
 	{/if}
 	{#if link.error}<p class="error" role="alert">{link.error}</p>{/if}
@@ -164,12 +168,12 @@
 		gap: 8px;
 	}
 	button.toggle {
-		height: auto;
+		height: 44px;
 		min-width: 0;
 		display: flex;
 		align-items: center;
 		gap: 10px;
-		padding: 10px 12px;
+		padding: 0 12px;
 		border-radius: 12px;
 		border: 1px solid var(--border-strong);
 		background: var(--sunk);
@@ -189,14 +193,6 @@
 	}
 	.tl b {
 		font-size: 14px;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.tl small {
-		font-size: 11px;
-		font-weight: 500;
-		color: var(--muted);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -238,11 +234,17 @@
 		border: 1px solid var(--link);
 		font-size: 13px;
 	}
-	.empty {
-		padding: 12px;
-		border-radius: 10px;
-		border: 1px dashed var(--border-strong);
-		text-align: center;
+	.nobody {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		padding-top: 12px;
+		border-top: 1px solid var(--border);
+	}
+	.nobody button.find {
+		width: auto;
+		flex: none;
 	}
 	button.find {
 		width: 100%;

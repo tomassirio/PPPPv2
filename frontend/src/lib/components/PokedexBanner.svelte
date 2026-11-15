@@ -1,4 +1,4 @@
-<!-- A side banner with one half of the Pokédex (1-76 / 77-151 for Red, 1-126 / 127-251 for Gold/Silver/Crystal):
+<!-- A side banner with one part of the Pokédex (1-76 / 77-151 for Red; Gen 1 1-151 / Gen 2 152-251 for Gold/Silver/Crystal):
      unseen = silhouette with "?", seen = sprite, caught = sprite plus a Poké Ball. Sprites come from the ROM via
      /api/v1/game/icons/{n}.png. Fills its container, with as many columns as make the cells biggest. -->
 <script lang="ts">
@@ -12,8 +12,10 @@
 	const dex = $derived(game.summary?.collection);
 	const seen = $derived(new Set(dex?.seen));
 	const owned = $derived(new Set(dex?.owned));
-	const from = $derived(half === 1 ? 1 : Math.ceil((dex?.size ?? 0) / 2) + 1);
-	const to = $derived(half === 1 ? Math.ceil((dex?.size ?? 0) / 2) : (dex?.size ?? 0));
+	// Gold/Silver/Crystal: Kanto's 151 on the left, Johto's 100 on the right. Red: 151 split down the middle.
+	const split = $derived((dex?.size ?? 0) > 151 ? 151 : Math.ceil((dex?.size ?? 0) / 2));
+	const from = $derived(half === 1 ? 1 : split + 1);
+	const to = $derived(half === 1 ? split : (dex?.size ?? 0));
 	const numbers = $derived(Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i));
 	const pad = (n: number) => String(n).padStart(3, '0');
 
