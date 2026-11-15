@@ -74,6 +74,12 @@ export const score = (r: Pick<ScoreRow, 'points' | 'achievementPoints'>) => (r.p
 
 export type LinkRecord = { wins: number; losses: number; trades: number; partners: number };
 
+/** Percentage of link battles won (0–100), or null before the first battle. */
+export const winRate = (l: LinkRecord | undefined) => {
+	const n = (l?.wins ?? 0) + (l?.losses ?? 0);
+	return n ? Math.round(((l?.wins ?? 0) * 100) / n) : null;
+};
+
 export type ScoreRow = {
 	userId: string;
 	points: number;
@@ -185,13 +191,18 @@ export function versionOf(game: string | null, names: Record<string, string>): V
 	return m ? ((m[0][0].toUpperCase() + m[0].slice(1).toLowerCase()) as Version) : null;
 }
 
-export type BoardSort = 'points' | 'link' | 'badges' | 'dex' | 'level';
+export type BoardSort = 'points' | 'link' | 'winrate' | 'badges' | 'dex' | 'level';
 /** Best Pokémon level in a party (eggs don't count). */
 export const topLevel = (party: PartyMon[] | undefined) => Math.max(0, ...(party ?? []).filter((m) => !m.egg).map((m) => m.level));
 const SORT_KEY: Record<BoardSort, (r: ScoreRow) => number> = {
 	points: (r) => score(r),
 	// Link battle wins first, then trades (x1000 keeps trades a tie-break).
 	link: (r) => (r.link?.wins ?? 0) * 1000 + (r.link?.trades ?? 0),
+	// Share of link battles won; more battles break ties; nobody without a battle ranks above someone with one.
+	winrate: (r) => {
+		const n = (r.link?.wins ?? 0) + (r.link?.losses ?? 0);
+		return n ? Math.round(((r.link?.wins ?? 0) * 1e6) / n) * 1000 + Math.min(n, 999) : -1;
+	},
 	badges: (r) => r.badges,
 	dex: (r) => r.caught,
 	level: (r) => topLevel(r.party)

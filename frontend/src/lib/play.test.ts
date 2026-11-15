@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, shownAchievements, versionOf, type ScoreRow } from './play';
+import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, winRate, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, shownAchievements, versionOf, type ScoreRow } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -18,6 +18,12 @@ describe('play helpers', () => {
 		expect(keyToButton({ key: 'ArrowDown' }, PRESETS.wasd)).toBeNull();
 		expect(keyToButton({ key: ' ', target: { tagName: 'BUTTON' } as never }, { ...PRESETS.arrows, a: ' ' })).toBeNull();
 		expect(keyToButton({ key: 'z', target: { tagName: 'BUTTON', closest: () => ({}) } as never })).toBeNull(); // in a dialog
+	});
+
+	it('works out the share of link battles won', () => {
+		expect(winRate({ wins: 1, losses: 3, trades: 0, partners: 1 })).toBe(25);
+		expect(winRate({ wins: 0, losses: 0, trades: 4, partners: 2 })).toBeNull();
+		expect(winRate(undefined)).toBeNull();
 	});
 
 	it('rebinds one key per button, swapping with the button that had it', () => {
@@ -98,6 +104,7 @@ describe('scoreboard helpers', () => {
 		expect(ids(boardRows(rows, 'All', 'points', names))).toBe('abc');
 		expect(ids(boardRows(rows, 'All', 'badges', names))).toBe('bac');
 		expect(ids(boardRows(rows, 'All', 'link', names))).toBe('cba'); // wins, then trades
+		expect(ids(boardRows(rows, 'All', 'winrate', names))).toBe('cba'); // 100%, 25%, no battles last
 		expect(ids(boardRows(rows, 'All', 'dex', names))).toBe('cab');
 		expect(ids(boardRows(rows, 'All', 'level', names))).toBe('cab');
 	});

@@ -8,7 +8,7 @@
 	import SubPage from '#lib/components/SubPage.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { link, watchLink } from '#lib/link.svelte.ts';
-	import { boardRows, place, playerStatus, versionOf, type BoardSort, type Version, score } from '#lib/play.ts';
+	import { boardRows, place, playerStatus, versionOf, winRate, type BoardSort, type Version, score } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -20,7 +20,8 @@
 	const VERSIONS = ['All', 'Gold', 'Silver', 'Crystal'] as const;
 	const SORTS: [BoardSort, string][] = [
 		['points', 'Points'],
-		['link', 'Link'],
+		['link', 'Link wins'],
+		['winrate', 'Win %'],
 		['badges', 'Badges'],
 		['dex', 'Pokédex'],
 		['level', 'Top level']
@@ -99,7 +100,7 @@
 						<span><PartyIcons party={r.party} size={30} hp={false} /></span>
 						<span class="linkcol">
 							<span class="rec pixel"><span class="w">{r.link?.wins ?? 0}</span>–<span class="l">{r.link?.losses ?? 0}</span><span class="sr-only"> link battles won and lost</span></span>
-							<span class="muted xs">{r.link?.trades ?? 0} {(r.link?.trades ?? 0) === 1 ? 'trade' : 'trades'}</span>
+							<span class="muted xs">{#if winRate(r.link) != null}{winRate(r.link)}% won · {/if}{r.link?.trades ?? 0} {(r.link?.trades ?? 0) === 1 ? 'trade' : 'trades'}</span>
 						</span>
 						<span class="num"><b>{r.badges}</b><span class="muted"> / 16</span><span class="sr-only"> badges</span></span>
 						<span class="dex">
@@ -111,7 +112,7 @@
 				{/each}
 			</div>
 		</div>
-		<p class="muted xs">Points add up every catch, sighting, badge and achievement, with no cap; the grade is the separate 0–1000 Trainer rating. Link: battles won–lost and Pokémon received in trades.</p>
+		<p class="muted xs">Points add up every catch, sighting, badge and achievement, with no cap; the grade is the separate 0–1000 Trainer rating. Link: battles won–lost, the share won, and Pokémon received in trades.</p>
 	{:else if board.rows.length}
 		<p class="muted">Nobody plays {version} yet.</p>
 	{:else}
