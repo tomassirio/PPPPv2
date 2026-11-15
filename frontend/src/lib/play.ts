@@ -79,3 +79,33 @@ export function ago(ms: number): string {
 	const min = Math.floor(ms / 60_000);
 	return min < 1 ? 'now' : min < 60 ? `${min} min` : min < 1440 ? `${Math.floor(min / 60)} h` : `${Math.floor(min / 1440)} d`;
 }
+
+export type LinkKind = 'TRADE' | 'BATTLE';
+export type Status = { kind: 'linked' | 'trade' | 'battle' | 'playing' | 'offline'; label: string };
+
+/**
+ * A scoreboard row's status line. links: user -> peer for the link sessions known in this browser; lobby: who is
+ * ready (GET /link, LOBBY_CHANGED); online: their console is running.
+ */
+export function playerStatus(
+	user: string,
+	online: boolean,
+	me: string | undefined,
+	lobby: { userId: string; kind: LinkKind }[],
+	links: Record<string, string>
+): Status {
+	const peer = links[user];
+	if (peer) return { kind: 'linked', label: `Linked with ${peer === me ? 'you' : shortUser(peer)}` };
+	const ready = lobby.find((p) => p.userId === user)?.kind;
+	if (ready) return ready === 'TRADE' ? { kind: 'trade', label: 'Ready to trade' } : { kind: 'battle', label: 'Ready to battle' };
+	return online ? { kind: 'playing', label: 'Playing' } : { kind: 'offline', label: 'Offline' };
+}
+
+/** A stable hue (0-359) for a user id: the colour behind their initials. */
+export const hue = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 360;
+
+/** "1st", "2nd", "3rd", "11th". */
+export function ordinal(n: number): string {
+	const t = n % 100;
+	return n + (t >= 11 && t <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+}

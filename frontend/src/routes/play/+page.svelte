@@ -1,5 +1,6 @@
-<!-- /play: the player's own game screen and pad, the link/scoreboard/party column and chat. Desktop = columns,
-     phone = screen + Play/Party/Chat tabs. -->
+<!-- /play: the player's own game screen and pad; the Link cable and "Your run" cards; one card with Scoreboard /
+     Activity / Chat tabs. Desktop = three columns (frontend/design/PlayV2.mock.html), phone = screen + Play / Link /
+     Scores / Chat tabs, a challenge comes up as a bottom sheet and a linked session as a banner over the screen. -->
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { dexBanners } from '#lib/dex.svelte.ts';
@@ -20,6 +21,12 @@
 	import type { Cartridge } from '#lib/cartridges.ts';
 	import LinkPanel from '#lib/components/LinkPanel.svelte';
 	import Scoreboard from '#lib/components/Scoreboard.svelte';
+	import Activity from '#lib/components/Activity.svelte';
+	import Avatar from '#lib/components/Avatar.svelte';
+	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
+	import { board } from '#lib/board.svelte.ts';
+	import { act, clock, left, link } from '#lib/link.svelte.ts';
+	import { shortUser } from '#lib/play.ts';
 	import Presence from '#lib/components/Presence.svelte';
 	import SoundControl from '#lib/components/SoundControl.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
@@ -30,13 +37,22 @@
 	import banner from '#lib/assets/banner-v2.png';
 	import ppppLogo from '#lib/assets/ppppv2-logo.png';
 
-	type Tab = 'play' | 'party' | 'chat';
+	type Tab = 'play' | 'link' | 'scores' | 'chat';
 	let tab = $state<Tab>('play');
+	// The desktop's right-hand card.
+	type SideTab = 'scores' | 'activity' | 'chat';
+	let sideTab = $state<SideTab>('scores');
+	const SIDE_TABS: { id: SideTab; label: string }[] = [
+		{ id: 'scores', label: 'Scoreboard' },
+		{ id: 'activity', label: 'Activity' },
+		{ id: 'chat', label: 'Chat' }
+	];
 
 	// Phone tab bar: icons (static SVG paths, not user content) and badges for what changed on other tabs.
 	const TABS: { id: Tab; label: string; icon: string }[] = [
 		{ id: 'play', label: 'Play', icon: '<rect x="3" y="6" width="18" height="12" rx="4"/><path d="M7 12h4M9 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>' },
-		{ id: 'party', label: 'Party', icon: '<circle cx="12" cy="12" r="9"/><path d="M3 12h6m6 0h6"/><circle cx="12" cy="12" r="3"/>' },
+		{ id: 'link', label: 'Link', icon: '<path d="M8 3v4m8-4v4M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>' },
+		{ id: 'scores', label: 'Scores', icon: '<path d="M6 20v-8m6 8V4m6 16v-5"/>' },
 		{ id: 'chat', label: 'Chat', icon: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>' }
 	];
 	// Keep the phone's screen awake while /play is open and visible (Screen Wake Lock; ignored where unsupported).
@@ -54,7 +70,16 @@
 		};
 	});
 
-	// Landscape (phone held sideways): Party and Chat are sheets over the game; a tap outside the sheet and the
+	// Phone layout (portrait, or held sideways): tabs instead of columns.
+	const PHONE = '(max-width: 760px), (orientation: landscape) and (max-height: 520px)';
+	let phone = $state(typeof matchMedia !== 'undefined' && matchMedia(PHONE).matches);
+	$effect(() => {
+		const q = matchMedia(PHONE);
+		const onChange = () => (phone = q.matches);
+		q.addEventListener('change', onChange);
+		return () => q.removeEventListener('change', onChange);
+	});
+	// Landscape (phone held sideways): Link, Scores and Chat are sheets over the game; a tap outside the sheet and the
 	// rail closes it.
 	const LANDSCAPE = '(orientation: landscape) and (max-height: 520px)';
 	let landscape = $state(typeof matchMedia !== 'undefined' && matchMedia(LANDSCAPE).matches);
@@ -84,7 +109,7 @@
 	function closeSheetOnOutsideTap(e: PointerEvent) {
 		if (!landscape || tab === 'play') return;
 		const t = e.target as Element;
-		if (t.closest('.side, .chat, .tabs, header, .shells')) return; // sheet, rail, corners, colour picker
+		if (t.closest('.mid, .board, .tabs, header, .shells, .challenge')) return; // sheet, rail, corners, colour picker, challenge
 		e.preventDefault();
 		e.stopPropagation(); // the tap only closes the sheet; it must not also press a game button
 		swallowClick = true; // A/B/Start/Select act on the click that follows
@@ -100,27 +125,32 @@
 	}
 
 	let unreadChat = $state(0);
-	let newInParty = $state(false);
+	let newScores = $state(false);
+	const chatShown = $derived(phone ? tab === 'chat' : sideTab === 'chat');
+	const scoresShown = $derived(phone ? tab === 'scores' : sideTab !== 'chat');
 	const badges = $derived<Record<Tab, number | boolean>>({
 		play: false,
-		party: newInParty,
+		link: false,
+		scores: newScores,
 		chat: unreadChat
 	});
 	$effect(() => {
-		if (tab === 'chat') unreadChat = 0;
-		if (tab === 'party') newInParty = false;
+		if (chatShown) unreadChat = 0;
+		if (scoresShown) newScores = false;
 	});
+	// Phones: "Your run" heads the Scores tab; held sideways it shares the Link sheet.
+	const runOn = $derived(tab === 'scores' || (landscape && tab === 'link'));
 	$effect(() => {
 		const offs = [
 			on('CHAT_MESSAGE', (m: { kind: string }) => {
-				if (tab !== 'chat' && m.kind === 'USER') unreadChat++; // only people's messages, not system lines
+				if (!chatShown && m.kind === 'USER') unreadChat++; // only people's messages, not system lines
 			}),
 			// An admin reset this player's run: back to the game picker.
 			on('PLAYER_RESET', (e: { user: string }) => {
 				if (myGame && e.user === me?.id) myGame = { ...myGame, game: null };
 			}),
 			on('PROGRESS', () => {
-				if (tab !== 'party') newInParty = true; // a new line in the scoreboard's activity
+				if (!scoresShown) newScores = true; // a new line in the activity feed
 			})
 		];
 		return () => offs.forEach((off) => off());
@@ -174,6 +204,10 @@
 	$effect(() => {
 		if (me) api<NonNullable<typeof myGame>>('GET', '/me/game').then((g) => (myGame = g));
 	});
+	// Cartridge id -> name, for "Pokémon Gold" next to other players.
+	$effect(() => {
+		if (myGame) board.names = Object.fromEntries(myGame.available.map((c) => [c.id, c.name]));
+	});
 </script>
 
 <svelte:window onpointerdowncapture={closeSheetOnOutsideTap} onclickcapture={swallowClosingClick} />
@@ -197,12 +231,22 @@
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner from={1} to={76} /></aside>
 		<main>
 			<section class="game" aria-label="Game" style:--frame-w={frameWidth ? `${frameWidth}px` : null}>
+				{#if link.state?.session}
+					{@const ls = link.state.session}
+					<div class="linked-banner">
+						<span class="pair" aria-hidden="true"><Avatar user={me.id} /><span class="cable"></span><Avatar user={ls.peer} /></span>
+						<span class="lb-text"
+							><b>Linked with {shortUser(ls.peer)}</b><span>{ls.kind === 'TRADE' ? 'Trade' : 'Battle'} · {clock(left(ls.endsAt))} left</span></span
+						>
+						<button type="button" class="unplug" onclick={() => act('DELETE', '/link/session')}>Unplug</button>
+					</div>
+				{/if}
 				<div class="screen-slot" bind:this={screenSlot}>
 					<GameScreen>
 						{#snippet controls()}<span class="bezel-controls"><ChatOverlayToggle /><SoundControl /></span>{/snippet}
 					</GameScreen>
 					<GameToasts />
-					<ChatOverlay hidden={tab === 'chat'} />
+					<ChatOverlay hidden={chatShown} />
 				</div>
 				<nav class="tabs" aria-label="Panels">
 					{#each TABS.filter((t) => !(landscape && t.id === 'play')) as t (t.id)}
@@ -231,19 +275,29 @@
 					<Gamepad />
 				</div>
 			</section>
-			<section class="side" class:off={tab !== 'party'} aria-label="Link cable, scoreboard and party">
-				<LinkPanel />
-				<Scoreboard />
-				<GameStatus />
+			<section class="mid" class:sheet-off={tab !== 'link'} aria-label="Link cable and your run">
+				<div class="slot" class:p-off={tab !== 'link'}><LinkPanel /></div>
+				<div class="slot run" class:p-off={!runOn}><GameStatus /></div>
 			</section>
-			<section class="chat" class:off={tab !== 'chat'} aria-label="Chat">
-				<Chat />
+			<section class="board panel" class:sheet-off={tab !== 'scores' && tab !== 'chat'} aria-label="Scoreboard, activity and chat">
+				<div class="board-tabs" role="group" aria-label="Show">
+					{#each SIDE_TABS as t (t.id)}
+						{@const unread = t.id === 'chat' ? unreadChat : 0}
+						<button type="button" aria-pressed={sideTab === t.id} aria-label="{t.label}{unread ? `, ${unread} new` : ''}" onclick={() => (sideTab = t.id)}
+							>{t.label}{#if unread}<span class="count" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>{/if}</button
+						>
+					{/each}
+				</div>
+				<div class="pane" class:d-off={sideTab !== 'scores'} class:p-off={tab !== 'scores'}><Scoreboard /></div>
+				<div class="pane" class:d-off={sideTab !== 'activity'} class:p-off={true}><Activity label="Activity" /></div>
+				<div class="pane chat-pane" class:d-off={sideTab !== 'chat'} class:p-off={tab !== 'chat'}><Chat /></div>
 			</section>
 		</main>
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, second half"><PokedexBanner from={77} to={151} /></aside>
 		</div>
 		{#if page.url.searchParams.has('debug')}<ViewportDebug />{/if}
 	</div>
+	<LinkChallenge sheet />
 	<PokeballRain />
 {:else if loadFailed}
 	<section class="load-error" role="alert">
@@ -329,14 +383,21 @@
 		flex-direction: column;
 		gap: 12px;
 	}
-	.side {
+	/* Middle column: Link cable, then Your run. */
+	.mid {
 		flex: 1 1 320px;
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
 		min-width: 0;
 	}
-	.chat {
+	.slot {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+	/* Right column: one card, Scoreboard / Activity / Chat. */
+	.board {
 		flex: 1 1 340px;
 		/* Its size never drives the row height: it is as tall as the game column. */
 		contain: size;
@@ -344,10 +405,78 @@
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
+		overflow: hidden;
 	}
-	.chat > :global(*) {
+	.board-tabs {
+		flex: none;
+		display: flex;
+	}
+	.board-tabs button {
+		flex: 1 1 0;
+		height: 48px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		border: none;
+		background: transparent;
+		color: var(--muted);
+		font-weight: 600;
+		font-size: 14px;
+		box-shadow: inset 0 -1px 0 var(--border);
+	}
+	.board-tabs button[aria-pressed='true'] {
+		color: var(--accent-text);
+		box-shadow: inset 0 -3px 0 var(--accent);
+	}
+	.board-tabs .count {
+		min-width: 18px;
+		height: 18px;
+		padding: 0 5px;
+		box-sizing: border-box;
+		border-radius: 999px;
+		background: var(--danger);
+		color: #fff;
+		font-size: 11px;
+		line-height: 18px;
+	}
+	.pane {
+		--bleed: 20px; /* the signed-in player's scoreboard row reaches the card's edges */
+		flex: 1 1 0;
+		min-height: 0;
+		overflow-y: auto;
+		padding: 20px var(--bleed);
+		display: flex;
+		flex-direction: column;
+	}
+	.pane.d-off {
+		display: none;
+	}
+	.chat-pane {
+		padding: 0;
+		overflow: hidden;
+	}
+	.chat-pane > :global(*) {
 		flex: 1 1 auto;
 		min-height: 0;
+	}
+	/* Chat sits inside the tabbed card: no second card around it, and the tab names it. */
+	.chat-pane :global(.chat.panel) {
+		border: none;
+		border-radius: 0;
+		background: none;
+	}
+	.chat-pane :global(.chat.panel > header > h2) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	/* Phones only: the linked session over the screen (desktop shows it in the Link cable card). */
+	.linked-banner {
+		display: none;
 	}
 	.tabs {
 		display: none;
@@ -397,7 +526,7 @@
 			flex-wrap: nowrap;
 		}
 		.game,
-		.side {
+		.mid {
 			min-height: 0;
 			overflow-y: auto;
 		}
@@ -431,7 +560,7 @@
 			max-width: 100%;
 			align-self: center;
 		}
-		.chat {
+		.board {
 			min-height: 0;
 		}
 	}
@@ -465,6 +594,27 @@
 		:global(html:has(.play-root)),
 		:global(body:has(.play-root)) {
 			overflow: hidden;
+		}
+		/* The phone tab bar picks what shows, not the desktop card's tabs. */
+		.board-tabs {
+			display: none;
+		}
+		.board {
+			contain: none;
+		}
+		.pane.d-off {
+			display: flex;
+		}
+		.pane.p-off,
+		.slot.p-off {
+			display: none;
+		}
+		.pane {
+			--bleed: 14px;
+			padding: 12px var(--bleed);
+		}
+		.chat-pane {
+			padding: 0;
 		}
 	}
 	@media (max-width: 760px) {
@@ -539,14 +689,68 @@
 			padding: 6px 4px;
 			gap: 4px;
 		}
+		/* Link and Scores cards and the board's panes become the tabs' contents. */
+		.mid,
+		.board {
+			display: contents;
+		}
 		.pad,
-		.side,
-		.chat {
+		.slot,
+		.pane {
 			order: 1;
 			flex: 1 1 0;
 			min-height: 0;
 			max-width: none;
 			overflow-y: auto;
+		}
+		/* Scores: Your run on top keeps its height, the ranking under it scrolls. */
+		.slot.run {
+			flex: none;
+		}
+		.linked-banner {
+			order: 0;
+			flex: none;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 8px 10px;
+			border: 1px solid var(--link);
+			border-radius: 12px;
+			background: var(--link-tint);
+			font-size: 13px;
+		}
+		.linked-banner .pair {
+			flex: 1 1 auto;
+			min-width: 0;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+		.linked-banner .cable {
+			flex: 1;
+			min-width: 12px;
+			height: 2px;
+			background: repeating-linear-gradient(90deg, var(--link) 0 8px, transparent 8px 14px);
+		}
+		.lb-text {
+			flex: none;
+			display: flex;
+			flex-direction: column;
+		}
+		.lb-text span {
+			font-size: 12px;
+			color: var(--link);
+			font-variant-numeric: tabular-nums;
+		}
+		.unplug {
+			flex: none;
+			height: 36px;
+			padding: 0 12px;
+			border: 1px solid var(--danger);
+			border-radius: 8px;
+			background: transparent;
+			color: var(--danger);
+			font-weight: 600;
 		}
 		/* The controller never scrolls: it keeps its full height and the screen above gives way instead. */
 		.screen-slot {
@@ -557,14 +761,7 @@
 			flex: 1 0 auto;
 			overflow: hidden;
 		}
-		/* The Party tab is fixed, not scrolled: its content is sized to fit; only lists inside scroll. */
-		.side {
-			gap: 12px;
-			display: flex;
-			flex-direction: column;
-			overflow: hidden;
-		}
-		.chat {
+		.chat-pane {
 			overflow: hidden; /* the chat scrolls its own list; the message box stays at the bottom */
 		}
 		.off {
@@ -777,7 +974,7 @@
 			opacity: 0.55;
 		}
 
-		/* Other tabs: an icon rail in the bottom-left corner; Party and Chat open as a sheet on the right,
+		/* Other tabs: an icon rail in the bottom-left corner; Link, Scores and Chat open as a sheet on the right,
 		   with the game still visible. Play closes it. */
 		.tabs {
 			position: fixed;
@@ -836,8 +1033,8 @@
 			height: 8px;
 			padding: 0;
 		}
-		.side,
-		.chat {
+		.mid,
+		.board {
 			position: fixed;
 			top: 8px; /* over the online/account corner, which is fine while a sheet is open */
 			right: max(8px, env(safe-area-inset-right));
@@ -852,37 +1049,34 @@
 			box-shadow: 0 8px 32px rgb(0 0 0 / 0.4);
 			overflow-y: auto;
 		}
-		.chat {
-			display: flex;
-			flex-direction: column;
-			overflow: hidden;
+		.board {
+			padding: 0;
 			min-height: 0; /* the desktop minimum (480px) is taller than the sheet: it hid the message box */
 		}
-		/* Sheets are fixed, not scrolled, like the portrait tabs: only lists inside scroll. */
-		.side {
-			overflow: hidden;
+		.mid {
 			gap: 10px;
 		}
+		.pane {
+			flex: 1 1 0;
+		}
 		/* Sheets slide in from the right and back out (kept rendered, moved off-screen when closed). */
-		.side,
-		.side.off,
-		.chat,
-		.chat.off {
+		.mid,
+		.board {
 			display: flex;
 			flex-direction: column;
 			transition:
 				translate 0.25s ease,
 				visibility 0.25s;
 		}
-		.side.off,
-		.chat.off {
+		.mid.sheet-off,
+		.board.sheet-off {
 			translate: calc(100% + 24px) 0;
 			visibility: hidden;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.side,
-		.chat {
+		.mid,
+		.board {
 			transition: none;
 		}
 	}

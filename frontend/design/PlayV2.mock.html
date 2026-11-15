@@ -1,0 +1,313 @@
+<title>PibsPlayPokemon Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: the v1 /play page (handheld left, panels right) shown in three states picked from a switcher. Dark-first, PPPP tokens. */
+:root{color-scheme:dark;
+  --bg:#11161a;--panel:#1a2228;--border:#2c3840;--border-strong:#3a4851;--text:#edebe3;--muted:#a3ada8;
+  --accent:#f2c14e;--accent-text:#f2c14e;--ink:#1d1f1c;--grass:#9bbc0f;--danger:#e76f51;--link:#6ea3ff;--link-tint:rgba(79,143,247,.14);--accent-tint:rgba(242,193,78,.1);
+  --stage:#0b0f12;--cart-gold:#d2aa2e;--cart-silver:#b9c1c9;--cart-crystal:#7ccbe0;--scrim:rgba(8,11,13,.62);
+  --shell:#d8d3c4;--bezel:#3b3f45;--lcd:#cadc9f;--lcd-ink:#0f380f;--lcd-mid:#306230;--key:#2b2d42;--key-ink:#edebe3;--ab:#bc4b51;--pill:#8d8a80;--led:#d6dade;--led-link:#9cc0ff;
+  --display:'Press Start 2P',ui-monospace,monospace;--body:Inter,system-ui,sans-serif}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light;
+  --bg:#f4f1e8;--panel:#ffffff;--border:#dcd6c6;--border-strong:#c2bba8;--text:#1d1f1c;--muted:#5d6460;
+  --accent-text:#8a5a00;--grass:#4d7a00;--danger:#c0432a;--link:#2459c4;--link-tint:rgba(36,89,196,.1);--accent-tint:rgba(242,193,78,.22);
+  --stage:#e6e1d3;--scrim:rgba(29,31,28,.45)}}
+:root[data-theme="light"]{color-scheme:light;
+  --bg:#f4f1e8;--panel:#ffffff;--border:#dcd6c6;--border-strong:#c2bba8;--text:#1d1f1c;--muted:#5d6460;
+  --accent-text:#8a5a00;--grass:#4d7a00;--danger:#c0432a;--link:#2459c4;--link-tint:rgba(36,89,196,.1);--accent-tint:rgba(242,193,78,.22);
+  --stage:#e6e1d3;--scrim:rgba(29,31,28,.45)}
+*{box-sizing:border-box}
+body{background:var(--stage);color:var(--text);font-family:var(--body);font-size:14px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px;display:flex;flex-direction:column;gap:20px;max-width:1480px;margin:0 auto}
+.px{font-family:var(--display)}
+.muted{color:var(--muted)}
+h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+p{margin:0}
+
+/* switcher (outside the mock-up) */
+.switch{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.seg{display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:10px;background:var(--panel);border:1px solid var(--border)}
+.seg button{font:600 13px var(--body);height:36px;padding:0 14px;border-radius:7px;border:none;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--ink)}
+button:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+
+/* app frame */
+.app{background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.row{display:flex;align-items:center;gap:12px;min-width:0}
+.between{justify-content:space-between}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.grow{flex:1;min-width:0}
+.av{flex:none;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1d1f1c}
+.av.lg{width:44px;height:44px;font-size:13px}
+.av.me{background:#2a9d8f;color:#ffffff}
+.btn{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--ink)}
+.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn.on{border-color:var(--accent-text);color:var(--accent-text);background:var(--accent-tint)}
+.btn.stop{border-color:var(--danger);color:var(--danger)}
+.btn.tall{height:48px}
+.chip{font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:var(--border);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.chip.linked{background:var(--link-tint)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.trade{color:var(--accent-text)}.battle{color:var(--danger)}.linked{color:var(--link)}.playing{color:var(--grass)}
+.dot.trade{background:var(--accent)}.dot.battle{background:var(--danger)}.dot.linked{background:var(--link)}.dot.playing{background:var(--grass)}
+.badges{display:flex;gap:5px;flex:none}
+.badges i{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--border-strong)}
+.badges i.got{background:var(--accent);border-color:var(--accent)}
+.badges.lg{gap:6px}.badges.lg i{width:24px;height:24px;border-width:2px}
+.bar{height:8px;border-radius:4px;background:var(--border);overflow:hidden}
+.bar b{display:block;height:100%;background:var(--accent)}
+.rule{height:1px;background:var(--border)}
+.pts{font-weight:700;font-variant-numeric:tabular-nums}
+.small{font-size:13px;line-height:19px}
+
+/* handheld: a physical object, same in both themes */
+.shell{background:var(--shell);border-radius:16px 16px 48px 16px;padding:24px;display:flex;flex-direction:column;gap:24px}
+.bezel{background:var(--bezel);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.lcd{aspect-ratio:160/144;width:100%;max-width:100%;background:var(--lcd);border-radius:2px;color:var(--lcd-ink);display:flex;flex-direction:column;justify-content:space-between;padding:7%}
+.lcd .scene{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;font-size:13px}
+.lcd .scene span{font:500 13px var(--body)}
+.lcd .box{border:4px solid var(--lcd-ink);border-radius:6px;box-shadow:inset 0 0 0 3px var(--lcd),inset 0 0 0 5px var(--lcd-mid);padding:16px 14px;font-size:11px;line-height:20px}
+.led{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--led)}
+.led.linked{color:var(--led-link)}
+.pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);flex:none}
+.pad div{background:var(--key);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--key-ink);font-size:16px}
+.pad div.c{border-radius:0}
+.ab{display:flex;gap:16px;transform:rotate(-20deg);flex:none}
+.ab div{width:64px;height:64px;border-radius:50%;background:var(--ab);color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:14px}
+.ab div:first-child{margin-top:28px}
+.ss{display:flex;gap:16px;justify-content:center}
+.ss div{min-width:88px;height:40px;border-radius:22px;background:var(--pill);color:var(--ink);font-size:12px;font-weight:700;letter-spacing:.08em;display:flex;align-items:center;justify-content:center}
+
+/* desktop */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px 28px;border-bottom:1px solid var(--border)}
+.brand{font-size:16px;color:var(--accent-text)}
+.d{display:flex;flex-wrap:wrap;gap:24px;padding:24px 28px;align-items:flex-start}
+.d>.game{flex:1 1 420px;max-width:520px}
+.d>.side{flex:1 1 320px}
+.tabs{display:flex;margin:-20px -20px 0}
+.tabs span{flex:1;height:48px;display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--muted);box-shadow:inset 0 -1px 0 var(--border)}
+.tabs span.on{color:var(--accent-text);box-shadow:inset 0 -3px 0 var(--accent)}
+.rank{width:20px;font-size:10px;color:var(--muted);flex:none}
+.board .row.you{background:var(--accent-tint);box-shadow:inset 3px 0 0 var(--accent);margin:-8px -20px;padding:8px 20px}
+.cable{flex:1;height:2px;min-width:16px;background:repeating-linear-gradient(90deg,var(--link) 0 8px,transparent 8px 14px)}
+.feed{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.feed li{display:flex;gap:10px;font-size:13px;line-height:19px}
+.ico{flex:none;width:22px;height:22px;border-radius:6px;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:11px}
+.session{border-color:var(--link)}
+.banner{background:var(--link-tint);border:1px solid var(--link);border-radius:12px;padding:12px 14px}
+
+/* first run */
+.pick{padding:40px 28px 44px;display:flex;flex-direction:column;gap:28px;align-items:center;text-align:center}
+.pick h1{font-family:var(--display);font-size:18px;line-height:1.7;margin:0;text-wrap:balance}
+.pick .lead{max-width:56ch;line-height:21px}
+.carts{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;width:100%}
+.carts .card{flex:1 1 220px;max-width:290px;text-align:left}
+.carts .card.sel{border-color:var(--accent-text);background:var(--accent-tint)}
+.cart{height:132px;border-radius:8px 8px 22px 8px;padding:10px;color:#1d1f1c;display:flex}
+.cart div{flex:1;border-radius:4px;background:rgba(255,255,255,.55);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:13px}
+.cart span{font:600 11px var(--body);letter-spacing:.08em}
+.radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--border-strong);flex:none}
+.sel .radio{border-color:var(--accent-text);background:radial-gradient(var(--accent) 0 45%,transparent 50%)}
+.carts ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;line-height:19px}
+
+/* phones */
+.stage{display:flex;flex-wrap:wrap;gap:40px;justify-content:center}
+.phone-wrap{display:flex;flex-direction:column;gap:14px;align-items:center;width:390px;max-width:100%}
+.phone{width:100%;height:820px;background:var(--bg);border:1px solid var(--border-strong);border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.phone header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 12px}
+.phone .brand{font-size:11px}
+.phone .tabs{margin:0}
+.phone .body{flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.phone .shell{padding:16px;gap:16px;border-radius:14px 14px 40px 14px}
+.phone .bezel{padding:12px}
+.phone .lcd .scene{font-size:11px}
+.phone .lcd .box{font-size:9px;line-height:16px;padding:10px}
+.phone .pad{grid-template-columns:repeat(3,42px);grid-template-rows:repeat(3,42px)}
+.phone .ab div{width:54px;height:54px}
+.phone .board .row.you{margin:-8px -20px;padding:8px 20px}
+.scrim{position:absolute;inset:0;background:var(--scrim)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--border-strong);border-radius:24px 24px 0 0;padding:12px 20px 28px;display:flex;flex-direction:column;gap:16px}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--border-strong);align-self:center}
+.step{display:flex;gap:12px;align-items:flex-start;line-height:20px}
+.step b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--border);font-size:12px;display:flex;align-items:center;justify-content:center}
+</style>
+
+<div class="wrap">
+  <div class="switch">
+    <div class="seg" role="group" aria-label="Screen">
+      <button type="button" id="v-pick" data-v="pick">First run · pick a game</button>
+      <button type="button" id="v-lobby" data-v="lobby">Desktop · lobby</button>
+      <button type="button" id="v-linked" data-v="linked">Desktop · linked</button>
+      <button type="button" id="v-phone" data-v="phone">Phone flow</button>
+    </div>
+    <span class="muted small">PibsPlayPokemon v2 · mock-up with sample data</span>
+  </div>
+
+  <!-- ============ DESKTOP ============ -->
+  <div class="app" id="desktop">
+    <div class="top">
+      <div class="row" style="flex-wrap:wrap"><span class="px brand">PibsPlayPokemon</span><span class="chip">Pokémon Crystal</span><span class="chip linked" data-when="linked"><span class="dot linked"></span>Linked with Sam</span></div>
+      <div class="row" style="gap:16px"><span class="muted">14 of 20 Pibs online</span><span class="av me" style="width:36px;height:36px">PB</span><span class="trade">Sign out</span></div>
+    </div>
+    <div class="d">
+      <section class="col game" aria-label="Your game">
+        <div class="shell">
+          <div class="bezel">
+            <div class="lcd px">
+              <div class="scene" data-when="lobby">YOUR GAME<span>160 × 144 · only you see this</span></div>
+              <div class="scene" data-when="linked">TRADE CENTER<span>each Pib sees their own side</span></div>
+              <div class="box" data-when="lobby">Saved at the POKéMON<br>CENTER.</div>
+              <div class="box" data-when="linked">SAM will trade PIKACHU<br>for your ABRA.</div>
+            </div>
+            <div class="row between"><span class="led" data-when="lobby">● YOUR SAVE · autosaved 2 min ago</span><span class="led" data-when="lobby">1×</span><span class="led linked" data-when="linked">● LINKED · locked to 1× speed</span></div>
+          </div>
+          <div class="row between" style="padding:0 8px">
+            <div class="pad" aria-hidden="true"><span></span><div>▲</div><span></span><div>◀</div><div class="c"></div><div>▶</div><span></span><div>▼</div><span></span></div>
+            <div class="ab px" aria-hidden="true"><div>B</div><div>A</div></div>
+          </div>
+          <div class="ss" aria-hidden="true"><div>SELECT</div><div>START</div></div>
+        </div>
+        <p class="muted small">Keyboard: arrow keys, Z for A, X for B, Enter for Start, Shift for Select.</p>
+      </section>
+
+      <section class="col side" aria-label="Link cable and your run">
+        <div class="card" data-when="lobby">
+          <div class="row between"><h2>Link cable</h2><span class="muted small">3 Pibs ready</span></div>
+          <div class="row" style="gap:8px;flex-wrap:wrap"><span class="btn on grow">✓ Ready to trade</span><span class="btn grow">Ready to battle</span></div>
+          <p class="muted small">Others can now challenge you. Stand in a Pokémon Center so you can walk straight into the Cable Club.</p>
+          <div class="rule"></div>
+          <div class="row"><span class="av" style="background:#f2c14e">SA</span><div class="grow"><b>Sam</b><div class="trade small">Wants to trade · Pokémon Gold</div></div><span class="btn primary sm">Trade</span></div>
+          <div class="row"><span class="av" style="background:#7fd1c7">PR</span><div class="grow"><b>Priya</b><div class="battle small">Wants to battle · Pokémon Silver</div></div><span class="btn sm">Battle</span></div>
+          <div class="row"><span class="av" style="background:#c9a7eb">MI</span><div class="grow"><b>Mia</b><div class="trade small">Wants to trade · Pokémon Gold</div></div><span class="btn primary sm">Trade</span></div>
+        </div>
+
+        <div class="card session" data-when="linked">
+          <div class="row between"><h2 class="linked">Link cable · trade</h2><span class="px" style="font-size:12px">14:20</span></div>
+          <div class="row" style="gap:10px"><span class="av lg me">PB</span><span class="cable"></span><span class="chip linked"><span class="dot linked"></span>connected</span><span class="cable"></span><span class="av lg" style="background:#f2c14e">SA</span></div>
+          <div class="row between"><b>You</b><b>Sam</b></div>
+          <p class="muted small">Both consoles run in step until someone unplugs or the 15-minute cap ends. Speed-up and save states are off while linked.</p>
+          <span class="btn stop">Unplug cable</span>
+        </div>
+
+        <div class="card">
+          <div class="row between"><h2>Your run</h2><span><span class="pts" style="font-size:22px">1,055</span> <span class="muted">pts · 3rd</span></span></div>
+          <div class="row between" style="flex-wrap:wrap"><span>Johto badges</span><div class="badges lg"><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i></i><i></i><i></i></div></div>
+          <div class="col" style="gap:8px"><div class="row between"><span>Pokédex</span><span class="muted">58 of 251 caught</span></div><div class="bar"><b style="width:38%"></b></div></div>
+          <div class="row between"><span>Top of party</span><span class="muted">Kadabra · Lv 38</span></div>
+          <div class="row between"><span>Trades · link battles</span><span class="muted">4 · 2 won</span></div>
+        </div>
+      </section>
+
+      <section class="card side" aria-label="Scoreboard" style="gap:16px">
+        <div class="tabs"><span class="on">Scoreboard</span><span>Activity</span><span>Chat</span></div>
+        <div class="col board" id="board"></div>
+        <div class="rule"></div>
+        <h2>Latest</h2>
+        <ul class="feed">
+          <li data-when="linked"><span class="ico">⇄</span><span><b>You</b> and <b>Sam</b> plugged in the link cable <span class="muted">· now</span></span></li>
+          <li><span class="ico">★</span><span><b>Jordan</b> earned the Fog Badge <span class="muted">· 2 min · +100</span></span></li>
+          <li><span class="ico">●</span><span><b>Mia</b> caught Pikachu, #25 <span class="muted">· 6 min · +10</span></span></li>
+          <li data-when="lobby"><span class="ico">⇄</span><span><b>Priya</b> traded with <b>Robin</b> <span class="muted">· 14 min · +25 each</span></span></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ FIRST RUN ============ -->
+  <div class="app" id="pick" hidden>
+    <div class="top"><span class="px brand">PibsPlayPokemon</span><div class="row" style="gap:16px"><span class="av me" style="width:36px;height:36px">PB</span><span class="trade">Sign out</span></div></div>
+    <div class="pick">
+      <div class="col" style="gap:12px;align-items:center"><h1>Pick your game</h1><p class="muted lead">You choose once. Your save, your score and your trades stay with this version. All three trade and battle with each other.</p></div>
+      <div class="carts">
+        <div class="card"><div class="cart px" style="background:var(--cart-gold)"><div>GOLD<span>GAME BOY COLOR</span></div></div><div class="row between"><b style="font-size:16px">Pokémon Gold</b><span class="radio"></span></div><ul><li>Ho-Oh on the box</li><li>Has Pokémon that Silver lacks</li></ul></div>
+        <div class="card"><div class="cart px" style="background:var(--cart-silver)"><div>SILVER<span>GAME BOY COLOR</span></div></div><div class="row between"><b style="font-size:16px">Pokémon Silver</b><span class="radio"></span></div><ul><li>Lugia on the box</li><li>Has Pokémon that Gold lacks</li></ul></div>
+        <div class="card sel"><div class="cart px" style="background:var(--cart-crystal)"><div>CRYSTAL<span>GAME BOY COLOR</span></div></div><div class="row between"><b style="font-size:16px">Pokémon Crystal</b><span class="radio"></span></div><ul><li>Animated Pokémon, Battle Tower</li><li>Play as a boy or a girl</li><li>Misses a few Pokémon the others have</li></ul></div>
+      </div>
+      <div class="col" style="gap:10px;align-items:center"><span class="btn primary tall" style="padding:0 28px">Start Pokémon Crystal</span><span class="muted small">This can't be changed later.</span></div>
+    </div>
+  </div>
+
+  <!-- ============ PHONES ============ -->
+  <div class="stage" id="phones" hidden>
+    <div class="phone-wrap"><div class="phone">
+      <header><span class="px brand">PibsPlayPokemon</span><span class="av me">PB</span></header>
+      <div class="tabs"><span class="on">Play</span><span>Scores</span><span>Chat</span></div>
+      <div class="body">
+        <div class="shell"><div class="bezel"><div class="lcd px"><div class="scene">YOUR GAME</div><div class="box">Saved at the POKéMON CENTER.</div></div><span class="led">● PAUSED</span></div></div>
+      </div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <span class="grab"></span>
+        <div class="row"><span class="av" style="width:48px;height:48px;font-size:14px;background:#f2c14e">SA</span><div class="grow"><div style="font-size:18px;font-weight:700">Sam wants to trade</div><div class="muted small">4 badges · 49 caught · Pokémon Gold</div></div></div>
+        <div class="col" style="gap:10px">
+          <div class="step"><b>1</b><span>Accept. Your game pauses for a second while we plug in the cable.</span></div>
+          <div class="step"><b>2</b><span>Walk to the Cable Club, upstairs in any Pokémon Center.</span></div>
+          <div class="step"><b>3</b><span>Trade as on a real Game Boy. Unplug any time.</span></div>
+        </div>
+        <div class="row" style="gap:8px"><span class="btn primary tall" style="flex:2">Accept trade</span><span class="btn tall" style="flex:1">Decline</span></div>
+        <div class="col" style="gap:6px"><div class="bar" style="height:4px"><b style="width:86%"></b></div><span class="muted" style="font-size:12px;text-align:center">Expires in 52 s</span></div>
+      </div>
+    </div><span class="muted">1 · A challenge arrives</span></div>
+
+    <div class="phone-wrap"><div class="phone">
+      <header><span class="px brand">PibsPlayPokemon</span><span class="av me">PB</span></header>
+      <div class="tabs"><span class="on">Play</span><span>Scores</span><span>Chat</span></div>
+      <div class="body">
+        <div class="banner row" style="gap:10px"><span class="av me">PB</span><span class="cable"></span><span class="av" style="background:#f2c14e">SA</span><div style="flex:none;margin-left:6px"><b>Linked with Sam</b><div class="linked" style="font-size:12px">Trade · 14:20 left</div></div></div>
+        <div class="shell"><div class="bezel"><div class="lcd px"><div class="scene">TRADE CENTER</div><div class="box">SAM will trade PIKACHU for your ABRA.</div></div><span class="led linked">● LINKED · 1×</span></div>
+          <div class="row between" style="padding:0 4px"><div class="pad" aria-hidden="true"><span></span><div>▲</div><span></span><div>◀</div><div class="c"></div><div>▶</div><span></span><div>▼</div><span></span></div><div class="ab px" aria-hidden="true"><div>B</div><div>A</div></div></div>
+          <div class="ss" aria-hidden="true"><div>SELECT</div><div>START</div></div>
+        </div>
+        <span class="btn stop tall">Unplug cable</span>
+      </div>
+    </div><span class="muted">2 · Linked session</span></div>
+
+    <div class="phone-wrap"><div class="phone">
+      <header><span class="px brand">PibsPlayPokemon</span><span class="av me">PB</span></header>
+      <div class="tabs"><span>Play</span><span class="on">Scores</span><span>Chat</span></div>
+      <div class="body" style="padding:16px 20px;gap:18px">
+        <div class="card" style="padding:16px;gap:12px"><div class="row between"><h2>Your run</h2><span><span class="pts" style="font-size:20px">1,055</span> <span class="muted">pts · 3rd</span></span></div><div class="row between"><div class="badges lg"><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i class="got"></i><i></i><i></i><i></i></div><span class="muted small">58 / 251</span></div></div>
+        <div class="row between"><h2>Scoreboard</h2><span class="muted small">20 Pibs</span></div>
+        <div class="col board" id="board2"></div>
+        <div class="rule"></div>
+        <ul class="feed"><li><span class="ico">★</span><span><b>Jordan</b> earned the Fog Badge <span class="muted">· 2 min</span></span></li><li><span class="ico">●</span><span><b>Mia</b> caught Pikachu, #25 <span class="muted">· 6 min</span></span></li></ul>
+      </div>
+    </div><span class="muted">3 · Scores tab</span></div>
+  </div>
+</div>
+
+<script>
+const people = [
+  ['Jordan', 'JO', '#f4a259', 6, 71, '1,420', 'playing', 'Playing'],
+  ['Priya', 'PR', '#7fd1c7', 5, 64, '1,180', 'battle', 'Ready to battle'],
+  ['You', 'PB', '', 5, 58, '1,055', 'trade', 'Ready to trade'],
+  ['Sam', 'SA', '#f2c14e', 4, 49, '940', 'trade', 'Ready to trade'],
+  ['Mia', 'MI', '#c9a7eb', 3, 40, '810', 'trade', 'Ready to trade'],
+  ['Alex', 'AL', '#a7d676', 3, 37, '745', '', 'Offline'],
+  ['Robin', 'RO', '#e9a6b8', 2, 31, '590', 'playing', 'Playing'],
+];
+function board(n, linked) {
+  return people.slice(0, n).map((p, i) => {
+    const you = p[0] === 'You', inLink = linked && (you || p[0] === 'Sam');
+    const kind = inLink ? 'linked' : p[6], label = inLink ? (you ? 'Linked with Sam' : 'Linked with you') : p[7];
+    const pips = Array.from({length: 8}, (_, b) => `<i class="${b < p[3] ? 'got' : ''}"></i>`).join('');
+    return `<div class="row ${you ? 'you' : ''}"><span class="rank px">${i + 1}</span><span class="av ${you ? 'me' : ''}" style="${you ? '' : 'background:' + p[2]}">${p[1]}</span><div class="grow"><div class="row" style="gap:8px"><b>${p[0]}</b><div class="badges" title="${p[3]} of 8 Johto badges">${pips}</div></div><div class="row ${kind || 'muted'}" style="gap:6px;font-size:12px"><span class="dot ${kind}"></span>${label}<span class="muted">· ${p[4]} caught</span></div></div><span class="pts">${p[5]}</span></div>`;
+  }).join('');
+}
+function show() {
+  const h = location.hash.slice(1), v = ['pick', 'lobby', 'linked', 'phone'].includes(h) ? h : 'lobby';
+  document.getElementById('desktop').hidden = v === 'phone' || v === 'pick';
+  document.getElementById('pick').hidden = v !== 'pick';
+  document.getElementById('phones').hidden = v !== 'phone';
+  document.querySelectorAll('[data-when]').forEach(e => { e.hidden = e.dataset.when !== v; });
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  document.getElementById('board').innerHTML = board(7, v === 'linked');
+  document.getElementById('board2').innerHTML = board(5, true);
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { location.hash = b.dataset.v; show(); }));
+addEventListener('hashchange', show);
+show();
+</script>

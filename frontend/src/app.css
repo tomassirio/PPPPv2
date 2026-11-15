@@ -17,6 +17,10 @@
 	--ink: #1d1f1c;
 	--grass: #9bbc0f;
 	--danger: #e76f51;
+	--link: #6ea3ff; /* link cable: linked sessions, the cable */
+	--link-tint: rgba(79, 143, 247, 0.14);
+	--accent-tint: rgba(242, 193, 78, 0.1); /* selected/"you" backgrounds */
+	--scrim: rgba(8, 11, 13, 0.62);
 	--pixel-font: 'Press Start 2P', monospace;
 	--body-font: Inter, system-ui, sans-serif;
 	color-scheme: dark;
@@ -34,6 +38,10 @@
 	--accent-text-hover: #6b4500;
 	--grass: #4d7a00;
 	--danger: #c0432a;
+	--link: #2459c4;
+	--link-tint: rgba(36, 89, 196, 0.1);
+	--accent-tint: rgba(242, 193, 78, 0.22);
+	--scrim: rgba(29, 31, 28, 0.45);
 	--name-dim: 50%;
 	--pad-edge: #c2bba8;
 	--glow: #e6e0f2;
@@ -52,6 +60,10 @@
 		--accent-text-hover: #6b4500;
 		--grass: #4d7a00;
 		--danger: #c0432a;
+		--link: #2459c4;
+		--link-tint: rgba(36, 89, 196, 0.1);
+		--accent-tint: rgba(242, 193, 78, 0.22);
+		--scrim: rgba(29, 31, 28, 0.45);
 		--name-dim: 50%;
 		--pad-edge: #c2bba8;
 		--glow: #e6e0f2;

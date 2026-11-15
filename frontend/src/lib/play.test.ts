@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, afterArrowRelease, ago, backoff, keyToButton } from './play';
+import { activityText, afterArrowRelease, ago, backoff, hue, keyToButton, ordinal, playerStatus } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -54,5 +54,23 @@ describe('scoreboard activity', () => {
 		expect(activityText({ ...e, type: 'HALL_OF_FAME', detail: '' })).toBe('jordan entered the Hall of Fame');
 		expect(activityText({ ...e, type: 'CAUGHT', detail: 'Pidgey' }, 'You')).toBe('You caught Pidgey');
 		expect([0, 59_000, 120_000, 3 * 3_600_000, 49 * 3_600_000].map(ago)).toEqual(['now', 'now', '2 min', '3 h', '2 d']);
+	});
+});
+
+describe('scoreboard status', () => {
+	const lobby = [{ userId: 'b@x', kind: 'BATTLE' as const }];
+	it('prefers linked, then ready, then online', () => {
+		const links = { 'a@x': 'me@x', 'me@x': 'a@x' };
+		expect(playerStatus('a@x', true, 'me@x', lobby, links)).toEqual({ kind: 'linked', label: 'Linked with you' });
+		expect(playerStatus('me@x', true, 'me@x', lobby, links).label).toBe('Linked with a');
+		expect(playerStatus('b@x', true, 'me@x', lobby, links)).toEqual({ kind: 'battle', label: 'Ready to battle' });
+		expect(playerStatus('c@x', true, 'me@x', lobby, links).kind).toBe('playing');
+		expect(playerStatus('c@x', false, 'me@x', lobby, links).kind).toBe('offline');
+	});
+	it('ranks and colours', () => {
+		expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101].map(ordinal)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '101st']);
+		expect(hue('a@x')).toBe(hue('a@x'));
+		expect(hue('a@x')).toBeGreaterThanOrEqual(0);
+		expect(hue('a@x')).toBeLessThan(360);
 	});
 });

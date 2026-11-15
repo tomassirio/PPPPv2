@@ -1,123 +1,99 @@
-<!-- The player's own party and badges, read from their console's RAM: GET /api/v1/game/state, kept current by GAME_STATE.
-     The party box shows six empty slots before the game is in play; badges and Pokédex need a game profile. A profile
-     without a party box (Gold/Silver/Crystal so far) shows its counters only. Sprites come from the player's ROM via
-     /api/v1/game/icons/{id}.png. -->
+<!-- "Your run": the player's points and rank (scoreboard), badges as pips, Pokédex progress, and the top of their
+     party and play time where the game profile reads them. The game summary is read from the console's RAM
+     (GET /api/v1/game/state, kept current by GAME_STATE); Gold/Silver/Crystal give counters only (16 badges: Johto
+     8, then Kanto 8). -->
 <script lang="ts">
-	import { game, watchGame, type Member } from '#lib/game.svelte.ts';
+	import { board, watchBoard } from '#lib/board.svelte.ts';
+	import { game, watchGame } from '#lib/game.svelte.ts';
+	import { ordinal } from '#lib/play.ts';
+	import { session } from '#lib/session.svelte.ts';
 
-	const badgeArt = import.meta.glob('../assets/badges/*.png', { eager: true, import: 'default' }) as Record<string, string>;
-	const art = (name: string) => badgeArt[`../assets/badges/${name.toLowerCase()}.png`];
+	$effect(() => watchGame());
+	$effect(() => watchBoard());
 
 	const summary = $derived(game.summary);
-	$effect(() => watchGame());
-
-	const party = $derived(summary?.party ?? []);
-	const slots = $derived([...party, ...Array(Math.max(0, 6 - party.length)).fill(null)]);
-	const earned = $derived(summary?.badges.filter((b) => b.earned).length ?? 0);
-	const next = $derived(summary?.badges.find((b) => !b.earned));
-	const dex = $derived(summary?.counters.find((c) => c.label === 'Pokédex'));
-	const seen = $derived(summary?.counters.find((c) => c.label === 'Seen'));
-	const countersOnly = $derived(!!summary && !summary.badges.length);
-	const badgeCount = $derived(summary?.counters.find((c) => c.label === 'Badges'));
-
-	function hp(m: Member) {
-		const r = m.maxHp > 0 ? m.hp / m.maxHp : 0;
-		return { pct: Math.round(r * 100), level: r > 0.5 ? 'ok' : r > 0.2 ? 'mid' : 'low' };
-	}
+	const rank = $derived(board.rows.findIndex((r) => r.userId === session.me?.id));
+	const mine = $derived(rank >= 0 ? board.rows[rank] : null);
+	const counter = (label: string) => summary?.counters.find((c) => c.label === label);
+	const dex = $derived(counter('Pokédex'));
+	const seen = $derived(counter('Seen'));
+	const badgeCount = $derived(counter('Badges'));
+	const named = $derived(summary?.badges ?? []);
+	const earned = $derived(named.length ? named.filter((b) => b.earned).length : (badgeCount?.value ?? 0));
+	const max = $derived(named.length || badgeCount?.max || 0);
+	// Rows of 8: one for an 8-badge game, Johto then Kanto for Gold/Silver/Crystal.
+	const rows = $derived(
+		max > 8
+			? [
+					{ label: 'Johto badges', got: Math.min(earned, 8) },
+					{ label: 'Kanto badges', got: Math.max(0, earned - 8) }
+				]
+			: max
+				? [{ label: 'Badges', got: earned }]
+				: []
+	);
+	const top = $derived(summary?.party[0]);
 </script>
 
-<section class="panel card" aria-label="Your game">
-	{#if !countersOnly}
-		<div class="head">
-			<h2 id="party-h">Party</h2>
-			<span class="muted">{party.length} / 6</span>
-		</div>
-		<ol class="party">
-			{#each slots as m, i (i)}
-				{#if m}
-					{@const h = hp(m)}
-					<li class="mon" class:fainted={m.hp === 0} title="{m.name} ({m.species}), Lv {m.level}, {m.hp}/{m.maxHp} HP{m.status ? `, ${m.status}` : ''}">
-						<span class="sprite">
-							{#if m.icon}<img src="/api/v1/game/icons/{m.icon}.png" alt="" width="56" height="56" />{/if}
-						</span>
-						<div class="info">
-							<div class="row">
-								<b class="name pixel">{m.name}</b>
-								<span class="lv">Lv{m.level}</span>
-							</div>
-							<span class="bar" role="meter" aria-label="{m.name} HP" aria-valuemin="0" aria-valuemax={m.maxHp} aria-valuenow={m.hp}>
-								<span class={h.level} style:width="{h.pct}%"></span>
-							</span>
-							<div class="row">
-								<span class="species">{m.species}</span>
-								<span class="hp" class:bad={m.hp === 0 || m.status}>
-									{#if m.hp === 0}FNT{:else if m.status}{m.status}{:else}{m.hp}/{m.maxHp}{/if}
-								</span>
-							</div>
-						</div>
-					</li>
-				{:else}
-					<li class="empty">Empty</li>
-				{/if}
-			{/each}
-		</ol>
-	{/if}
-	{#if summary}
-		{#if countersOnly}
-			{#if badgeCount}
-				<div class="head">
-					<h2>Badges</h2>
-					<span class="muted">{badgeCount.value} / {badgeCount.max}</span>
-				</div>
-			{/if}
-		{:else}
-		<hr />
-
-		<div class="head">
-			<h2 id="badges-h">Badges</h2>
-			<span class="muted"
-				>{earned} / {summary.badges.length}<span class="next-inline">{next ? ` · Next: ${next.place.replace(/ Gym$/, '')}` : ''}</span></span
-			>
-		</div>
-		<ul class="badges" aria-labelledby="badges-h">
-			{#each summary.badges as b (b.name)}
-				{@const label = `${b.name} Badge (${b.place}): ${b.earned ? 'earned' : 'not yet'}`}
-				<li class:locked={!b.earned} title={label}>
-					{#if art(b.name)}<img src={art(b.name)} alt={label} />{:else}<span class="pixel" role="img" aria-label={label}>{b.name[0]}</span>{/if}
-				</li>
-			{/each}
-		</ul>
-		<p class="muted next-line">{next ? `Next Gym: ${next.place.replace(/ Gym$/, '')}` : 'All badges earned'}</p>
+<section class="panel card" aria-labelledby="run-h">
+	<div class="head">
+		<h2 id="run-h">Your run</h2>
+		{#if mine}
+			<span><span class="pts">{mine.points.toLocaleString()}</span> <span class="muted">pts · {ordinal(rank + 1)}</span></span>
 		{/if}
+	</div>
+	{#if summary}
+		{#each rows as row, r (row.label)}
+			<div class="line wrap" class:later={r > 0 && !row.got}>
+				<span>{row.label}</span>
+				<span class="pips" role="img" aria-label="{row.got} of 8 {row.label}">
+					{#each Array(8) as _, i (i)}
+						{@const b = named[r * 8 + i]}
+						<i class:got={i < row.got} title={b ? `${b.name} Badge (${b.place})` : undefined}></i>
+					{/each}
+				</span>
+			</div>
+		{/each}
 		{#if dex}
-			<hr />
-			<div class="split">
-				<div class="dex">
-					<h2 id="dex-h">Pokédex</h2>
-					<p class="muted"><strong>{dex.value}</strong> / {dex.max} owned{#if seen}{' · '}{seen.value} seen{/if}</p>
+			<div class="dex">
+				<div class="line">
+					<span>Pokédex</span>
+					<span class="muted">{dex.value} of {dex.max} caught{seen ? ` · ${seen.value} seen` : ''}</span>
 				</div>
-				{#if summary.playTime}
-					<div class="dex time">
-						<h2 id="time-h">Time played</h2>
-						<p class="muted"><strong>{summary.playTime}</strong></p>
-					</div>
-				{/if}
+				<span class="bar" role="meter" aria-label="Pokédex caught" aria-valuemin="0" aria-valuemax={dex.max} aria-valuenow={dex.value}
+					><b style:width="{dex.max ? (dex.value * 100) / dex.max : 0}%"></b></span
+				>
 			</div>
 		{/if}
+		{#if top}
+			<div class="line"><span>Top of party</span><span class="muted">{top.name} · Lv {top.level}</span></div>
+		{/if}
+		{#if summary.playTime}
+			<div class="line"><span>Time played</span><span class="muted">{summary.playTime}</span></div>
+		{/if}
+	{:else}
+		<p class="muted">Badges and your Pokédex show up here once your game is past the title screen.</p>
 	{/if}
-	</section>
+</section>
 
 <style>
 	.card {
-		padding: 16px 20px;
+		padding: 20px;
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: 14px;
+		font-size: 14px;
 	}
-	.head {
+	.head,
+	.line {
 		display: flex;
+		align-items: center;
 		justify-content: space-between;
-		align-items: baseline;
+		gap: 12px;
+		min-width: 0;
+	}
+	.wrap {
+		flex-wrap: wrap;
 	}
 	h2 {
 		margin: 0;
@@ -131,239 +107,70 @@
 		margin: 0;
 	}
 	.muted {
+		color: var(--muted);
+	}
+	p.muted {
 		font-size: 13px;
-		color: var(--muted);
+		line-height: 19px;
 	}
-	hr {
-		width: 100%;
-		margin: 0;
-		border: none;
-		border-top: 1px solid var(--border);
-	}
-	ol,
-	ul {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-	.party {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr)); /* always 2 x 3: one column made the middle column scroll */
-		gap: 8px;
-	}
-	.mon,
-	.empty {
-		height: 52px;
-		box-sizing: border-box;
-		border-radius: 10px;
-	}
-	.mon {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 6px 8px;
-		background: var(--bg);
-		min-width: 0;
-	}
-	.mon.fainted {
-		opacity: 0.6;
-	}
-	.mon.fainted img {
-		filter: grayscale(1);
-	}
-	.sprite {
-		flex: none;
-		width: 38px;
-		height: 38px;
-		border-radius: 6px;
-		background: #e2f3d6;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		overflow: hidden;
-	}
-	.sprite img {
-		width: 36px;
-		height: 36px;
-		image-rendering: pixelated;
-	}
-	.info {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-	.row {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 6px;
-		min-width: 0;
-	}
-	.name {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-size: 9px;
-		font-weight: normal;
-	}
-	.species {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-size: 11px;
-		color: var(--muted);
-	}
-	.lv,
-	.hp {
-		flex: none;
-		font-size: 11px;
-		color: var(--muted);
+	.pts {
+		font-size: 22px;
+		font-weight: 700;
 		font-variant-numeric: tabular-nums;
 	}
-	.hp {
-		color: var(--text);
+	.pips {
+		display: flex;
+		gap: 5px;
 	}
-	.hp.bad {
-		color: var(--danger);
-		font-weight: 600;
+	.pips i {
+		width: 22px;
+		height: 22px;
+		box-sizing: border-box;
+		border-radius: 50%;
+		border: 2px solid var(--border-strong);
 	}
-	.bar {
-		display: block;
-		height: 5px;
-		border-radius: 999px;
-		background: var(--border);
-		overflow: hidden;
-	}
-	.bar span {
-		display: block;
-		height: 100%;
-		border-radius: 999px;
-		transition: width 0.4s ease;
-	}
-	.bar .ok {
-		background: var(--grass);
-	}
-	.bar .mid {
+	.pips i.got {
 		background: var(--accent);
-	}
-	.bar .low {
-		background: var(--danger);
-	}
-	.empty {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border: 1px dashed var(--border);
-		font-size: 12px;
-		color: var(--muted);
-	}
-	.badges {
-		display: grid;
-		grid-template-columns: repeat(8, minmax(0, 32px));
-		justify-content: space-between;
-		gap: 4px;
-	}
-	.badges li {
-		aspect-ratio: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.badges img {
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
-	}
-	.badges .locked img,
-	.badges .locked span {
-		filter: grayscale(1) brightness(0.55);
-		opacity: 0.45;
-	}
-	/* Pokédex | Time played, split by a vertical rule. */
-	.split {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); /* equal halves: the rule sits in the middle */
-		gap: 16px;
+		border-color: var(--accent);
 	}
 	.dex {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		min-width: 0;
+		gap: 8px;
 	}
-	.time {
-		padding-left: 16px;
-		border-left: 1px solid var(--border);
+	.bar {
+		display: block;
+		height: 8px;
+		border-radius: 4px;
+		background: var(--border);
+		overflow: hidden;
 	}
-	.next-inline {
-		display: none;
-	}
-	.dex strong {
-		color: var(--text);
-		font-weight: 600;
+	.bar b {
+		display: block;
+		height: 100%;
+		background: var(--accent);
+		transition: width 0.4s ease;
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.bar span {
+		.bar b {
 			transition: none;
 		}
 	}
-	/* Phones: the whole box fits the Party tab without scrolling: a 3x2 party of compact slots (no species line),
-	   Next Gym in the Badges header, gaps instead of rules. */
 	@media (max-width: 760px), (orientation: landscape) and (max-height: 520px) {
-		/* Fill the tab/sheet: the party rows take the spare height, the rest keeps its own. */
 		.card {
-			flex: 1 1 0;
-			min-height: 0;
-			box-sizing: border-box;
-			padding: 12px 14px;
-			gap: 8px;
+			padding: 16px;
+			gap: 12px;
 		}
-		.card > :not(.party) {
-			flex: none;
+		.pts {
+			font-size: 20px;
 		}
-		.party {
-			flex: 1 1 0;
-			min-height: 0;
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-			grid-auto-rows: minmax(46px, 1fr);
-			gap: 6px;
-		}
-		.mon,
-		.empty {
-			height: auto;
-		}
-		.mon {
-			gap: 6px;
-			padding: 4px 6px;
-		}
-		.species {
+		/* Compact on the Scores tab: Kanto's row only once it starts. */
+		.later {
 			display: none;
 		}
-		.mon .row:last-child {
-			justify-content: flex-end;
-		}
-		.lv,
-		.hp {
-			font-size: 10px;
-		}
-		hr,
-		.next-line {
-			display: none;
-		}
-		.next-inline {
-			display: inline;
-		}
-		.sprite {
-			width: 40px;
-			height: 40px;
-		}
-		.sprite img {
-			width: 38px;
-			height: 38px;
+		.pips i {
+			width: 18px;
+			height: 18px;
 		}
 	}
 </style>
