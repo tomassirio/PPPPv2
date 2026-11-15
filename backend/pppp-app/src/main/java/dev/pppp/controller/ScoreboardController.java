@@ -1,6 +1,7 @@
 package dev.pppp.controller;
 
 import dev.pppp.model.PlayerAchievements;
+import dev.pppp.model.PlayerProfile;
 import dev.pppp.model.ScoreEvent;
 import dev.pppp.model.ScoreRow;
 import dev.pppp.security.CurrentUser;
@@ -44,5 +45,11 @@ class ScoreboardController {
     @GetMapping("/players/{userId}/achievements")
     PlayerAchievements achievementsOf(@PathVariable String userId) {
         return tracker.achievementsOf(userId.toLowerCase(Locale.ROOT));
+    }
+
+    /** A Pib's page: scoreboard row, party, achievements with progress, stats, newest activity; 404 for anyone else. */
+    @GetMapping("/players/{userId}/profile")
+    PlayerProfile profile(@PathVariable String userId) {
+        return tracker.playerProfile(userId.toLowerCase(Locale.ROOT));
     }
 }

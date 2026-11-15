@@ -48,6 +48,15 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   `assets/badges/*.png`). Every ROM address in `PokemonGen2.Layout`, cited from pret's .sym/.map files. "Your run"
   shows badge sprites (greyed out until earned); `PokedexBanner half={1|2}` splits the dex in two (1-126 / 127-251)
   and picks its column count to fit; the banners show on every desktop size (the zoom gives >= 1728px of room).
+- Done: party detail, location, play time (Gen 2). `PokemonGen2` reads every party member (eggs too) into
+  `PartyMon` (nickname, HP, status, held item, moves, shiny, types; item/move/species names from the ROM's
+  ItemNames/MoveNames/PokemonNames), the landmark via wMapGroup/wMapNumber -> MapGroupPointers map header -> Landmarks
+  (Crystal's list has BATTLE_TOWER, so ids differ from Gold's), and "H:MM" play time. Kept as JSON field `card`
+  (`TrainerCard`) of `pibs:trainer:{userId}` (replaces the old `party` field). `ScoreRow` has party (`Member`:
+  species, level, hpPercent, status, shiny, egg), location, playTime, johtoBadges, kantoBadges; SCOREBOARD_CHANGED goes
+  out when a confirmed reading changes them (play time alone is stored, not pushed). `GET /api/v1/players/{userId}/profile`
+  = `PlayerProfile` {row, party, achievements (progress/goal only for the caught/Kanto-badge counts), stats {caught,
+  seen, playTime}, recent (their 10 newest feed entries)}. No trade or link battle counters exist.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, chart renames for deploy, README
   (still describes v1).

@@ -14,6 +14,7 @@ import dev.pppp.model.LiveEvent;
 import dev.pppp.model.Progress;
 import dev.pppp.model.ScoreEvent;
 import dev.pppp.model.ScoreRow;
+import dev.pppp.model.TrainerCard;
 import dev.pppp.model.TrainerScore;
 import dev.pppp.repository.ProgressRepository;
 import dev.pppp.service.CartridgeService;
@@ -63,6 +64,7 @@ class ProgressTrackerTest {
         when(repo.ranking()).thenAnswer(i -> ranks.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())).map(Map.Entry::getKey).toList());
         when(repo.achievements(any())).thenAnswer(i -> new HashMap<>(achieved.getOrDefault(i.<String>getArgument(0), Map.of())));
+        when(repo.card(any())).thenReturn(TrainerCard.EMPTY);
         when(repo.trainer(any())).thenAnswer(i -> trainers.getOrDefault(i.<String>getArgument(0), TrainerScore.ZERO));
         doAnswer(i -> {
             stored.put(i.getArgument(0), i.getArgument(1));
@@ -122,7 +124,7 @@ class ProgressTrackerTest {
                 "BADGE Thunder +100", "SEEN Pidgey +2", "LEVEL 10 +5", "LEVEL 20 +5");
         assertThat(ProgressTracker.points(stored.get(ASH))).isEqualTo(224);
         assertThat(published.getLast()).isEqualTo(new LiveEvent("SCOREBOARD_CHANGED", // Red has no Trainer Score
-                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true, 0, "Youngster", "F", 0, 0, List.of()))));
+                List.of(new ScoreRow(ASH, 224, 2, 1, 2, "red", true, 0, "Youngster", "F", 0, 0, List.of(), null, null, 0, 0))));
     }
 
     @Test
@@ -293,14 +295,16 @@ class ProgressTrackerTest {
         assertThat(tracker.scoreboard().getFirst()).extracting(ScoreRow::trainerScore, ScoreRow::title, ScoreRow::grade)
                 .containsExactly(44, "Youngster", "F");
         assertThat(tracker.scoreboard().getFirst().party())
-                .containsExactly(new ScoreRow.Member(150, 100), new ScoreRow.Member(129, 100));
+                .containsExactly(new ScoreRow.Member(150, 100, 100, null, false, false),
+                        new ScoreRow.Member(129, 100, 100, null, false, false));
 
         gold.partySize(1); // Magikarp went to the box, the coins were spent
         gold.coins(0);
         twice(tracker);
         assertThat(trainers.get(ASH).score()).isEqualTo(29); // team 25, side 0
-        assertThat(tracker.scoreboard().getFirst().party()).containsExactly(new ScoreRow.Member(150, 100));
-        verify(repo).saveParty(ASH, List.of(new ScoreRow.Member(150, 100)));
+        assertThat(tracker.scoreboard().getFirst().party())
+                .containsExactly(new ScoreRow.Member(150, 100, 100, null, false, false));
+        verify(repo, org.mockito.Mockito.atLeastOnce()).saveCard(eq(ASH), any());
         assertThat(achieved.get(ASH)).containsKeys("kantos-strongest", "high-roller", "level-up", "centurion");
     }
 
