@@ -276,7 +276,7 @@
 						</div>
 					{/if}
 					{#if !you}
-						<div class="row tight">
+						<div class="offers">
 							<button
 								type="button"
 								class="btn primary grow"
@@ -287,7 +287,7 @@
 								type="button"
 								class="btn grow"
 								disabled={busy || theyBusy}
-								onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}>Challenge to battle</button
+								onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}>Offer battle</button
 							>
 						</div>
 						{#if waiting}<span class="muted xs" role="status">Waiting for {nameOf(id)} to answer… {left(waiting.expiresAt)} s</span>{/if}
@@ -678,6 +678,17 @@
 		font-weight: 600;
 		border-color: var(--link);
 		background: var(--link-tint, var(--sunk));
+	}
+	/* Two equal buttons that always fit the card. */
+	.offers {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+	}
+	.offers .btn {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 	a.btn {
 		display: inline-flex;
