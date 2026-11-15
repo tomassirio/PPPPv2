@@ -83,6 +83,14 @@
 	const masks = $derived(row ? badgeMasks(row) : { johto: 0, kanto: 0 });
 	const johto = $derived(bitCount(masks.johto));
 	const achievements = $derived(shownAchievements(profile?.achievements ?? []));
+	const linkAch = $derived(achievements.filter((a) => a.category === 'Link'));
+	// Link record: the profile's stats when the backend has them, else the scoreboard row's.
+	const lr = $derived({
+		wins: profile?.stats.linkWins ?? row?.link?.wins ?? 0,
+		losses: profile?.stats.linkLosses ?? row?.link?.losses ?? 0,
+		trades: profile?.stats.trades ?? row?.link?.trades ?? 0
+	});
+	const partners = $derived(profile?.stats.partners ?? []);
 	const got = $derived(achievements.filter((a) => a.unlocked).length);
 	const tiers = $derived(
 		RARITIES.map((r) => ({ rarity: r, got: achievements.filter((a) => a.rarity === r && a.unlocked).length, of: achievements.filter((a) => a.rarity === r).length }))
@@ -133,28 +141,6 @@
 			</div>
 			<div class="row numbers wrap">
 				{#if rank >= 0}<div class="summary-slot"><RunSummary {row} {rank} total={board.rows.length} /></div>{/if}
-				{#if !you}
-					<div class="col end tight">
-						<div class="row tight">
-							<button
-								type="button"
-								class="btn primary"
-								disabled={ready !== 'TRADE' || busy}
-								title={ready === 'TRADE' ? '' : 'Offer a trade once they are ready to trade'}
-								onclick={() => act('POST', '/link/challenges', { userId: id })}>Offer trade</button
-							>
-							<button
-								type="button"
-								class="btn"
-								disabled={ready !== 'BATTLE' || busy}
-								title={ready === 'BATTLE' ? '' : 'Challenge them once they are ready to battle'}
-								onclick={() => act('POST', '/link/challenges', { userId: id })}>Challenge</button
-							>
-						</div>
-						{#if waiting}<span class="muted xs" role="status">Waiting for {nameOf(id)} to answer… {left(waiting.expiresAt)} s</span>{/if}
-						{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
-					</div>
-				{/if}
 			</div>
 		</section>
 
@@ -246,6 +232,72 @@
 			</div>
 
 			<div class="col">
+				<!-- Link cable: the heart of v2. Record, trades, who they linked with, the Link achievements, and the buttons. -->
+				<section class="card linkcard" aria-labelledby="link-h">
+					<div class="between">
+						<h2 id="link-h" class="linkh">
+							<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"
+								><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8" /></svg
+							>Link cable
+						</h2>
+						<span class="chip small-chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
+					</div>
+					<!-- Three numbers in one panel, like the points/rank/rating summary. -->
+					<dl class="linkstats">
+						<div><dt>Won</dt><dd class="w">{lr.wins}</dd></div>
+						<div><dt>Lost</dt><dd class="l">{lr.losses}</dd></div>
+						<div><dt>Trades</dt><dd>{lr.trades}</dd></div>
+						{#if lr.wins + lr.losses}
+							<span class="winbar" role="img" aria-label="{Math.round((lr.wins * 100) / (lr.wins + lr.losses))}% of link battles won"
+								><b style:width="{(lr.wins * 100) / (lr.wins + lr.losses)}%"></b></span
+							>
+						{/if}
+					</dl>
+					<div class="linkrow">
+						<span class="label">Linked with</span>
+						{#if partners.length}
+							<div class="partners">
+								{#each partners as p (p)}<a href="/pib/{encodeURIComponent(p)}" title={nameOf(p)}><Avatar user={p} size={28} /></a>{/each}
+							</div>
+						{:else}
+							<span class="muted small">Nobody yet</span>
+						{/if}
+					</div>
+					{#if linkAch.length}
+						<div class="col tight">
+							<div class="between"><span class="label">Link achievements</span><span class="muted xs">{linkAch.filter((a) => a.unlocked).length} of {linkAch.length}</span></div>
+							<ul class="linkach">
+								{#each linkAch as a (a.id)}
+									<li class:got={a.unlocked} title={a.description}><RarityBall rarity={a.rarity} locked={!a.unlocked} size={20} /><span class="ell">{a.name}</span></li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+					{#if !you}
+						<div class="row tight">
+							<button
+								type="button"
+								class="btn primary grow"
+								disabled={ready !== 'TRADE' || busy}
+								title={ready === 'TRADE' ? '' : 'Offer a trade once they are ready to trade'}
+								onclick={() => act('POST', '/link/challenges', { userId: id })}>Offer trade</button
+							>
+							<button
+								type="button"
+								class="btn grow"
+								disabled={ready !== 'BATTLE' || busy}
+								title={ready === 'BATTLE' ? '' : 'Challenge them once they are ready to battle'}
+								onclick={() => act('POST', '/link/challenges', { userId: id })}>Challenge</button
+							>
+						</div>
+						{#if waiting}<span class="muted xs" role="status">Waiting for {nameOf(id)} to answer… {left(waiting.expiresAt)} s</span>{/if}
+						{#if !ready && !busy}<span class="muted xs">{nameOf(id)} isn't waiting for a link right now.</span>{/if}
+						{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
+					{:else}
+						<a class="btn primary wide" href="/play">Find someone to link with</a>
+					{/if}
+				</section>
+
 				<section class="card" aria-labelledby="badges-h">
 					<h2 id="badges-h">Badges</h2>
 					{#each [{ label: 'Johto', names: JOHTO, mask: masks.johto, offset: 0 }, { label: 'Kanto', names: KANTO, mask: masks.kanto, offset: 8 }] as region (region.label)}
@@ -276,8 +328,6 @@
 					<dl class="kv">
 						<dt>Pokédex</dt>
 						<dd>{profile.stats.caught} caught · {profile.stats.seen} seen</dd>
-						{#if profile.stats.trades != null}<dt>Trades</dt><dd>{profile.stats.trades}</dd>{/if}
-						{#if profile.stats.linkWins != null}<dt>Link battles</dt><dd>{profile.stats.linkWins} won · {profile.stats.linkLosses ?? 0} lost</dd>{/if}
 						{#if profile.stats.playTime ?? row.playTime}<dt>Playtime</dt><dd>{profile.stats.playTime ?? row.playTime}</dd>{/if}
 						<dt>Achievements</dt>
 						<dd>{row.achievementsUnlocked} · {row.achievementPoints} pts</dd>
@@ -514,6 +564,126 @@
 	}
 	.mname {
 		white-space: nowrap; /* names and nicknames are 10 letters at most: shown whole */
+	}
+	.linkcard {
+		border-color: var(--link);
+		box-shadow: inset 0 3px 0 var(--link);
+	}
+	.linkh {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--link);
+	}
+	.small-chip {
+		font-size: 12px;
+		padding: 2px 8px;
+	}
+	.linkstats {
+		margin: 0;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		border-radius: 12px;
+		background: var(--sunk);
+		border: 1px solid var(--border);
+		overflow: hidden;
+	}
+	.linkstats > div {
+		padding: 10px 14px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.linkstats > div + div {
+		border-left: 1px solid var(--border);
+	}
+	.linkstats dt {
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.linkstats dd {
+		margin: 0;
+		font-size: 26px;
+		font-weight: 800;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+	}
+	.linkstats dd.w {
+		color: var(--grass, #3fae4a);
+	}
+	.linkstats dd.l {
+		color: var(--danger);
+	}
+	.winbar {
+		grid-column: 1 / -1;
+		display: block;
+		height: 5px;
+		background: color-mix(in oklab, var(--danger) 45%, transparent);
+	}
+	.winbar b {
+		display: block;
+		height: 100%;
+		background: var(--grass, #3fae4a);
+	}
+	.label {
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.linkrow {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 30px;
+	}
+	.partners {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+	.partners a {
+		display: flex;
+		border-radius: 50%;
+	}
+	.linkach {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 6px;
+	}
+	.linkach li {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 6px 8px;
+		border-radius: 8px;
+		border: 1px solid var(--border);
+		font-size: 12px;
+		color: var(--muted);
+		min-width: 0;
+	}
+	.linkach li.got {
+		color: var(--text);
+		font-weight: 600;
+		border-color: var(--link);
+		background: var(--link-tint, var(--sunk));
+	}
+	a.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		text-decoration: none;
+	}
+	.btn.wide {
+		width: 100%;
 	}
 	.summary-slot {
 		width: min(340px, 100%);

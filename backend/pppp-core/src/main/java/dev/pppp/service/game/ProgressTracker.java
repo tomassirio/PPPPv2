@@ -218,6 +218,8 @@ public class ProgressTracker {
         if (!now.equals(was)) {
             repo.saveLog(userId, now);
             logs.put(userId, now);
+            // The link record is on every scoreboard row: tell everyone when it moves.
+            if (!ScoreRow.Link.of(now).equals(ScoreRow.Link.of(was))) events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
         }
         return now;
     }
@@ -290,7 +292,8 @@ public class ProgressTracker {
             TrainerCard c = cards.computeIfAbsent(userId, repo::card);
             rows.add(new ScoreRow(userId, points(p), p.badges().size(), p.caught().size(), p.seen().size(),
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
-                    a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges(), c.trainerName()));
+                    a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges(), c.trainerName(),
+                    ScoreRow.Link.of(logs.computeIfAbsent(userId, repo::log))));
         }
         // Ranked by the uncapped total (activity points + achievement points); the capped Trainer Score order of
         // pibs:scoreboard breaks ties (the sort is stable).
@@ -340,7 +343,7 @@ public class ProgressTracker {
                     x.hidden(), x.unlockedAt() != null, progress, goal);
         }).toList();
         return new PlayerProfile(row, card.party(), entries, new PlayerProfile.Stats(row.caught(), row.seen(),
-                card.playTime(), log.trades(), log.linkWins(), log.linkLosses()), repo.newest(userId, 10));
+                card.playTime(), log.trades(), log.linkWins(), log.linkLosses(), List.copyOf(log.partners())), repo.newest(userId, 10));
     }
 
     /** The activity feed, newest first. */

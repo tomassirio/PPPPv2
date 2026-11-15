@@ -109,6 +109,8 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$[1].grade").value("F"))
                 .andExpect(jsonPath("$[1].achievementPoints").value(1 + 3))
                 .andExpect(jsonPath("$[1].achievementsUnlocked").value(2))
+                .andExpect(jsonPath("$[1].link.wins").value(0))
+                .andExpect(jsonPath("$[1].link.partners").value(0))
                 .andExpect(jsonPath("$[0].userId").value("pibette@x.y"))
                 .andExpect(jsonPath("$[0].points").value(100 + 10 + 2 + 2 + 5))
                 .andExpect(jsonPath("$[0].badges").value(1))

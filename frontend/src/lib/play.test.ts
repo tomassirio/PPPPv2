@@ -89,14 +89,15 @@ describe('scoreboard helpers', () => {
 	const names = { g: 'Pokémon Gold', c: 'Pokémon Crystal', s: 'Pokémon Silver' };
 	const rows = [
 		row('a', { trainerScore: 500, badges: 2, caught: 40, game: 'g', party: [{ species: 1, level: 20 }] }),
-		row('b', { trainerScore: 400, badges: 5, caught: 10, game: 'c', party: [{ species: 2, level: 9 }, { species: 3, level: 50, egg: true }] }),
-		row('c', { trainerScore: 400, badges: 1, caught: 60, game: 's', party: [{ species: 4, level: 33 }] })
+		row('b', { trainerScore: 400, badges: 5, caught: 10, game: 'c', link: { wins: 1, losses: 3, trades: 0, partners: 1 }, party: [{ species: 2, level: 9 }, { species: 3, level: 50, egg: true }] }),
+		row('c', { trainerScore: 400, badges: 1, caught: 60, game: 's', link: { wins: 1, losses: 0, trades: 2, partners: 2 }, party: [{ species: 4, level: 33 }] })
 	];
 	const ids = (r: ScoreRow[]) => r.map((x) => x.userId).join('');
 
 	it('sorts by the chosen column, ties keep the ranking, eggs do not count as levels', () => {
 		expect(ids(boardRows(rows, 'All', 'points', names))).toBe('abc');
 		expect(ids(boardRows(rows, 'All', 'badges', names))).toBe('bac');
+		expect(ids(boardRows(rows, 'All', 'link', names))).toBe('cba'); // wins, then trades
 		expect(ids(boardRows(rows, 'All', 'dex', names))).toBe('cab');
 		expect(ids(boardRows(rows, 'All', 'level', names))).toBe('cab');
 	});

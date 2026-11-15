@@ -72,6 +72,8 @@ export const shortUser = (id: string) => id.split('@')[0];
 /** A Pib's points: everything in their activity feed added up, no cap. */
 export const score = (r: Pick<ScoreRow, 'points' | 'achievementPoints'>) => (r.points ?? 0) + (r.achievementPoints ?? 0);
 
+export type LinkRecord = { wins: number; losses: number; trades: number; partners: number };
+
 export type ScoreRow = {
 	userId: string;
 	points: number;
@@ -89,6 +91,8 @@ export type ScoreRow = {
 	party: PartyMon[];
 	// Newer fields (optional: an older backend leaves them out).
 	/** "Ecruteak City · Pokémon Center": landmark, then the spot inside it. */
+	/** Link-cable record: battles won/lost, Pokémon received in trades, different Pibs linked with. */
+	link?: LinkRecord;
 	location?: string | null;
 	playTime?: string | null;
 	/** Bitmasks, bit i = the i-th badge (Zephyr..Rising, Boulder..Earth). */
@@ -181,11 +185,13 @@ export function versionOf(game: string | null, names: Record<string, string>): V
 	return m ? ((m[0][0].toUpperCase() + m[0].slice(1).toLowerCase()) as Version) : null;
 }
 
-export type BoardSort = 'points' | 'badges' | 'dex' | 'level';
+export type BoardSort = 'points' | 'link' | 'badges' | 'dex' | 'level';
 /** Best Pokémon level in a party (eggs don't count). */
 export const topLevel = (party: PartyMon[] | undefined) => Math.max(0, ...(party ?? []).filter((m) => !m.egg).map((m) => m.level));
 const SORT_KEY: Record<BoardSort, (r: ScoreRow) => number> = {
 	points: (r) => score(r),
+	// Link battle wins first, then trades (x1000 keeps trades a tie-break).
+	link: (r) => (r.link?.wins ?? 0) * 1000 + (r.link?.trades ?? 0),
 	badges: (r) => r.badges,
 	dex: (r) => r.caught,
 	level: (r) => topLevel(r.party)
@@ -223,6 +229,8 @@ export const RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legend
 /** A hidden one has name and description null until unlocked. rarity/hidden: newer backend only. */
 export type ProfileAchievement = {
 	id: string;
+	/** Story, Pokédex, Legends, Training, Items, Side, Challenge, Link (newer backends). */
+	category?: string;
 	name: string | null;
 	description: string | null;
 	points: number;
@@ -236,7 +244,7 @@ export type Profile = {
 	row: ScoreRow;
 	party: ProfileMon[];
 	achievements: ProfileAchievement[];
-	stats: { caught: number; seen: number; trades?: number | null; linkWins?: number | null; linkLosses?: number | null; playTime: string | null };
+	stats: { caught: number; seen: number; trades?: number | null; linkWins?: number | null; linkLosses?: number | null; partners?: string[]; playTime: string | null };
 	recent: ScoreEvent[];
 };
 /** GET /players/{userId}/achievements (Achievement.java): the older backend's catalogue with unlock times. */

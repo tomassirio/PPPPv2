@@ -13,5 +13,7 @@ public record PlayerProfile(ScoreRow row, List<PartyMon> party, List<Entry> achi
     public record Entry(String id, String category, String name, String description, int points, String rarity,
                         boolean hidden, boolean unlocked, Integer progress, Integer goal) {}
 
-    public record Stats(int caught, int seen, String playTime, int trades, int linkWins, int linkLosses) {}
+    /** partners: user ids of every Pib they have linked with. */
+    public record Stats(int caught, int seen, String playTime, int trades, int linkWins, int linkLosses,
+                        List<String> partners) {}
 }

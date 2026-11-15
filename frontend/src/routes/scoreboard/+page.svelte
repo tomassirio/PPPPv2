@@ -20,6 +20,7 @@
 	const VERSIONS = ['All', 'Gold', 'Silver', 'Crystal'] as const;
 	const SORTS: [BoardSort, string][] = [
 		['points', 'Points'],
+		['link', 'Link'],
 		['badges', 'Badges'],
 		['dex', 'Pokédex'],
 		['level', 'Top level']
@@ -80,7 +81,7 @@
 		<div class="tablewrap">
 			<div class="tbl">
 				<div class="tr th" aria-hidden="true">
-					<span>#</span><span>Pib</span><span>Party</span><span class="num">Badges</span><span>Pokédex</span><span class="num">Points</span>
+					<span>#</span><span>Pib</span><span>Party</span><span>Link</span><span class="num">Badges</span><span>Pokédex</span><span class="num">Points</span>
 				</div>
 				{#each rows as r, i (r.userId)}
 					{@const st = status(r.userId, r.online)}
@@ -96,6 +97,10 @@
 							</span>
 						</span>
 						<span><PartyIcons party={r.party} size={30} hp={false} /></span>
+						<span class="linkcol">
+							<span class="rec pixel"><span class="w">{r.link?.wins ?? 0}</span>–<span class="l">{r.link?.losses ?? 0}</span><span class="sr-only"> link battles won and lost</span></span>
+							<span class="muted xs">{r.link?.trades ?? 0} {(r.link?.trades ?? 0) === 1 ? 'trade' : 'trades'}</span>
+						</span>
 						<span class="num"><b>{r.badges}</b><span class="muted"> / 16</span><span class="sr-only"> badges</span></span>
 						<span class="dex">
 							<span class="small"><b>{r.caught}</b> <span class="muted">caught · {r.seen} seen</span></span>
@@ -106,7 +111,7 @@
 				{/each}
 			</div>
 		</div>
-		<p class="muted xs">Points are the Trainer Score (0–1000) read from each save; achievement points break ties.</p>
+		<p class="muted xs">Points add up every catch, sighting, badge and achievement, with no cap; the grade is the separate 0–1000 Trainer rating. Link: battles won–lost and Pokémon received in trades.</p>
 	{:else if board.rows.length}
 		<p class="muted">Nobody plays {version} yet.</p>
 	{:else}
@@ -293,12 +298,27 @@
 		border-radius: 12px;
 		background: var(--panel);
 	}
+	.linkcol {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+	.linkcol .rec {
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.linkcol .w {
+		color: var(--grass, #3fae4a);
+	}
+	.linkcol .l {
+		color: var(--danger);
+	}
 	.tbl {
-		min-width: 860px;
+		min-width: 970px;
 	}
 	.tr {
 		display: grid;
-		grid-template-columns: 44px minmax(180px, 1.3fr) 214px 92px 150px 110px;
+		grid-template-columns: 44px minmax(180px, 1.3fr) 214px 96px 92px 150px 110px;
 		align-items: center;
 		gap: 14px;
 		padding: 10px 18px;
