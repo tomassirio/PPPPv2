@@ -1,5 +1,5 @@
 <!-- A party as six slots: each member's 16x16 party icon (drawn from the viewer's own ROM, same species numbers) with
-     a thin HP bar, greyed out when fainted, a star when shiny; empty slots dashed. levels: "Lv 38" under each. -->
+     a thin HP bar (hp={false} drops it, as on the scoreboards), greyed out when fainted, a star when shiny; empty slots dashed. levels: "Lv 38" under each. -->
 <script module lang="ts">
 	import { game } from '#lib/game.svelte.ts';
 	import type { PartyMon } from '#lib/play.ts';
@@ -16,7 +16,7 @@
 	import { hpColor } from '#lib/play.ts';
 	import { watchGame } from '#lib/game.svelte.ts';
 
-	let { party = [], size = 24, levels = false }: { party?: PartyMon[]; size?: number; levels?: boolean } = $props();
+	let { party = [], size = 24, levels = false, hp = true }: { party?: PartyMon[]; size?: number; levels?: boolean; hp?: boolean } = $props();
 	$effect(() => watchGame()); // species names for the labels
 	const slots = $derived([...party.slice(0, 6), ...Array(Math.max(0, 6 - party.length)).fill(null)] as (PartyMon | null)[]);
 </script>
@@ -30,7 +30,7 @@
 						<span class="egg"></span>
 					{:else}
 						<img src="/api/v1/game/icons/{m.species}.png" alt="" loading="lazy" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />
-						{#if m.hpPercent != null}<span class="hp"><b style:width="{m.hpPercent}%" style:background={hpColor(m.hpPercent)}></b></span>{/if}
+						{#if hp && m.hpPercent != null}<span class="hp"><b style:width="{m.hpPercent}%" style:background={hpColor(m.hpPercent)}></b></span>{/if}
 						{#if m.shiny}<span class="shiny">✦</span>{/if}
 					{/if}
 				</span>

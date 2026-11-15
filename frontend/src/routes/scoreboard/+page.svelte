@@ -70,7 +70,7 @@
 								</span>
 							</span>
 						</span>
-						<PartyIcons party={r.party} size={30} levels />
+						<PartyIcons party={r.party} size={30} levels hp={false} />
 					</a>
 				</li>
 			{/each}
@@ -94,7 +94,7 @@
 								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}</span>
 							</span>
 						</span>
-						<span><PartyIcons party={r.party} size={30} /></span>
+						<span><PartyIcons party={r.party} size={30} hp={false} /></span>
 						<span class="num"><b>{r.badges}</b><span class="muted"> / 16</span><span class="sr-only"> badges</span></span>
 						<span class="dex">
 							<span class="small"><b>{r.caught}</b> <span class="muted">caught · {r.seen} seen</span></span>

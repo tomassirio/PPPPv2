@@ -79,7 +79,7 @@
 	{#if mine}
 		<div class="line"><span class="muted">Title</span><b>{mine.title}</b></div>
 	{/if}
-	{#if party.length}
+	{#if party.length || mine}
 		<div class="line"><span class="muted">Party</span><span class="muted xs">live from your game</span></div>
 		<ul class="cards" aria-label="Your party">
 			{#each party as m, i (i)}
@@ -89,7 +89,7 @@
 						{#if m.shiny}<span class="shiny" title="Shiny">✦</span>{/if}
 					</span>
 					<span class="info">
-						<span class="line"><b class="ell">{m.name}</b>{#if !m.egg}<span class="xs muted">Lv {m.level}</span>{/if}</span>
+						<span class="line"><b class="ell">{m.name}</b>{#if !m.egg}<span class="xs muted lv">Lv {m.level}</span>{/if}</span>
 						<span class="line xs"
 							><span class="muted ell">{m.sub}</span>{#if m.status}<span class="st st-{m.status}">{m.status}</span>{/if}</span
 						>
@@ -100,6 +100,9 @@
 						{/if}
 					</span>
 				</li>
+			{/each}
+			{#each Array(Math.max(0, 6 - party.length)) as _, i (i)}
+				<li class="pslot empty" aria-hidden="true"><span class="mon"></span><span class="xs muted">Empty</span></li>
 			{/each}
 		</ul>
 	{/if}
@@ -249,6 +252,20 @@
 		background: var(--sunk);
 		border: 1px solid var(--border);
 		min-width: 0;
+	}
+	/* Free party slots stay visible: six places, filled or not. */
+	.pslot.empty {
+		background: none;
+		border-style: dashed;
+	}
+	.pslot.empty .mon {
+		border-radius: 7px;
+		border: 1px dashed var(--border-strong);
+		box-sizing: border-box;
+	}
+	.lv {
+		flex: none;
+		white-space: nowrap;
 	}
 	.mon {
 		position: relative;

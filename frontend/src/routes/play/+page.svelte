@@ -340,6 +340,11 @@
 	.sign {
 		flex: none;
 		margin: 0;
+		/* As wide as the Game Boy screen and the controller under it (--frame-w = the bezel's measured width). */
+		width: var(--frame-w, auto);
+		max-width: 100%;
+		align-self: center;
+		box-sizing: border-box;
 		display: flex;
 		align-items: center;
 		gap: 10px;

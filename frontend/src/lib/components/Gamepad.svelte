@@ -1,12 +1,12 @@
 <!-- D-pad, A/B, Start/Select. Keys and fingers hold buttons down on the player's own console over /ws/input
      (#lib/input.ts) until let go; a click without a pointer, or a closed socket, sends one press (POST /me/inputs). Keys: arrows
-     with Z=A, X=B, or WASD with K=A, J=B (picked in the keyboard card); Enter=Start, Shift/Backspace=Select. -->
+     with Z=A, X=B, or WASD with K=A, J=B (picked in the account menu); Enter=Start, Shift/Backspace=Select. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
 	import { keyToButton, KEY_LABELS, type Button } from '#lib/play.ts';
 	import { sendKey, useInput } from '#lib/input.ts';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { keys, setKeyScheme } from '#lib/keys.svelte.ts';
+	import { keys } from '#lib/keys.svelte.ts';
 	import { shellVars } from '#lib/shells.ts';
 	import { currentShell } from '#lib/shell.svelte.ts';
 	import ShellPicker from './ShellPicker.svelte';
@@ -170,39 +170,10 @@
 	</div>
 </div>
 
-<section class="controls panel" class:quiet={!status} style={vars} aria-label="Controls">
-	<div class="head">
-		<h2 class="keys-only">Keyboard</h2>
-		<span class="scheme keys-only" role="group" aria-label="Keys to move">
-			<button type="button" aria-pressed={keys.scheme === 'arrows'} onclick={() => setKeyScheme('arrows')}>Arrows</button>
-			<button type="button" aria-pressed={keys.scheme === 'wasd'} onclick={() => setKeyScheme('wasd')}>WASD</button>
-		</span>
-		<p class="last" role="status" aria-live="polite">
-			{#if status}<span class:error={statusError} class:muted={!statusError}>{status}</span>{/if}
-		</p>
-	</div>
-	<div class="keys keys-only">
-		{#if keys.scheme === 'wasd'}
-			<div class="cluster" role="img" aria-label="W A S D move">
-				<kbd style:grid-area="up">W</kbd><kbd style:grid-area="left">A</kbd><kbd style:grid-area="down">S</kbd><kbd
-					style:grid-area="right">D</kbd
-				>
-			</div>
-		{:else}
-			<div class="cluster" role="img" aria-label="Arrow keys move">
-				<kbd style:grid-area="up">↑</kbd><kbd style:grid-area="left">←</kbd><kbd style:grid-area="down">↓</kbd><kbd
-					style:grid-area="right">→</kbd
-				>
-			</div>
-		{/if}
-		<ul class="map">
-			<li><kbd>{KEY_LABELS[keys.scheme].a}</kbd><span class="mini round pixel">A</span></li>
-			<li><kbd>{KEY_LABELS[keys.scheme].b}</kbd><span class="mini round pixel">B</span></li>
-			<li><kbd>Enter</kbd><span class="mini pill">START</span></li>
-			<li><kbd>Shift</kbd><span class="mini pill">SELECT</span></li>
-		</ul>
-	</div>
-</section>
+<!-- Only a failed press says anything here. The key scheme and legend live in the account menu (UserMenu). -->
+<p class="last" role="status" aria-live="polite">
+	{#if status}<span class:error={statusError} class:muted={!statusError}>{status}</span>{/if}
+</p>
 
 <style>
 	.shell {
@@ -323,32 +294,14 @@
 		right: 12px;
 		z-index: 5;
 	}
-	.controls {
-		padding: 10px 14px;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-	.head {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		min-height: 24px;
-	}
-	h2 {
-		margin: 0;
-		font-size: 11px;
-		font-weight: 600;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--muted);
-	}
 	.last {
-		margin: 0 0 0 auto;
-		display: flex;
-		align-items: center;
-		gap: 8px;
+		margin: 0;
+		min-height: 0;
+		text-align: center;
 		font-size: 12px;
+	}
+	.last:empty {
+		display: none;
 	}
 	.muted {
 		color: var(--muted);
@@ -356,120 +309,6 @@
 	.error {
 		color: var(--danger);
 		font-weight: 600;
-	}
-	.scheme {
-		gap: 2px;
-		padding: 2px;
-		border-radius: 6px;
-		background: var(--bg);
-		border: 1px solid var(--border);
-	}
-	.scheme button {
-		height: 22px;
-		padding: 0 8px;
-		border: none;
-		border-radius: 4px;
-		background: transparent;
-		color: var(--muted);
-		font: 600 11px var(--body-font);
-		cursor: pointer;
-	}
-	.scheme button[aria-pressed='true'] {
-		background: var(--panel);
-		color: var(--text);
-		box-shadow: 0 0 0 1px var(--border-strong);
-	}
-	.scheme button:focus-visible {
-		outline: 2px solid var(--accent-text);
-		outline-offset: 1px;
-	}
-	.keys {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 40px;
-	}
-	/* Inverted T, like a real keyboard. */
-	.cluster {
-		display: grid;
-		grid-template-columns: repeat(3, 26px);
-		grid-template-rows: repeat(2, 24px);
-		grid-template-areas: '. up .' 'left down right';
-		gap: 3px;
-	}
-	.cluster kbd {
-		width: 26px;
-		min-width: 0;
-		height: 24px;
-		padding: 0;
-	}
-	/* Two key -> button pairs per row; keys right-aligned against their button. */
-	.map {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		display: grid;
-		grid-template-columns: auto auto auto auto;
-		align-items: center;
-		gap: 8px 10px;
-	}
-	.map li {
-		display: contents;
-	}
-	.map kbd {
-		justify-self: end;
-	}
-	.map .mini {
-		justify-self: start;
-	}
-	.map li:nth-child(odd) .mini {
-		margin-right: 18px;
-	}
-	kbd {
-		min-width: 24px;
-		height: 22px;
-		padding: 0 6px;
-		box-sizing: border-box;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 5px;
-		background: var(--bg);
-		border: 1px solid var(--border);
-		border-bottom-width: 3px;
-		color: var(--text);
-		font: 600 11px/1 var(--body-font);
-	}
-	/* Tiny copies of the pad's buttons, so each key points at what it presses. */
-	.mini.round {
-		width: 20px;
-		height: 20px;
-		font-size: 8px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.mini.pill {
-		min-width: 0;
-		height: 18px;
-		padding: 0 8px;
-		border-radius: 9px;
-		font-size: 9px;
-		display: inline-flex;
-		align-items: center;
-	}
-	/* Keyboard parts only where there is a keyboard and mouse; phones keep just the error line. */
-	.keys-only {
-		display: none;
-	}
-	@media (hover: hover) and (pointer: fine) and (min-width: 761px) {
-		h2.keys-only {
-			display: block;
-		}
-		.keys.keys-only,
-		.scheme.keys-only {
-			display: flex;
-		}
 	}
 	@media (max-width: 400px) {
 		.shell {
@@ -489,23 +328,6 @@
 		}
 		.ab {
 			gap: 10px;
-		}
-	}
-	@media (max-width: 760px) {
-		/* Phones: no card, only a centred error line under the pad when a press fails. */
-		.controls {
-			padding: 0;
-			border: none;
-			background: none;
-			box-shadow: none;
-			align-items: center;
-		}
-		.controls.quiet {
-			display: none;
-		}
-		.last {
-			margin: 0;
-			font-size: 12px;
 		}
 	}
 	/* Short phones: a tighter pad so it fits under the screen without scrolling. */

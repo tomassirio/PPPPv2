@@ -1,10 +1,12 @@
-<!-- The avatar in the top bar opens this menu: who you are, light/dark (sun/moon), Pokédex banners (wide desktops), Admin (admins only; Play when
+<!-- The avatar in the top bar opens this menu: who you are, light/dark (sun/moon), keys to play with (keyboard devices), Pokédex banners (wide desktops), Admin (admins only; Play when
      already on /admin), Sign out. -->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { isAdmin, logout, type Me } from '#lib/session.svelte.ts';
 	import { setTheme, theme } from '#lib/theme.svelte.ts';
 	import { dexBanners, setDexBanners } from '#lib/dex.svelte.ts';
+	import { keys, setKeyScheme } from '#lib/keys.svelte.ts';
+	import { KEY_LABELS } from '#lib/play.ts';
 
 	let { me }: { me: Me } = $props();
 
@@ -95,6 +97,20 @@
 				</div>
 			</div>
 
+			<div class="keys-row">
+				<div class="row">
+					<span id="keys-label">Keys</span>
+					<div class="toggle text" role="group" aria-labelledby="keys-label">
+						<button type="button" aria-pressed={keys.scheme === 'arrows'} onclick={() => setKeyScheme('arrows')}>Arrows</button>
+						<button type="button" aria-pressed={keys.scheme === 'wasd'} onclick={() => setKeyScheme('wasd')}>WASD</button>
+					</div>
+				</div>
+				<p class="legend">
+					<kbd>{keys.scheme === 'wasd' ? 'WASD' : '↑←↓→'}</kbd> move · <kbd>{KEY_LABELS[keys.scheme].a}</kbd> A · <kbd>{KEY_LABELS[keys.scheme].b}</kbd> B ·
+					<kbd>Enter</kbd> Start · <kbd>Shift</kbd> Select
+				</p>
+			</div>
+
 			{#if !page.url.pathname.startsWith('/admin')}
 				<label class="row dex-row">
 					<span>Pokédex on the sides</span>
@@ -115,6 +131,36 @@
 </div>
 
 <style>
+	/* Keys only matter with a keyboard and mouse. */
+	.keys-row {
+		display: none;
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.keys-row {
+			display: block;
+		}
+	}
+	.toggle.text button {
+		width: auto;
+		padding: 0 10px;
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.legend {
+		margin: 0;
+		padding: 0 10px 6px;
+		font-size: 12px;
+		line-height: 22px;
+		color: var(--muted);
+	}
+	.legend kbd {
+		font: 600 11px var(--font-ui, inherit);
+		padding: 1px 5px;
+		border-radius: 4px;
+		border: 1px solid var(--border-strong);
+		background: var(--bg);
+		color: var(--text);
+	}
 	/* Only where /play shows the banners (its wide media query); elsewhere the option would do nothing. */
 	.row.dex-row {
 		display: none;

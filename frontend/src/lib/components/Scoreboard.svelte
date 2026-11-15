@@ -36,7 +36,7 @@
 								{#if you}<span class="you-tag">You</span>{/if}
 							</span>
 							<span class="status status-{st.kind}">{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted"> · {where}</span>{/if}</span>
-							{#if r.party?.length}<PartyIcons party={r.party} size={22} />{/if}
+							{#if r.party?.length}<PartyIcons party={r.party} size={22} hp={false} />{/if}
 						</span>
 						<span class="score">
 							<span class="pts">{r.trainerScore}<span class="sr-only"> Trainer Score, grade</span></span>
