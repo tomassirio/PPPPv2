@@ -206,7 +206,7 @@
 		const shown = [...g.children].filter((c) => getComputedStyle(c).display !== 'none') as HTMLElement[];
 		const others = shown.filter((c) => c !== screenSlot && c !== pad).reduce((h, c) => h + c.offsetHeight, 0);
 		const gaps = (shown.length - 1) * parseFloat(getComputedStyle(g).rowGap || '0');
-		const avail = g.clientHeight - others - gaps - shellH - padExtra; // height the screen slot may take
+		const avail = g.clientHeight - others - gaps - shellH - padExtra - 2; // height the screen slot may take (2px for rounding)
 		const cap = mainW ? mainW - 64 - 48 - 340 - 360 : Infinity;
 		const w = Math.max(0, Math.round(Math.min(((avail - 68) * 160) / 144 + 32, cap)));
 		fit = { w, slot: Math.round(((w - 32) * 144) / 160 + 68) };
@@ -618,6 +618,7 @@
 		.game {
 			container-type: inline-size;
 			justify-content: flex-start;
+			overflow: hidden; /* sized to fit by measure(): never a scrollbar, not even for a rounding pixel */
 			flex: 0 0 var(--game-w, 40%);
 			min-width: 380px;
 		}
