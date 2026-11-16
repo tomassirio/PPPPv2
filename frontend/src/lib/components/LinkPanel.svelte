@@ -239,13 +239,14 @@
 		min-width: 0;
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 10px;
 		padding: 0 12px;
 		border-radius: 12px;
 		border: 1px solid var(--border-strong);
 		background: var(--sunk);
 		color: var(--text);
-		text-align: left;
+		text-align: center;
 		cursor: pointer;
 	}
 	.toggle svg {
