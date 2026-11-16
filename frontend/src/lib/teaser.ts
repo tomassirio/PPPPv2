@@ -3,7 +3,7 @@ import { api } from './api.js';
 
 /**
  * Totals about the group, never who: players (everyone who picked a game), online, versions (players per ROM title,
- * "POKEMON_GLD"), caughtTogether (species at least one Pib caught), achievements unlocked, link trades and battles.
+ * "POKEMON_GLD"), caughtTogether (species at least one Pib caught), achievements unlocked, link trades and link battles played.
  */
 export type Teaser = {
 	online: number;

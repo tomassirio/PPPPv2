@@ -178,7 +178,7 @@
 
 <svelte:window {onkeydown} {onkeyup} onpointerdown={() => (skip(), activity())} onpointerup={release} onblur={release} />
 
-<SignInBackdrop />
+<SignInBackdrop legend={showing.id === 'pibs' ? null : showing.id} />
 
 <main>
 	<div class="device" class:booting class:glitch style:--shell={showing.shell}>

@@ -2,6 +2,18 @@
      grass, a pond, flowers, a couple of item balls), tinted by the local hour. A trainer walks the path, tall grass
      shakes with a "!" now and then, and flying-type shadows pass over. -->
 <script lang="ts">
+	import hoOh from '#lib/assets/legends/ho-oh.webp';
+	import lugia from '#lib/assets/legends/lugia.webp';
+	import suicune from '#lib/assets/legends/suicune.webp';
+
+	/**
+	 * The cartridge on the device's screen: its legendary passes over the map once per turn (silhouettes taken from
+	 * each game's title screen). Ho-Oh crosses the sky with a rainbow behind it, Lugia glides by on a gust, Suicune
+	 * dashes along the path trailing the north wind.
+	 */
+	let { legend = null }: { legend?: 'gold' | 'silver' | 'crystal' | null } = $props();
+	const LEGENDS = { gold: hoOh, silver: lugia, crystal: suicune };
+
 	const TILE = 48; // one 16px tile drawn at 3x
 
 	let w = $state(1280);
@@ -11,7 +23,7 @@
 	const time = hour < 6 || hour >= 21 ? 'night' : hour < 9 || hour >= 18 ? 'dusk' : 'day';
 	const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	type Kind = 'grass' | 'tall' | 'tree' | 'path' | 'flower' | 'water' | 'sign' | 'ball';
+	type Kind = 'grass' | 'tall' | 'tree' | 'path' | 'flower' | 'water' | 'sign' | 'ball' | 'pc';
 	type Cell = { x: number; y: number; kind: Kind; n: number };
 
 	// Same screen size, same map: a cheap hash instead of Math.random.
@@ -21,7 +33,10 @@
 	const rows = $derived(Math.ceil(h / TILE) + 1);
 	const pathX = $derived(Math.max(2, Math.floor(cols * 0.12)));
 	const pathY = $derived(Math.max(4, rows - 5));
-	const pond = $derived({ x: Math.floor(cols * 0.8), y: Math.floor(rows * 0.5) });
+	// The Pokémon Center (and its Cable Club upstairs) on the open right of the map, its door on the road; the pond
+	// above it.
+	const pc = $derived({ x: cols - 7, y: pathY - 3 });
+	const pond = $derived({ x: Math.floor(cols * 0.8), y: Math.max(3, pathY - 8) });
 
 	const cells = $derived.by(() => {
 		const out: Cell[] = [];
@@ -32,13 +47,14 @@
 				const n = hash(x, y);
 				let kind: Kind = 'grass';
 				if (x === pathX || y === pathY) kind = 'path';
+				else if (x >= pc.x && x < pc.x + 3 && y >= pc.y && y < pc.y + 3) kind = 'pc'; // drawn whole below
 				else if (y < 2 || y === R - 1 || x === 0 || x === C - 2) kind = 'tree';
 				else if (x === pathX + 1 && y === pathY - 1) kind = 'sign';
+				else if (x >= pond.x && x < pond.x + 3 && y >= pond.y && y < pond.y + 3) kind = 'water';
 				else if ((x === pathX + 5 && y === 3) || (x === C - 5 && y === pathY - 1)) kind = 'ball';
 				else if (x >= Math.floor(C * 0.7) && x < C - 3 && y >= 3 && y <= Math.floor(R * 0.35)) kind = 'tall';
 				else if (x >= Math.floor(C * 0.45) && x < Math.floor(C * 0.9) && y > pathY && y < R - 1) kind = 'tall';
 				else if (x > pathX && x < pathX + 4 && y >= 3 && y < pathY - 1) kind = 'tall';
-				else if (x >= pond.x && x < pond.x + 3 && y >= pond.y && y < pond.y + 3) kind = 'water';
 				else if (n < 50) kind = 'tree';
 				else if (n < 120) kind = 'flower';
 				out.push({ x, y, kind, n });
@@ -147,6 +163,29 @@
 				<path d="M7.5 7h1v1h-1z" fill="#f8f8f8" />
 				<path d="M5 4h2v1H5z" fill="#ff9a9a" />
 			</symbol>
+			<!-- A Pokémon Center, 3x3 tiles: red roof, the Poké Ball sign, two windows, the sliding door. -->
+			<symbol id="t-pc" viewBox="0 0 48 48">
+				<rect width="48" height="48" fill="var(--g)" />
+				<path d="M3 46h42v2H3z" fill="var(--m)" />
+				<path d="M4 3h40v1H4zM2 4h44v12H2z" fill="var(--k)" />
+				<path d="M3 4h42v10H3z" fill="#e04848" />
+				<path d="M3 12h42v2H3z" fill="#a02828" />
+				<path d="M3 5h42v1H3zM3 8h42v1H3z" fill="#f07070" />
+				<path d="M4 16h40v30H4z" fill="var(--k)" />
+				<path d="M5 16h38v29H5z" fill="#f4ecd8" />
+				<path d="M5 16h38v2H5z" fill="#d8ccb0" />
+				<path d="M20 18h8v8h-8z" fill="var(--k)" />
+				<path d="M21 19h6v3h-6z" fill="#e04848" />
+				<path d="M21 22h6v3h-6z" fill="#f8f8f8" />
+				<path d="M23 21h2v2h-2z" fill="var(--k)" />
+				<path d="M8 24h9v8H8zM31 24h9v8h-9z" fill="var(--k)" />
+				<path d="M9 25h7v6H9zM32 25h7v6h-7z" fill="#78b8e8" />
+				<path d="M9 25h3v2H9zM32 25h3v2h-3z" fill="#c8e8ff" />
+				<path d="M19 33h10v12H19z" fill="var(--k)" />
+				<path d="M20 34h4v11h-4zM24 34h4v11h-4z" fill="#58a0d8" />
+				<path d="M20 34h1v11h-1zM24 34h1v11h-1z" fill="#c8e8ff" />
+				<path d="M8 36h9v1H8zM31 36h9v1h-9z" fill="#d8ccb0" />
+			</symbol>
 			<!-- Two frames each, swapped by CSS. -->
 			<symbol id="t-flower-1" viewBox="0 0 16 16">
 				<path d="M7 5h2v2H7zM5 7h2v2H5zM9 7h2v2H9zM7 9h2v2H7z" fill="var(--petal)" />
@@ -199,6 +238,8 @@
 				<use href="#t-water" {x} {y} width="16" height="16" />
 				<use class="f1" href="#t-wave-1" {x} {y} width="16" height="16" />
 				<use class="f2" href="#t-wave-2" {x} {y} width="16" height="16" />
+			{:else if c.kind === 'pc'}
+				<!-- covered by the building -->
 			{:else if c.kind === 'tall' && c.n % 23 === 0}
 				<g class="rustle" style:--delay={c.n % 7}>
 					<use href="#t-tall" {x} {y} width="16" height="16" />
@@ -209,6 +250,7 @@
 				<use href="#t-{c.kind}" {x} {y} width="16" height="16" />
 			{/if}
 		{/each}
+		<use href="#t-pc" x={pc.x * 16} y={pc.y * 16} width="48" height="48" />
 		<!-- Shoreline round the pond. -->
 		<rect x={pond.x * 16 + 0.5} y={pond.y * 16 + 0.5} width="47" height="47" fill="none" stroke="var(--k)" />
 	</svg>
@@ -259,10 +301,108 @@
 	{#if !still}
 		<span class="shadow s-a"></span>
 		<span class="shadow s-b"></span>
+		{#if legend}
+			{#key legend}
+				<div class="legend {legend}" style:top={legend === 'crystal' ? `${pathY * TILE - 110}px` : null}>
+					<span class="wake"></span>
+					<img src={LEGENDS[legend]} alt="" />
+				</div>
+			{/key}
+		{/if}
 	{/if}
 </div>
 
 <style>
+	/* A legendary's pass. Every silhouette faces left, so they all cross right to left; the wake trails behind. */
+	.legend {
+		position: absolute;
+		left: 0;
+		top: 0;
+		display: flex;
+		align-items: center;
+		animation: var(--fly) both;
+	}
+	.legend img {
+		position: relative;
+		display: block;
+		image-rendering: pixelated;
+		opacity: 0.3;
+		filter: blur(0.6px);
+	}
+	.wake {
+		position: absolute;
+		left: 55%;
+		top: 50%;
+		height: 14px;
+		width: 70vw;
+		translate: 0 -50%;
+		opacity: 0.55;
+		filter: blur(3px);
+		border-radius: 8px;
+		-webkit-mask: linear-gradient(to right, #000, transparent);
+		mask: linear-gradient(to right, #000, transparent);
+	}
+	/* Gold: Ho-Oh climbs across the sky leaving a rainbow (the Rainbow Wing). */
+	.gold {
+		--fly: soar 5.2s cubic-bezier(0.35, 0, 0.6, 1);
+	}
+	.gold img {
+		width: 320px;
+	}
+	.gold .wake {
+		height: 26px;
+		rotate: 16deg;
+		transform-origin: left center;
+		background: linear-gradient(to bottom, #ff5a5a, #ffb347, #fff15a, #6fe07a, #5ab4ff, #a875ff);
+	}
+	@keyframes soar {
+		from {
+			translate: 100vw 70vh;
+		}
+		to {
+			translate: -60vw -10vh;
+		}
+	}
+	/* Silver: Lugia glides low and straight on a gust; white streaks of wind run ahead of it. */
+	.silver {
+		--fly: glide 5.6s linear;
+	}
+	.silver img {
+		width: 520px;
+	}
+	.silver .wake {
+		height: 40px;
+		background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.9) 0 2px, transparent 2px 12px);
+	}
+	@keyframes glide {
+		from {
+			translate: 100vw 18vh;
+		}
+		to {
+			translate: -80vw 26vh;
+		}
+	}
+	/* Crystal: Suicune runs the road, the north wind (a cyan aurora) streaming behind. */
+	.crystal {
+		--fly: dash 2.6s cubic-bezier(0.2, 0, 0.8, 1);
+	}
+	.crystal img {
+		width: 180px;
+		opacity: 0.4;
+	}
+	.crystal .wake {
+		height: 34px;
+		background: linear-gradient(to bottom, transparent, #6ff0ff, #b48cff, transparent);
+	}
+	@keyframes dash {
+		from {
+			translate: 100vw 0;
+		}
+		to {
+			translate: -60vw 0;
+		}
+	}
+
 	/* Palette: four greens, sand, water. Night and dusk tint the whole map; the dark theme dims it. */
 	.backdrop {
 		--l: #d8f0a8;

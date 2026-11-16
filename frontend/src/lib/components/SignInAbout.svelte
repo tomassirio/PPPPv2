@@ -1,5 +1,5 @@
 <!-- What PPPP V2 is, for first-time visitors, the group's numbers (public teaser: totals only, never who), and the
-     way in. Drawn as an in-game text box: three pillars, then a league card. -->
+     way in. Drawn as an in-game text box: three features, then the totals. -->
 <script lang="ts">
 	import type { Teaser } from '#lib/teaser.js';
 
@@ -17,29 +17,29 @@
 </script>
 
 <section class="about" aria-labelledby="about-title">
-	<h2 id="about-title">A Game Boy <br />for every Pib.</h2>
+	<h2 id="about-title">Gold, Silver <br />and Crystal.</h2>
 	<p class="pitch">
-		Pick Gold, Silver or Crystal and play your own save. Then plug into everyone else's.<span class="more" aria-hidden="true">▼</span>
+		Each player runs their own game on the server. Progress is scored on a shared board.<span class="more" aria-hidden="true">▼</span>
 	</p>
 
 	<ul class="pillars">
 		<li class="p-own">
-			<b>YOUR OWN SAVE</b>
-			<span>Your cartridge, your pace. Nobody steals your turn.</span>
+			<b>OWN SAVE</b>
+			<span>One Game Boy per player, saved on the server.</span>
 		</li>
 		<li class="p-link">
 			<b>LINK CABLE</b>
-			<span>Trade and battle any Pib, any time.</span>
+			<span>Trades and battles between players.</span>
 		</li>
 		<li class="p-ach">
-			<b>THE LEAGUE</b>
-			<span>Points, grades and achievements, Rattata to Red.</span>
+			<b>SCOREBOARD</b>
+			<span>Points, ranks and achievements.</span>
 		</li>
 	</ul>
 
 	<!-- Placeholders until the teaser loads (or if the server is down), so the card keeps its shape. -->
-	<div class="card" aria-label="The Pibs so far" role="group">
-		<p class="card-title">PIB LEAGUE</p>
+	<div class="card" aria-label="Totals so far" role="group">
+		<p class="card-title">SO FAR</p>
 		<div class="split" role="img" aria-label={split.map((v) => `${v.n} on ${v.name}`).join(', ')}>
 			{#each split as v (v.title)}
 				<i style:flex-grow={teaser ? v.n / total : 1} style:background={v.color}></i>
@@ -49,16 +49,16 @@
 			{#each split as v (v.title)}<span><i style:background={v.color}></i>{teaser ? v.n : '–'} {v.name}</span>{/each}
 		</p>
 		<dl>
-			<dt>TRAINERS</dt>
+			<dt>PLAYERS</dt>
 			<dd>{n(teaser?.players)}&ensp;<span class="soft"><span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online</span></dd>
-			<dt>PIBDEX</dt>
-			<dd>{n(teaser?.caughtTogether)}<span class="soft">&nbsp;/ 251 caught together</span></dd>
-			<dt>ACHIEVED</dt>
-			<dd>{n(teaser?.achievements)}<span class="soft">&nbsp;achievements unlocked</span></dd>
+			<dt>POKéDEX</dt>
+			<dd>{n(teaser?.caughtTogether)}<span class="soft">&nbsp;/ 251 caught, all players</span></dd>
+			<dt>UNLOCKED</dt>
+			<dd>{n(teaser?.achievements)}<span class="soft">&nbsp;achievements</span></dd>
 			<dt>LINK</dt>
-			<dd>{n(teaser?.trades)}<span class="soft">&nbsp;trades&ensp;·&ensp;</span>{n(teaser?.battles)}<span class="soft">&nbsp;battles won</span></dd>
+			<dd>{n(teaser?.trades)}<span class="soft">&nbsp;trades&ensp;·&ensp;</span>{n(teaser?.battles)}<span class="soft">&nbsp;battles</span></dd>
 		</dl>
-		<p class="phone-line">{n(teaser?.players)} trainers · <span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online · {n(teaser?.caughtTogether)}/251 caught</p>
+		<p class="phone-line">{n(teaser?.players)} players · <span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online · {n(teaser?.caughtTogether)}/251 caught</p>
 	</div>
 
 	<a class="cta" href="/oauth2/authorization/google" data-sveltekit-reload>
