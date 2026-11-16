@@ -45,7 +45,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                           int sBox, int sLinkBattleWins, int sBattleTowerChallengeState, int romNames,
                           int romBaseData, int picPointers, int unownPicPointers, int monPalettes, int badgeGfx,
                           int predefPals, int itemNames, int moveNames, int landmarks, int numLandmarks,
-                          int mapGroups, boolean crystal) {}
+                          int mapGroups, int dexPointers, int dexBanks, boolean crystal) {}
 
     /** Offset in the battery save of SRAM bank:address (address in the $a000-$bfff window, 8 KB per bank). */
     private static int sram(int bank, int address) {
@@ -85,6 +85,8 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             rom(0x24, 0x6382), // Landmarks
             95, // NUM_LANDMARKS (constants/landmark_constants.asm: SPECIAL_MAP .. FAST_SHIP)
             rom(0x25, 0x40ED), // MapGroupPointers
+            rom(0x11, 0x4360), // PokedexDataPointerTable
+            -1, // entries in banks $68 + (n - 1) / 64 (GetDexEntryPointer)
             false),
             CRYSTAL = new Layout(0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD95E, 0xDA72, 0xDB72, 0xDC7C, 0xDCD7,
                     0xDE99, 0xDED9, // same order as above
@@ -103,6 +105,8 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                     rom(0x72, 0x68C3), // Landmarks
                     96, // NUM_LANDMARKS: Crystal adds BATTLE_TOWER after LIGHTHOUSE, so later ids differ from Gold's
                     rom(0x25, 0x4000), // MapGroupPointers
+                    rom(0x11, 0x4378), // PokedexDataPointerTable
+                    rom(0x11, 0x4351), // GetDexEntryPointer.PokedexEntryBanks: a bank per 64 numbers
                     true);
 
     private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
@@ -571,6 +575,66 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         for (int i = 1; i <= DEX_SIZE; i++) shown.add(seen.get(i) ? names[i] : null);
         return new GameSummary.Collection(DEX_SIZE, seen.stream().boxed().toList(), caught.stream().boxed().toList(),
                 shown);
+    }
+
+    /**
+     * Pokédex entries (data/pokemon/dex_entries/*.asm, home GetDexEntryPointer): PokedexDataPointerTable holds an
+     * address per number; its bank is one per 64 numbers ($68 + (n - 1) / 64 in Gold/Silver, a 4-byte table in
+     * Crystal). An entry: the category ending in "@", height (feet * 100 + inches) and weight (tenths of a pound)
+     * as little-endian words, then two pages of text each ending in "@", lines split by <NEXT>.
+     */
+    @Override
+    public Dex dex(int n) {
+        if (n < 1 || n > DEX_SIZE) return null;
+        int pointer = u16le(rom, at.dexPointers + (n - 1) * 2), group = (n - 1) / 64;
+        int bank = at.dexBanks < 0 ? DEX_BANK_GOLD_SILVER + group : rom[at.dexBanks + group] & 0xFF;
+        int i = rom(bank, pointer);
+        if (i < 0 || i + 200 > rom.length) return null;
+        String category = dexText(i);
+        i = end(i) + 1;
+        int height = u16le(rom, i), weight = u16le(rom, i + 2);
+        int page1 = i + 4, page2 = end(page1) + 1;
+        String first = dexText(page1), second = dexText(page2);
+        String text = first.matches(".*\\p{L}-") ? first.substring(0, first.length() - 1) + second // "sto-" / "rms."
+                : (first + " " + second).trim();
+        List<String> typeNames = IntStream.of(types[n]).distinct().mapToObj(PokemonGen2::typeName)
+                .filter(java.util.Objects::nonNull).toList();
+        return new Dex(names[n], PokemonRed.titleCase(category), typeNames, height / 100, height % 100, weight, text);
+    }
+
+    private static final int DEX_BANK_GOLD_SILVER = 0x68, DEX_TEXT_MAX = 200;
+
+    private int end(int from) {
+        int i = from;
+        while (i < from + DEX_TEXT_MAX && rom[i] != 0x50) i++;
+        return i;
+    }
+
+    /** Dex text up to "@": <NEXT> ($4E) is a space (or joins a hyphenated word); Gen 2's 'r 's 't ($D3-$D5) and é ($EA) on top of PokemonRed#text. */
+    private String dexText(int from) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = from; i < end(from); i++) {
+            int c = rom[i] & 0xFF;
+            if (c == 0x4E) {
+                int end = sb.length();
+                while (end > 0 && sb.charAt(end - 1) == ' ') end--;
+                if (end > 1 && sb.charAt(end - 1) == '-' && Character.isLetter(sb.charAt(end - 2))) {
+                    sb.setLength(end - 1); // a word hyphenated across lines ("anger-" / "ed")
+                    continue;
+                }
+            }
+            sb.append(switch (c) {
+                case 0x4E -> " ";
+                case 0xD3 -> "'r";
+                case 0xD5 -> "'t";
+                case 0xEA -> "é";
+                default -> PokemonRed.text(rom, i, 1);
+            });
+        }
+        // The game shouts names and items (LUGIA, BERRIES, POKéMON); read as words in the card.
+        String text = sb.toString().replace("POKéMON", "Pokémon").replace("POKé", "Poké").replaceAll(" +", " ").trim();
+        return java.util.regex.Pattern.compile("\\b[A-Z][A-Z']+\\b").matcher(text)
+                .replaceAll(m -> m.group().charAt(0) + m.group().substring(1).toLowerCase(java.util.Locale.ROOT));
     }
 
     /** The front pic of Pokédex number id (Unown as A) in its normal colours, 56x56, from the ROM; null if unreadable. */

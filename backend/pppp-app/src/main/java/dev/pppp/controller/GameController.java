@@ -41,6 +41,14 @@ class GameController {
         return png(tracker.icon(CurrentUser.id(auth), id), "No icon " + id);
     }
 
+    /** Pokédex number n as the caller's own Pokédex shows it (unseen: the number only; seen: more; caught: all). */
+    @GetMapping("/game/dex/{n}")
+    dev.pppp.model.PokedexEntry dex(@PathVariable int n, Authentication auth) {
+        var entry = tracker.dex(CurrentUser.id(auth), n);
+        if (entry == null) throw new NotFoundException("No Pokédex entry " + n);
+        return entry;
+    }
+
     /** A badge of the caller's game by its index in the summary's badges, drawn from their ROM (404: no art there). */
     @GetMapping("/game/badges/{index}.png")
     ResponseEntity<byte[]> badge(@PathVariable int index, Authentication auth) {

@@ -436,6 +436,22 @@ public class ProgressTracker {
         return profile == null ? null : profile.badge(index);
     }
 
+    /**
+     * Pokédex number n as the player's own Pokédex shows it: the more of it they have seen and caught, the more of
+     * the ROM's entry comes back. Null when their game has no Pokédex entries.
+     */
+    public dev.pppp.model.PokedexEntry dex(String userId, int n) {
+        GameProfile<?> profile = profile(userId);
+        GameProfile.Dex d = profile == null ? null : profile.dex(n);
+        if (d == null) return null;
+        GameSummary.Collection c = summary(userId).collection();
+        boolean caught = c != null && c.owned().contains(n), seen = caught || c != null && c.seen().contains(n);
+        if (!seen) return new dev.pppp.model.PokedexEntry(n, "unseen", null, null, null, null, null, null, null);
+        if (!caught) return new dev.pppp.model.PokedexEntry(n, "seen", d.name(), d.category(), d.types(), null, null, null, null);
+        return new dev.pppp.model.PokedexEntry(n, "caught", d.name(), d.category(), d.types(), d.heightFeet(),
+                d.heightInches(), d.weightTenths() / 10.0, d.text());
+    }
+
     /** PNG sprite sheet of the player character in the player's game, or null. */
     public byte[] playerSprite(String userId) {
         GameProfile<?> profile = profile(userId);

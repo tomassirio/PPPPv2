@@ -15,6 +15,30 @@ class Gen2AchievementsTest {
     static final int TOTAL_POINTS = 1247;
 
     @Test
+    void pokedexEntriesComeFromTheRom() {
+        var g = new Gen2Ram(Gen2Ram.GOLD);
+        g.type(1, 0x16, 0x03); // grass, poison
+        int table = 0x11 * 0x4000 + 0x0360, entry = 0x68 * 0x4000; // PokedexDataPointerTable; #1 in bank $68 at $4000
+        g.rom[table] = 0x00;
+        g.rom[table + 1] = 0x40;
+        var b = new java.io.ByteArrayOutputStream();
+        b.writeBytes(PokemonRedTest.encode("SEED")); // category, "@"
+        b.writeBytes(new byte[] {(byte) 204, 0, (byte) 150, 0}); // 2'04", 15.0 lb
+        b.writeBytes(java.util.Arrays.copyOf(PokemonRedTest.encode("ANGER"), 5));
+        b.writeBytes(new byte[] {(byte) 0xE3, 0x4E}); // "-", <NEXT>
+        b.writeBytes(PokemonRedTest.encode("ED")); // page 1 ends
+        b.writeBytes(PokemonRedTest.encode("LUGIA"));
+        System.arraycopy(b.toByteArray(), 0, g.rom, entry, b.size());
+        var dex = g.profile().dex(1);
+        assertThat(dex.category()).isEqualTo("Seed");
+        assertThat(dex.types()).containsExactly("grass", "poison");
+        assertThat(List.of(dex.heightFeet(), dex.heightInches(), dex.weightTenths())).containsExactly(2, 4, 150);
+        assertThat(dex.text()).isEqualTo("Angered Lugia");
+        assertThat(g.profile().dex(0)).isNull();
+        assertThat(g.profile().dex(252)).isNull();
+    }
+
+    @Test
     void theReviewsAdditionsReadTheirBytes() {
         for (var at : List.of(Gen2Ram.GOLD, Gen2Ram.CRYSTAL)) {
             boolean crystal = at == Gen2Ram.CRYSTAL;

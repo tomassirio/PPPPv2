@@ -311,6 +311,21 @@ class ProgressTrackerTest {
     }
 
     @Test
+    void thePokedexShowsOnlyWhatThePlayerHasSeenOrCaught() throws Exception {
+        var tracker = goldTracker();
+        gold.mon(0, 155, 5, Gen2Ram.PLAYER_ID);
+        gold.caught(155);
+        gold.seen(155, 16);
+        twice(tracker);
+        assertThat(tracker.dex(ASH, 155)).extracting(e -> e.state(), e -> e.name() != null, e -> e.weightPounds() != null)
+                .containsExactly("caught", true, true);
+        assertThat(tracker.dex(ASH, 16)).extracting(e -> e.state(), e -> e.name() != null, e -> e.text(), e -> e.heightFeet())
+                .containsExactly("seen", true, null, null);
+        assertThat(tracker.dex(ASH, 150)).extracting(e -> e.state(), e -> e.name(), e -> e.category(), e -> e.types())
+                .containsExactly("unseen", null, null, null);
+    }
+
+    @Test
     void aTitleChangeGoesToTheFeed() throws Exception {
         var tracker = goldTracker();
         gold.badges(0xFF, 0xFF); // 120

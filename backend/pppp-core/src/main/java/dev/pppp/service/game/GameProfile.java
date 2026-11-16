@@ -47,6 +47,17 @@ public interface GameProfile<S> {
         return null;
     }
 
+    /**
+     * The ROM's Pokédex entry for a number, everything in it: name, category, types, height in feet and inches,
+     * weight in tenths of a pound, the entry text. Null when the game has none or the number is out of range.
+     */
+    default Dex dex(int number) {
+        return null;
+    }
+
+    record Dex(String name, String category, java.util.List<String> types, int heightFeet, int heightInches,
+               int weightTenths, String text) {}
+
     /** PNG sprite sheet of the player walking around, or null. Called from request threads. */
     default byte[] playerSprite() {
         return null;
