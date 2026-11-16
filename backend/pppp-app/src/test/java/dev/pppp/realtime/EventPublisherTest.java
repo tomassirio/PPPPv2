@@ -41,4 +41,15 @@ class EventPublisherTest {
 
         assertThat(events.viewers()).extracting(Viewer::id).containsExactly("abe@x.y");
     }
+
+    @Test
+    void oneEntryPerUserEvenWhenTheirSocketsCarryDifferentNames() {
+        var events = new EventPublisher(new ObjectMapper());
+        events.afterConnectionEstablished(socket("zoe@x.y", "a"));
+        var google = socket("zoe@x.y", "b"); // same id, a full name from Google
+        when(google.getPrincipal()).thenReturn(new org.springframework.security.authentication.TestingAuthenticationToken(
+                "zoe@x.y", null, "ROLE_PLAYER"));
+        events.afterConnectionEstablished(google);
+        assertThat(events.viewers()).extracting(Viewer::id).containsExactly("zoe@x.y");
+    }
 }

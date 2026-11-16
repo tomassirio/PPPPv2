@@ -64,11 +64,14 @@ public class EventPublisher extends TextWebSocketHandler {
         drop(session);
     }
 
-    /** Distinct viewers, sorted by name. */
+    /**
+     * One entry per user id, sorted by name. The same Pib can have sockets whose names differ (a Google login with
+     * their full name and a dev login with only the id): the first one wins, never two entries for one id.
+     */
     public List<Viewer> viewers() {
-        return streams.values().stream()
-                .map(Stream::viewer)
-                .distinct()
+        Map<String, Viewer> byId = new java.util.LinkedHashMap<>();
+        streams.values().forEach(s -> byId.putIfAbsent(s.viewer().id(), s.viewer()));
+        return byId.values().stream()
                 .sorted(Comparator.comparing(Viewer::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
