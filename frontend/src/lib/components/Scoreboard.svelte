@@ -11,17 +11,20 @@
 	import { place, playerStatus, score } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
+	import { fitItems } from '#lib/fit.ts';
 
-	let { limit = 6 }: { limit?: number } = $props();
+	// As many standings and Latest lines as fit the card (fitItems); these are only upper bounds.
+	let { limit = 20 }: { limit?: number } = $props();
 
 	$effect(() => watchBoard());
 	$effect(() => watchLink());
-	const LATEST = 3;
+	const LATEST = 30;
 	const shown = $derived(board.rows.slice(0, limit));
 </script>
 
 <div class="board">
 	{#if shown.length}
+		<div class="fit rows" use:fitItems>
 		<ol aria-label="Scoreboard">
 			{#each shown as r, i (r.userId)}
 				{@const you = r.userId === session.me?.id}
@@ -47,16 +50,35 @@
 				</li>
 			{/each}
 		</ol>
+		</div>
 		<a class="full" href="/scoreboard">Full scoreboard · all {board.rows.length} Pibs</a>
 	{:else}
 		<p class="muted">Nobody has picked a game yet.</p>
 	{/if}
 	<hr />
 	<h2>Latest</h2>
-	<Activity limit={LATEST} label="Latest" />
+	<div class="fit latest" use:fitItems><Activity limit={LATEST} label="Latest" /></div>
 </div>
 
 <style>
+	/* The card is split: standings up to their natural height, Latest takes the rest; each shows what fits. */
+	.board {
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.fit {
+		min-height: 0;
+		overflow: hidden;
+	}
+	.fit.rows {
+		flex: 0 1 auto;
+	}
+	.fit.latest {
+		flex: 1 1 0;
+		min-height: 60px;
+	}
 	.board {
 		display: flex;
 		flex-direction: column;

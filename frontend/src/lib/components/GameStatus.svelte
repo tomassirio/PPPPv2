@@ -156,6 +156,7 @@
 
 <style>
 	.card {
+		container-type: inline-size; /* the party grid widens to 3 columns in a wide card */
 		padding: 20px;
 		display: flex;
 		flex-direction: column;
@@ -219,7 +220,7 @@
 		outline: 3px solid var(--accent-text);
 		outline-offset: 2px;
 	}
-	/* Party: two columns of cards. */
+	/* Party: two columns of cards, three (two rows) when the card is wide. */
 	.cards {
 		margin: 0;
 		padding: 0;
@@ -227,6 +228,11 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 8px;
+	}
+	@container (min-width: 480px) {
+		.cards {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
 	}
 	.pslot {
 		display: flex;

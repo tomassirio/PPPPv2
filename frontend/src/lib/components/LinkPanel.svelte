@@ -71,6 +71,8 @@
 				<span><b>{mine?.trades ?? 0}</b> {mine?.trades === 1 ? 'trade' : 'trades'}</span>
 			</span>
 		</div>
+		<div class="controls" class:split={!others.length}>
+		<div class="ups">
 		<div class="toggles-head"><span class="label">I'm up for</span><span class="muted xs">others can offer me one</span></div>
 		<div class="toggles" role="group" aria-label="I'm up for">
 			{#each ['TRADE', 'BATTLE'] as const as kind (kind)}
@@ -82,6 +84,15 @@
 					<span class="tl"><b>{on ? '✓ ' : ''}{kind === 'TRADE' ? 'Trade' : 'Battle'}</b><span class="sr"> ready</span></span>
 				</button>
 			{/each}
+		</div>
+		</div>
+		{#if !others.length}
+			<!-- One line when nobody is waiting; beside the toggles when the card is wide. -->
+			<div class="nobody">
+				<span class="muted">Nobody is waiting.</span>
+				<button class="find small" onclick={() => (finding = true)}>Find someone online</button>
+			</div>
+		{/if}
 		</div>
 		{#if s?.ready}
 			<p class="muted">Stand in a Pokémon Center so you can walk straight up to the Cable Club.</p>
@@ -123,12 +134,6 @@
 				{/each}
 			</ul>
 			<button class="find" onclick={() => (finding = true)}>Find someone else online</button>
-		{:else}
-			<!-- One line when nobody is waiting: the card stays short so the column never scrolls. -->
-			<div class="nobody">
-				<span class="muted">Nobody is waiting.</span>
-				<button class="find small" onclick={() => (finding = true)}>Find someone online</button>
-			</div>
 		{/if}
 		<LinkFinder bind:open={finding} />
 	{/if}
@@ -141,6 +146,39 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
+	}
+	.card {
+		container-type: inline-size;
+	}
+	.controls {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+	.ups {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+	/* Wide card, nobody waiting: the toggles and "Nobody is waiting" share one row. */
+	@container (min-width: 480px) {
+		.controls.split {
+			flex-direction: row;
+			align-items: flex-end;
+			gap: 16px;
+		}
+		.controls.split .ups {
+			flex: 1 1 auto;
+			min-width: 0;
+		}
+		.controls.split .nobody {
+			flex: none;
+			flex-direction: column;
+			align-items: flex-end;
+			gap: 6px;
+			padding-top: 0;
+			border-top: none;
+		}
 	}
 	.card,
 	.card.linked {
