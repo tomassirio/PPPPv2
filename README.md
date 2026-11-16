@@ -16,12 +16,21 @@ The sequel to Pibs&PibettesPlayPokemon, where everyone shared one Game Boy.
 
 - **Your own Game Boy.** The server runs one emulator ([Coffee GB](https://github.com/trekawek/coffee-gb)) per player
   and streams its screen and sound only to that player. It pauses and saves when you leave and resumes when you come back.
-- **Pick a game, once.** Gold, Silver or Crystal, from the cartridges the admin uploaded.
-- **Scoreboard.** The server reads each game's memory and scores badges, Pokédex entries and level milestones. Everyone
-  sees the ranking and an activity feed live.
-- **Link cable.** Mark yourself ready to trade or battle, challenge someone who is ready, and both consoles are linked
-  on the server until one of you unplugs. Walk into the Cable Club as on real hardware.
-- **Chat, presence, themes, controller colours, phone layouts.** Kept from the first version.
+- **Pick a game, once.** Gold, Silver or Crystal, each shown as its cartridge. Picking one plays that game's title
+  screen behind the picker; confirming plays its legendary's cry (Ho-Oh, Lugia, Suicune), both recorded from the ROM.
+- **Scoreboard.** The server reads each game's memory (and its battery save for boxes, link record and the Battle
+  Tower). Two numbers per player: uncapped points (activity plus achievements) rank the board, and a Trainer Score out
+  of 1000 gives the title and grade (S+ to F). Sort by points, Pokédex, link record or link win %. Everyone sees the
+  ranking and an activity feed live.
+- **Achievements.** 85 in eight categories (story, Pokédex, legends, training, items, side quests, challenges, link),
+  worth 1247 points, in five rarity tiers from common to legendary. Locked legendaries stay hidden as ???. All are told
+  from the game itself; none need a Gen 1 game or an event.
+- **Link cable.** Offer a trade or a battle to any Pib at any time, or find someone online; the offer shows up wherever
+  they are. Accepting links both consoles on the server until one of you unplugs, and you walk into the Cable Club as
+  on real hardware. Wins, losses, trades and partners are recorded for both players.
+- **Profiles.** Each Pib's run, party, badges, achievements and link record.
+- **Chat, presence, themes, controller colours, phone layouts.** Kept from the first version, plus your own key
+  bindings (stored per player) and a Solrock/Lunatone light and dark switch.
 - **Who gets in.** Google sign-in for emails on the allowlist; anyone else becomes an access request for an admin.
 - **Admin.** Upload cartridges, manage people and access requests, see every player's game and points, and reset a
   player's run (their pick, save, points and activity).
