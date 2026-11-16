@@ -25,30 +25,38 @@
 
 	const hash = (x: number, y: number) => (((x * 73856093) ^ (y * 19349663)) >>> 0) % 997;
 	const at = (c: number, r: number) => TERRAIN[r]?.[c] ?? 'w';
-	const walkable = (c: number, r: number) => 'pgCP'.includes(at(c, r));
+	const walkable = (c: number, r: number) => 'pgsCP'.includes(at(c, r));
 
-	type Tile = { x: number; y: number; kind: string; deco: string | null; wave: boolean };
+	// size: 1 for a tile, 2 for a 2x2 building or cave drawn from its top-left cell (the rest of it draws nothing).
+	type Tile = { x: number; y: number; kind: string; deco: string | null; wave: boolean; size: number };
 	const tiles: Tile[] = [];
 	for (let r = 0; r < ROWS; r++)
 		for (let c = 0; c < COLS; c++) {
 			const t = at(c, r), n = hash(c, r);
-			let kind = 'grass', deco: string | null = null;
+			let kind = 'grass', deco: string | null = null, size = 1;
 			if (t === 'w') kind = 'water';
+			else if (t === 'h') kind = 'shallow';
+			else if (t === 's') kind = 'sand';
 			else if (t === 'p') kind = 'path';
-			else if (t === 'm') kind = n % 3 === 0 ? 'tree' : 'rock';
-			else if (t === 'C') kind = n % 2 === 0 ? 'pc' : 'house';
-			else if (t === 'P') kind = 'cave';
-			else if (n < 120) kind = 'tree';
-			else if (n < 260) kind = 'tall';
-			else if (n < 360) deco = n % 2 ? 'flower red' : 'flower';
-			tiles.push({ x: c, y: r, kind, deco, wave: t === 'w' && n % 3 === 0 });
+			else if (t === 'e') kind = 'ledge';
+			else if (t === 'm') kind = n % 5 === 0 ? 'tree' : n % 7 === 0 ? 'rock' : 'ground';
+			else if (t === 'C' || t === 'P') {
+				if (at(c - 1, r) === t || at(c, r - 1) === t) kind = 'none';
+				else {
+					kind = t === 'P' ? 'cave' : n % 3 === 0 ? 'house' : 'pc';
+					size = 2;
+				}
+			} else if (n < 70) kind = 'tree';
+			else if (n < 190) kind = 'tall';
+			else if (n < 290) deco = n % 2 ? 'flower red' : 'flower';
+			tiles.push({ x: c, y: r, kind, deco, wave: t === 'w' && n % 4 === 0, size });
 		}
 
 	// Each trainer paces up to two cells either way along their row, as far as it can walk; with no room, stands.
 	function patrol(col: number, row: number) {
 		const span = (dc: number) => {
 			let k = 0;
-			while (k < 2 && walkable(col + dc * (k + 1), row)) k++;
+			while (k < 3 && walkable(col + dc * (k + 1), row)) k++;
 			return k;
 		};
 		return { from: -span(-1), to: span(1) };
@@ -191,6 +199,29 @@
 				<path d="M4 6h8v1H4zM3 7h10v6H3z" fill="var(--r3)" />
 				<path d="M5 7h6v1H5zM4 8h8v5H4z" fill="#141018" />
 			</symbol>
+			<!-- The shallows along the coast, a sandy beach, and a mountain's south face. -->
+			<symbol id="t-shallow" viewBox="0 0 16 16">
+				<rect width="16" height="16" fill="var(--w)" />
+				<path d="M0 0h16v16H0z" fill="var(--w2)" opacity="0.35" />
+				<path d="M2 3h3v1H2zM9 9h4v1H9z" fill="#fff" opacity="0.6" />
+			</symbol>
+			<symbol id="t-sand" viewBox="0 0 16 16">
+				<rect width="16" height="16" fill="var(--sand)" />
+				<path d="M3 3h1v1H3zM10 6h1v1h-1zM6 11h1v1H6zM13 13h1v1h-1z" fill="var(--sand2)" />
+			</symbol>
+			<!-- Mountains mostly bare rock; a boulder now and then (t-rock). -->
+			<symbol id="t-ground" viewBox="0 0 16 16">
+				<rect width="16" height="16" fill="var(--r)" />
+				<path d="M3 4h2v1H3zM11 2h1v1h-1zM8 9h2v1H8zM2 12h1v1H2zM13 11h1v1h-1z" fill="var(--r2)" />
+				<path d="M4 4h1v1H4zM9 9h1v1H9z" fill="var(--r4)" />
+			</symbol>
+			<symbol id="t-ledge" viewBox="0 0 16 16">
+				<rect width="16" height="16" fill="var(--r)" />
+				<path d="M0 9h16v2H0z" fill="var(--r4)" />
+				<path d="M0 11h16v5H0z" fill="var(--r3)" />
+				<path d="M2 12h2v3H2zM7 12h1v3H7zM11 12h2v3h-2z" fill="var(--r2)" />
+				<path d="M4 3h1v1H4zM10 5h1v1h-1z" fill="var(--r2)" />
+			</symbol>
 			<!-- A house for towns that are not a Pokémon Center's tile. -->
 			<symbol id="t-house" viewBox="0 0 16 16">
 				<rect width="16" height="16" fill="var(--g)" />
@@ -206,8 +237,11 @@
 			{#each tiles as t (t.x + ',' + t.y)}
 				{@const x = t.x * 16}
 				{@const y = t.y * 16}
-				{#if t.kind === 'pc'}
-					<use href="#t-pc" {x} {y} width="16" height="16" />
+				{#if t.kind === 'none'}
+					<!-- under a 2x2 building or cave -->
+				{:else if t.size === 2}
+					<use href="#t-grass" {x} {y} width="32" height="32" />
+					<use href="#t-{t.kind}" {x} {y} width="32" height="32" />
 				{:else if t.kind === 'water'}
 					<use href="#t-water" {x} {y} width="16" height="16" />
 					{#if t.wave}
@@ -231,8 +265,8 @@
 				class="trainer"
 				class:walking={t.online && t.paces && !still}
 				class:offline={!t.online}
-				style:left="{t.col * cell}px"
-				style:top="{t.row * cell}px"
+				style:left="{(t.col - 0.5) * cell}px"
+				style:top="{(t.row - 1) * cell}px"
 				style:--from={t.from}
 				style:--to={t.to}
 				style:--steps={Math.max(1, t.steps)}
@@ -259,14 +293,16 @@
 		--d: #387848;
 		--k: #1c4030;
 		--bark: #7a5230;
-		--p: #ecdca4;
-		--p2: #c8b078;
+		--p: #e8cf98;
+		--p2: #c8a868;
+		--sand: #f4ecc4;
+		--sand2: #e0d098;
 		--w: #5898d8;
 		--w2: #b0d8f8;
-		--r: #c8a868;
-		--r2: #a88848;
-		--r3: #785828;
-		--r4: #e0c890;
+		--r: #8f7a62;
+		--r2: #6e5c48;
+		--r3: #4a3c2e;
+		--r4: #b09a7e;
 		--petal: #fff;
 		position: fixed;
 		inset: 0;
@@ -310,11 +346,13 @@
 	}
 
 	/* A trainer: the line (party behind the player) paces from --from to --to cells and back, three cells a second. */
+	/* Two cells tall (16px sprites at an eighth of the cells' 4px), the feet on the trainer's cell. */
 	.trainer {
+		--sprite: calc(var(--cell) * 2);
 		position: absolute;
-		width: var(--cell);
-		height: var(--cell);
-		--t: calc(var(--steps) * 0.33s);
+		width: var(--sprite);
+		height: var(--sprite);
+		--t: calc(var(--steps) * 0.2s);
 	}
 	.walking {
 		animation: pace calc(var(--t) * 2) linear infinite;
@@ -359,7 +397,7 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-		translate: calc(var(--i) * var(--cell) * 0.7) 0;
+		translate: calc(var(--i) * var(--sprite) * 0.7) 0;
 	}
 	.walking .mon {
 		animation: hop 0.34s steps(1) calc(var(--i) * -0.17s) infinite;
@@ -371,16 +409,16 @@
 	}
 	/* The player's sheet (16x96: down, up, left, then each one's walking frame): standing still faces down. */
 	.player {
-		background-size: var(--cell) calc(var(--cell) * 6);
+		background-size: var(--sprite) calc(var(--sprite) * 6);
 		background-position: 0 0;
 	}
 	.walking .player {
-		background-position: 0 calc(var(--cell) * -2);
+		background-position: 0 calc(var(--sprite) * -2);
 		animation: step 0.34s steps(1) infinite;
 	}
 	@keyframes step {
 		50% {
-			background-position: 0 calc(var(--cell) * -5);
+			background-position: 0 calc(var(--sprite) * -5);
 		}
 	}
 	.name {
