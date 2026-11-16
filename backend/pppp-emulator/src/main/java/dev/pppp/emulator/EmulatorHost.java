@@ -141,8 +141,8 @@ public class EmulatorHost {
     public static synchronized void link(EmulatorHost a, EmulatorHost b) {
         if (a == b) throw new IllegalArgumentException("A console cannot link to itself");
         if (a.peer != null || b.peer != null) throw new IllegalStateException("Console is already linked");
-        var endA = new Peer2PeerSerialEndpoint();
-        var endB = new Peer2PeerSerialEndpoint();
+        var endA = new SharedThreadCable();
+        var endB = new SharedThreadCable();
         endA.init(endB);
         // b first: once its thread has handed over, a's thread is the only one touching b's machine.
         b.call(() -> {
@@ -383,6 +383,31 @@ public class EmulatorHost {
         }
     }
 
+    /**
+     * Coffee GB's in-process cable, minus its one cost: plugged in, it claims no quiet time, so both machines
+     * drop out of PERFORMANCE mode and step every tick (about 5x slower each). Here both machines run on the
+     * driver's thread, one {@link #LINK_SLICE} at a time, and a peer's bit only lands (synchronously, through
+     * the port's external-clock receiver) while the peer runs. During a console's own runTicks nothing can
+     * reach its cable, and Coffee GB never fast-forwards past the end of a runTicks call, so "quiet for the
+     * whole request" is true. The port still stops at each of its own clock edges when it drives a transfer.
+     */
+    static final class SharedThreadCable extends Peer2PeerSerialEndpoint {
+        @Override
+        public int performanceQuietSpanLimit(int requested) {
+            return Math.max(requested, 0);
+        }
+
+        @Override
+        public int performanceExternalClockWaitSpanLimit(int requested) {
+            return Math.max(requested, 0);
+        }
+
+        @Override
+        public int performanceClockCapabilities() {
+            return PERFORMANCE_CLOCK_IDLE | PERFORMANCE_CLOCK_INTERNAL | PERFORMANCE_CLOCK_EXTERNAL_WAIT;
+        }
+    }
+
     // ---- emulator thread ----
 
     private void loop() {
@@ -430,8 +455,6 @@ public class EmulatorHost {
         }
         beginFrame();
         f.beginFrame();
-        // ponytail: bit-level Peer2PeerSerialEndpoint drops Coffee GB's fast paths (~10x slower per console);
-        // write a byte-level SerialEndpoint if linked pairs cannot hold real time on the target hardware.
         for (int t = 0; t < TICKS_PER_FRAME; t += LINK_SLICE) {
             gb.runTicks(LINK_SLICE);
             f.gb.runTicks(LINK_SLICE);
