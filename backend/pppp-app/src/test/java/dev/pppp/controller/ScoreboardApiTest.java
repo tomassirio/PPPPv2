@@ -157,7 +157,7 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.trainer.score").value(0))
                 .andExpect(jsonPath("$.trainer.title").value("Youngster"))
                 .andExpect(jsonPath("$.points").value(0))
-                .andExpect(jsonPath("$.achievements.length()").value(55))
+                .andExpect(jsonPath("$.achievements.length()").value(85))
                 .andExpect(jsonPath("$.achievements[0].id").value("new-bark-beginnings"))
                 .andExpect(jsonPath("$.achievements[0].unlockedAt").doesNotExist());
         mvc.perform(get("/api/v1/players/ash@x.y/achievements").with(ash)).andExpect(status().isNotFound());
@@ -218,7 +218,7 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.party[0].moves[1]").value("Earthquake"))
                 .andExpect(jsonPath("$.party[0].types[1]").value("ground"))
                 .andExpect(jsonPath("$.party[1].nickname").doesNotExist())
-                .andExpect(jsonPath("$.achievements.length()").value(55))
+                .andExpect(jsonPath("$.achievements.length()").value(85))
                 .andExpect(jsonPath("$.achievements[0].id").value("new-bark-beginnings"))
                 .andExpect(jsonPath("$.achievements[0].unlocked").value(true))
                 .andExpect(jsonPath("$.achievements[0].progress").doesNotExist())
@@ -260,7 +260,8 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].unlocked").value(org.hamcrest.Matchers.contains(false)))
                 .andExpect(jsonPath("$.achievements[?(@.id == 'champion-of-johto')].name").value(org.hamcrest.Matchers.contains("Champion of Johto")))
                 .andExpect(jsonPath("$.achievements[?(@.hidden == true)].id").value(org.hamcrest.Matchers.containsInAnyOrder(
-                        "the-silent-summit", "250-club", "living-history", "the-time-traveller", "full-house", "low-level")));
+                        "the-silent-summit", "full-house", "low-level", "perfect-specimen", "pokerus", "shining-legend",
+                        "lone-wolf", "grand-collector", "millionaire")));
         mvc.perform(get("/api/v1/players/gold@x.y/achievements").with(misty))
                 .andExpect(jsonPath("$.achievements[?(@.id == 'the-silent-summit')].name").value(org.hamcrest.Matchers.contains((Object) null)));
 

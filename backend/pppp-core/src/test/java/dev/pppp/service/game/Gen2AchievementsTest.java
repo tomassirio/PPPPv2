@@ -11,6 +11,39 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class Gen2AchievementsTest {
+    /** 85 achievements after the review: the design's, less six Gen 1-only ones, plus 36. */
+    static final int TOTAL_POINTS = 1247;
+
+    @Test
+    void theReviewsAdditionsReadTheirBytes() {
+        for (var at : List.of(Gen2Ram.GOLD, Gen2Ram.CRYSTAL)) {
+            boolean crystal = at == Gen2Ram.CRYSTAL;
+            var g = new Gen2Ram(at);
+            g.put(crystal ? 0xD84E : 0xD573, (byte) 0x0F, (byte) 0x42, (byte) 0x3F); // wMoney 999,999
+            g.put(crystal ? 0xD851 : 0xD576, (byte) 0x01, (byte) 0x86, (byte) 0xA0); // wMomsMoney 100,000
+            g.set(crystal ? 0xDEF3 : 0xDC3E, 0b1111); // wUnlockedUnowns: all four puzzles
+            for (int i = 0; i < 25; i++) g.set(at.tmsHms() + i, 1); // TM01-TM25
+            for (int flag : Gen2Save.SIBLING_GIFTS) g.event(flag, true);
+            g.event(Gen2Save.EVENT_FOUGHT_SUDOWOODO, true);
+            g.mon(0, 147, 50, 0x4321, 0xFF, 0xFF); // someone else's perfect Dratini
+            int dratini = at.party() + 8;
+            g.set(dratini + 2, 0xF5); // ExtremeSpeed
+            g.set(dratini + 0x1B, 255); // happiness
+            g.set(dratini + 0x1C, 0x13); // Pokérus strain 1, 3 days left
+            var save = g.profile().read(g.ram());
+            assertThat(save.money()).isEqualTo(999_999);
+            assertThat(Achievements.earned(null, save)).contains("millionaire", "moms-savings", "ruins-explorer",
+                    "puzzle-master", "tm-hoarder", "week-of-siblings", "odd-tree", "perfect-specimen", "best-friends",
+                    "pokerus", "dragons-blessing", "growing-up", "raised-by-a-friend")
+                    .doesNotContain("wake-up", "angler", "mystery-egg", "lone-wolf", "first-evolution");
+            g.set(dratini + 0x1C, 0);
+            g.set(at.tmsHms() + 24, 0);
+            g.set(crystal ? 0xDEF3 : 0xDC3E, 0b0100);
+            assertThat(Achievements.earned(null, g.profile().read(g.ram()))).contains("ruins-explorer")
+                    .doesNotContain("pokerus", "tm-hoarder", "puzzle-master");
+        }
+    }
+
     static BitSet dex(int... n) {
         BitSet b = new BitSet();
         for (int i : n) b.set(i);
@@ -63,9 +96,9 @@ class Gen2AchievementsTest {
                     expected.unownForms(), expected.phoneContacts(), expected.playHours(), 0, null, read.members(),
                     "KRIS", at == Gen2Ram.CRYSTAL, null, 0, Set.of(1, 5), read.slots()));
             assertThat(read.slots()).containsExactly(
-                    new Gen2Save.Slot(130, false, true, 70, Gen2Ram.PLAYER_ID, 0x2AAA, false),
-                    new Gen2Save.Slot(175, true, false, 12, Gen2Ram.PLAYER_ID, 0, false),
-                    new Gen2Save.Slot(155, false, false, 52, 0x4321, 0, false));
+                    new Gen2Save.Slot(130, false, true, 70, Gen2Ram.PLAYER_ID, 0x2AAA, false, 30, 0, 0, false),
+                    new Gen2Save.Slot(175, true, false, 12, Gen2Ram.PLAYER_ID, 0, false, 1, 0, 0, false),
+                    new Gen2Save.Slot(155, false, false, 52, 0x4321, 0, false, 21, 0, 0, false));
         }
     }
 
@@ -165,24 +198,26 @@ class Gen2AchievementsTest {
         assertThat(TrainerScoring.score(save)).isEqualTo(
                 new TrainerScore(200 + 250 + 150 + 142 + 100 + 55 + 30, "Pokémon Master", "S+", 200, 250, 150, 142, 100,
                         55, 30));
-        assertThat(Achievements.earned(null, save)).contains("250-club", "the-time-traveller", "full-house",
+        assertThat(Achievements.earned(null, save)).contains("grand-collector", "three-beasts", "full-house",
                 "wingspan", "full-kit", "stone-collector", "unown-scholar", "high-roller", "lucky-star", "back-to-kanto");
     }
 
     @Test
     void theCatalogueIsTheDesigns() {
         List<Achievement> all = Achievements.catalogue();
-        assertThat(all).hasSize(55);
+        assertThat(all).hasSize(85);
         assertThat(all).extracting(Achievement::id).doesNotHaveDuplicates()
-                .doesNotContain("johto-complete", "bug-champion", "no-shopping"); // not told by the RAM: removed
+                .doesNotContain("johto-complete", "bug-champion", "no-shopping") // not told by the RAM: removed
+                .doesNotContain("250-club", "living-history", "the-time-traveller", "kantos-strongest", "fossil-hunter",
+                        "old-friends"); // need a Gen 1 game or an event: removed in the review
         assertThat(all).extracting(Achievement::category).containsOnly("Story", "Pokédex", "Legends", "Training",
                 "Items", "Side", "Challenge", "Link");
         assertThat(all).allMatch(a -> a.note() != null && !a.note().isBlank() && a.unlockedAt() == null
                 && a.implemented() && !a.hidden() && a.rarity().equals(Achievement.rarity(a.points())));
-        assertThat(all).extracting(Achievement::points).containsOnly(1, 3, 5, 10, 25, 50);
-        assertThat(all.stream().mapToInt(Achievement::points).sum()).isEqualTo(886);
+        assertThat(all).extracting(Achievement::points).containsOnly(1, 2, 3, 5, 10, 25, 50);
+        assertThat(all.stream().mapToInt(Achievement::points).sum()).isEqualTo(TOTAL_POINTS);
         assertThat(all).filteredOn(a -> a.rarity().equals("legendary")).extracting(Achievement::id)
-                .containsExactlyInAnyOrder("the-silent-summit", "250-club", "living-history", "the-time-traveller",
-                        "full-house", "low-level");
+                .containsExactlyInAnyOrder("the-silent-summit", "full-house", "low-level", "perfect-specimen", "pokerus",
+                        "shining-legend", "lone-wolf", "grand-collector", "millionaire");
     }
 }

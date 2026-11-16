@@ -108,11 +108,13 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
             MON_SIZE = 0x30, MON_ITEM = 0x01, MON_MOVES = 0x02, MON_ID = 0x06, MON_DVS = 0x15, MON_LEVEL = 0x1F,
             MON_STATUS = 0x20, MON_HP = 0x22, MON_MAXHP = 0x24, NUM_MOVES = 4, // party_struct (big-endian HP)
+            MON_HAPPINESS = 0x1B, MON_POKERUS = 0x1C,
+            MONEY = -7, MOMS_MONEY = -4, MAX_MONEY = 999_999, // wMoney, wMomsMoney from wCoins (3 bytes each)
             PARTY_NICKNAMES = 0x16A, MAP_GROUP = -0x22, // from wPartyCount, see Layout
             NUM_ITEMS = 0xFF, NUM_ATTACKS = 251, ITEM_NAME_LENGTH = 13, // item_constants, move_constants, text_constants
             MAP_HEADER_SIZE = 9, MAP_ENVIRONMENT = 2, MAP_LOCATION = 5, // the "map" macro
             TOWN = 1, ROUTE = 2, // constants/map_data_constants.asm: the outdoor environments
-            DIZZY_PUNCH = 0x92, // constants/move_constants.asm
+            DIZZY_PUNCH = 0x92, EXTREMESPEED = 0xF5, // constants/move_constants.asm
             BASE_DATA_SIZE = 0x20, BASE_TYPES = 0x07, // constants/pokemon_data_constants.asm
             NUM_TMS = 50, NUM_HMS = 7, // add_tm / add_hm in item_constants.asm
             SAVE_CHECK_VALUE_1 = 99, NUM_BOXES = 14, MONS_PER_BOX = 20, BOX_MON_SIZE = 0x20, BOX_SIZE = 0x450,
@@ -362,7 +364,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
 
     @Override
     public int ramLength() {
-        return at.unownDex + NUM_UNOWN - at.playerId;
+        return at.unownDex + NUM_UNOWN + 1 - at.playerId; // through wUnlockedUnowns, right after wUnownDex
     }
 
     @Override
@@ -392,9 +394,14 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                         types[id][1]));
             }
             members.add(member(ram, mon, at.partyCount + PARTY_NICKNAMES + i * NAME_LENGTH, egg, shiny));
-            boolean dizzyPunch = false;
-            for (int m = 0; m < NUM_MOVES; m++) dizzyPunch |= ram.u8(mon + MON_MOVES + m) == DIZZY_PUNCH;
-            slots.add(new Gen2Save.Slot(id, egg, shiny, hp, ram.u16(mon + MON_ID), ram.u16(mon + MON_DVS), dizzyPunch));
+            boolean dizzyPunch = false, extremeSpeed = false;
+            for (int m = 0; m < NUM_MOVES; m++) {
+                int move = ram.u8(mon + MON_MOVES + m);
+                dizzyPunch |= move == DIZZY_PUNCH;
+                extremeSpeed |= move == EXTREMESPEED;
+            }
+            slots.add(new Gen2Save.Slot(id, egg, shiny, hp, ram.u16(mon + MON_ID), ram.u16(mon + MON_DVS), dizzyPunch,
+                    level, ram.u8(mon + MON_HAPPINESS), ram.u8(mon + MON_POKERUS), extremeSpeed));
         }
         // The bag and PC lists end in -1 right after their last entry (engine/menus/intro_menu.asm .InitList).
         Set<Integer> items = new HashSet<>();
@@ -405,8 +412,13 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         }
         int coins = ram.u16(at.coins);
         if (coins > MAX_COINS) return null;
-        int hms = 0;
+        int money = u24(ram, at.coins + MONEY), momsMoney = u24(ram, at.coins + MOMS_MONEY);
+        if (money > MAX_MONEY || momsMoney > MAX_MONEY) return null;
+        int hms = 0, tms = 0;
         for (int i = 0; i < NUM_HMS; i++) if (ram.u8(bag + NUM_TMS + i) > 0) hms++;
+        for (int i = 0; i < NUM_TMS; i++) if (ram.u8(bag + i) > 0) tms++;
+        Set<Integer> flags = new HashSet<>();
+        for (int flag : Gen2Save.WATCHED_EVENTS) if (event(ram, flag)) flags.add(flag);
         BitSet unown = new BitSet(); // forms (1-26) in the order registered, then 0s (engine/pokedex/unown_dex.asm)
         for (int i = 0; i < NUM_UNOWN && ram.u8(at.unownDex + i) != 0; i++) {
             int form = ram.u8(at.unownDex + i);
@@ -426,7 +438,12 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 hms, coins, unown.cardinality(), phone, ram.u16(at.playHours), ram.u8(at.playHours + 2),
                 onMap ? places[group][number] : null, List.copyOf(members),
                 PokemonRed.text(ram.slice(name, NAME_LENGTH), 0, NAME_LENGTH), at.crystal,
-                onMap ? mapIds[group][number] : null, ram.u8(at.curBox), Set.copyOf(contacts), List.copyOf(slots));
+                onMap ? mapIds[group][number] : null, ram.u8(at.curBox), Set.copyOf(contacts), List.copyOf(slots),
+                money, momsMoney, tms, ram.u8(at.unownDex + NUM_UNOWN), Set.copyOf(flags));
+    }
+
+    private static int u24(Ram ram, int at) {
+        return ram.u8(at) << 16 | ram.u8(at + 1) << 8 | ram.u8(at + 2);
     }
 
     /** A party member for the profile: the struct at mon, its nickname at nick. */

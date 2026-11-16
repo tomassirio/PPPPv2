@@ -28,13 +28,30 @@ import java.util.Set;
  * @param curBox        wCurBox: the PC box (0-13) whose contents are sBox; its own sBoxN is stale
  * @param contacts      the contact ids in wPhoneList (pret constants/phone_constants.asm)
  * @param slots         the whole party, eggs included, in order, for the moments between two readings
+ * @param money         wMoney; momsMoney wMomsMoney (both 3 bytes, big-endian)
+ * @param tms           how many different TMs are held
+ * @param unownPuzzles  wUnlockedUnowns: bit 0-3 = the Kabuto, Omanyte, Aerodactyl and Ho-Oh puzzles solved
+ * @param flags         which of {@link #WATCHED_EVENTS} are set
  */
 public record Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallOfFame, boolean redBeaten,
                        boolean gotStarter, boolean radioTowerCleared, boolean gotMasterBall, BitSet caught,
                        BitSet seen, int partyCount, List<Mon> party, Set<Integer> items, int hms, int coins,
                        int unownForms, int phoneContacts, int playHours, int playMinutes, String location,
                        List<PartyMon> members, String trainerName, boolean crystal, String map, int curBox,
-                       Set<Integer> contacts, List<Slot> slots) {
+                       Set<Integer> contacts, List<Slot> slots, int money, int momsMoney, int tms,
+                       int unownPuzzles, Set<Integer> flags) {
+
+    /** Without the fields the later achievements added (older tests). */
+    public Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallOfFame, boolean redBeaten,
+                    boolean gotStarter, boolean radioTowerCleared, boolean gotMasterBall, BitSet caught, BitSet seen,
+                    int partyCount, List<Mon> party, Set<Integer> items, int hms, int coins, int unownForms,
+                    int phoneContacts, int playHours, int playMinutes, String location, List<PartyMon> members,
+                    String trainerName, boolean crystal, String map, int curBox, Set<Integer> contacts,
+                    List<Slot> slots) {
+        this(playerId, johtoBadges, kantoBadges, hallOfFame, redBeaten, gotStarter, radioTowerCleared, gotMasterBall,
+                caught, seen, partyCount, party, items, hms, coins, unownForms, phoneContacts, playHours, playMinutes,
+                location, members, trainerName, crystal, map, curBox, contacts, slots, 0, 0, 0, 0, Set.of());
+    }
 
     /** Without what only the newer achievements read (tests of the older ones). */
     public Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallOfFame, boolean redBeaten, boolean gotStarter,
@@ -56,8 +73,15 @@ public record Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallO
      * A party slot, eggs included: species from its struct (what an egg will hatch into), HP, original trainer id,
      * the two DV bytes as one number (atk/def << 8 | spd/spc), and whether it knows Dizzy Punch, which only the
      * Odd Egg's babies do in Gen 2 (pret data/events/odd_eggs.asm). ot and dvs tell one Pokémon from another.
+     * level, happiness and pokerus are the party_struct bytes; extremeSpeed: it knows ExtremeSpeed, which in Gen 2
+     * only Crystal's Dragon's Den Dratini does.
      */
-    public record Slot(int species, boolean egg, boolean shiny, int hp, int ot, int dvs, boolean dizzyPunch) {}
+    public record Slot(int species, boolean egg, boolean shiny, int hp, int ot, int dvs, boolean dizzyPunch, int level,
+                       int happiness, int pokerus, boolean extremeSpeed) {
+        public Slot(int species, boolean egg, boolean shiny, int hp, int ot, int dvs, boolean dizzyPunch) {
+            this(species, egg, shiny, hp, ot, dvs, dizzyPunch, 1, 0, 0, false);
+        }
+    }
 
     /**
      * What the cartridge RAM (the battery save) holds that WRAM does not, read by {@link PokemonGen2#sram}. boxed:
@@ -70,7 +94,24 @@ public record Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallO
     static final int MASTER_BALL = 0x01, BICYCLE = 0x07, MOON_STONE = 0x08, FIRE_STONE = 0x16, THUNDERSTONE = 0x17,
             WATER_STONE = 0x18, LEAF_STONE = 0x22, COIN_CASE = 0x36, SECRETPOTION = 0x43,
             CLEAR_BELL = 0x46, // Crystal only; unused in Gold/Silver, so never held there
-            SILVER_WING = 0x47, CARD_KEY = 0x7F, SUN_STONE = 0xA9, SQUIRTBOTTLE = 0xAF, RAINBOW_WING = 0xB2;
+            SILVER_WING = 0x47, CARD_KEY = 0x7F, SUN_STONE = 0xA9, SQUIRTBOTTLE = 0xAF, RAINBOW_WING = 0xB2,
+            OLD_ROD = 0x3A, GOOD_ROD = 0x3B, SUPER_ROD = 0x3D, HEAVY_BALL = 0x9D, LEVEL_BALL = 0x9F, LURE_BALL = 0xA0,
+            FAST_BALL = 0xA1, FRIEND_BALL = 0xA4, MOON_BALL = 0xA5, LOVE_BALL = 0xA6;
+    /** Kurt's seven Apricorn balls. */
+    static final int[] APRICORN_BALLS = {LEVEL_BALL, LURE_BALL, MOON_BALL, FRIEND_BALL, FAST_BALL, HEAVY_BALL, LOVE_BALL};
+
+    /**
+     * Event flags the achievements read (constants/event_flags.asm, the same numbers in pokegold and pokecrystal):
+     * the egg from Elm's aide, the Route 36 tree and Vermilion's Snorlax fought, Kanto's power back, Kiyo's
+     * Tyrogue, and the seven weekday siblings' gifts (Monica to Sunny).
+     */
+    static final int EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE = 45, EVENT_FOUGHT_SUDOWOODO = 42,
+            EVENT_FOUGHT_SNORLAX = 1872, EVENT_RESTORED_POWER_TO_KANTO = 205, EVENT_GOT_TYROGUE_FROM_KIYO = 97;
+    static final int[] SIBLING_GIFTS = {111, 107, 101, 103, 99, 109, 105}; // Monica, Wesley, Tuscany, Arthur, Frieda, Santos, Sunny
+    static final Set<Integer> WATCHED_EVENTS = java.util.stream.IntStream.concat(
+            java.util.stream.IntStream.of(EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE, EVENT_FOUGHT_SUDOWOODO,
+                    EVENT_FOUGHT_SNORLAX, EVENT_RESTORED_POWER_TO_KANTO, EVENT_GOT_TYROGUE_FROM_KIYO),
+            java.util.Arrays.stream(SIBLING_GIFTS)).boxed().collect(java.util.stream.Collectors.toUnmodifiableSet());
     static final int[] STONES = {FIRE_STONE, WATER_STONE, THUNDERSTONE, LEAF_STONE, MOON_STONE, SUN_STONE};
 
     /** Pokédex numbers (pret constants/pokemon_constants.asm; Gen 2 species ids are dex numbers). */

@@ -32,6 +32,15 @@ class Gen2MomentsTest {
         return new Slot(species, false, false, hp, ME, species * 7, false);
     }
 
+    @Test
+    void anEvolutionIsTheSameMonAsAnotherSpecies() {
+        var before = save("ROUTE_30", List.of(mon(155, 30)));
+        var evolved = save("ROUTE_30", List.of(new Slot(156, false, false, 40, ME, 155 * 7, false)));
+        assertThat(earned(before, evolved, TrainerLog.EMPTY, null)).contains("first-evolution");
+        assertThat(Achievements.evolved(before, save("ROUTE_30", List.of(mon(158, 30))))).isEmpty(); // swapped
+        assertThat(earned(null, evolved, TrainerLog.EMPTY, null)).doesNotContain("first-evolution");
+    }
+
     static TrainerLog log(TrainerLog log, Gen2Save before, Gen2Save now) {
         return Achievements.log(log, before, now, null, false, null);
     }
@@ -158,8 +167,7 @@ class Gen2MomentsTest {
         var full = new Gen2Save.Sram(boxed, 1, 0, 4);
         TrainerLog log = Achievements.log(TrainerLog.EMPTY, null, party, null, false, full);
         assertThat(log.linkWins()).isEqualTo(1);
-        assertThat(earned(null, party, log, full)).contains("living-history", "tower-climber", "link-champion");
-        assertThat(earned(null, save("ROUTE_30", List.of(mon(250, 100))), log, full)).doesNotContain("living-history");
+        assertThat(earned(null, party, log, full)).contains("tower-climber", "link-champion");
         assertThat(earned(null, party, log, new Gen2Save.Sram(boxed, 0, 0, 2))).doesNotContain("tower-climber");
     }
 

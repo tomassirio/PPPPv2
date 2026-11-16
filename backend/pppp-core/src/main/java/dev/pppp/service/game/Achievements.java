@@ -17,7 +17,7 @@ import java.util.stream.IntStream;
 
 /**
  * The achievement catalogue (the Achievements & Trainer Score design's, less what the RAM cannot tell, plus the
- * link cable's: 55 entries, 8 categories) and how each is told. Most read the save as it is now. "At the Hall of
+ * link cable's, less six Gen 1-only ones, plus the review's 36: 85 entries, 8 categories) and how each is told. Most read the save as it is now. "At the Hall of
  * Fame" and "at Red" ones look at the party on the first confirmed reading where the Hall of Fame count leaves 0,
  * or Red leaves Mt. Silver, after a reading where it had not; hatching and trading compare two readings too. So
  * they need the tracker to see that moment, and are missed (never guessed) when a restart falls in between. What
@@ -61,6 +61,14 @@ public final class Achievements {
         return s -> (s.johtoBadges() & 1 << johtoBit) != 0;
     }
 
+    private static Predicate<Gen2Save> flag(int event) {
+        return s -> s.flags().contains(event);
+    }
+
+    private static java.util.stream.Stream<Slot> hatchedSlots(Gen2Save s) {
+        return s.slots().stream().filter(x -> !x.egg());
+    }
+
     private static Predicate<Gen2Save> ownsAll(int... dex) {
         return s -> Arrays.stream(dex).allMatch(s::owns);
     }
@@ -76,8 +84,19 @@ public final class Achievements {
      */
     static final Set<Integer> PHONE_NUMBERS = Set.copyOf(IntStream.rangeClosed(1, 37)
             .filter(id -> id != 2 && (id < 8 || id > 10) && id != 25).boxed().toList());
-    static final int BUENA = 38, BATTLETOWER_WON_CHALLENGE = 3, BATTLETOWER_RECEIVED_REWARD = 4; // battle_tower_constants
-    static final int SOCIAL_BUTTERFLY = 5, BREEDER = 10;
+    static final int PHONE_ELM = 4, BUENA = 38, BATTLETOWER_WON_CHALLENGE = 3, BATTLETOWER_RECEIVED_REWARD = 4; // battle_tower_constants
+    static final int SOCIAL_BUTTERFLY = 5, BREEDER = 10, TRADER = 10, COLOSSEUM_REGULAR = 10, TEN_TIME_CHAMPION = 10,
+            MAX_MONEY = 999_999, MOMS_SAVINGS = 100_000, MAX_HAPPINESS = 255, PERFECT_DVS = 0xFFFF, TM_HOARDER = 25,
+            ALL_UNOWN_PUZZLES = 0b1111;
+    /** The roaming beasts and the two box legendaries. */
+    static final int[] LEGENDARIES = {243, 244, 245, 249, 250};
+    /**
+     * What Gold, Silver and Crystal can give between them: all 251 but the Kanto starters (#1-#9), the fossils
+     * (#138-#142), the three birds (#144-#146), Mewtwo, Mew and Celebi, which need a Gen 1 game or an event. 231.
+     */
+    static final int[] GSC_OBTAINABLE = IntStream.rangeClosed(1, 251).filter(d -> d > 9 && (d < 138 || d > 142)
+            && (d < 144 || d > 146) && d != 150 && d != 151 && d != 251).toArray();
+    static final int DRATINI = 147, DRAGONITE = 149;
 
     static {
         // Story. Badge bits: wJohtoBadges in the order of pret constants/engine_flags.asm (ZEPHYRBADGE .. RISINGBADGE).
@@ -85,10 +104,10 @@ public final class Achievements {
                 "event flag EVENT_GOT_A_POKEMON_FROM_ELM", Gen2Save::gotStarter);
         add("zephyr-badge", "Story", "Zephyr Badge", "Defeat Falkner", 3, "Zephyr Badge bit", badge(0));
         add("hive-badge", "Story", "Hive Badge", "Defeat Bugsy", 3, "Hive Badge bit", badge(1));
-        add("plain-badge", "Story", "Plain Badge", "Defeat Whitney", 5, "Plain Badge bit", badge(2));
-        add("fog-badge", "Story", "Fog Badge", "Defeat Morty", 5, "Fog Badge bit", badge(3));
-        add("storm-badge", "Story", "Storm Badge", "Defeat Chuck", 5, "Storm Badge bit", badge(5));
-        add("mineral-badge", "Story", "Mineral Badge", "Defeat Jasmine", 5, "Mineral Badge bit", badge(4));
+        add("plain-badge", "Story", "Plain Badge", "Defeat Whitney", 3, "Plain Badge bit", badge(2));
+        add("fog-badge", "Story", "Fog Badge", "Defeat Morty", 3, "Fog Badge bit", badge(3));
+        add("storm-badge", "Story", "Storm Badge", "Defeat Chuck", 3, "Storm Badge bit", badge(5));
+        add("mineral-badge", "Story", "Mineral Badge", "Defeat Jasmine", 3, "Mineral Badge bit", badge(4));
         add("glacier-badge", "Story", "Glacier Badge", "Defeat Pryce", 5, "Glacier Badge bit", badge(6));
         add("rising-badge", "Story", "Rising Badge", "Defeat Clair", 10, "Rising Badge bit", badge(7));
         add("rocket-bust", "Story", "Rocket Bust", "Clear the Goldenrod Radio Tower", 10,
@@ -106,12 +125,6 @@ public final class Achievements {
                 s -> s.caught().cardinality() >= 50);
         add("dex-holder", "Pokédex", "Dex Holder", "Catch 100 species", 10, "100 Pokédex caught flags",
                 s -> s.caught().cardinality() >= 100);
-        add("250-club", "Pokédex", "250 Club", "Catch every species except Celebi", 50,
-                "Pokédex caught flags #1-#250", s -> s.caught().get(1, 251).cardinality() == 250);
-        when("living-history", "Pokédex", "Living History", "Own all 251 at once (in boxes)", 50,
-                "all 251 species among the party and the PC boxes of the battery save (sBox, sBox1-14), eggs aside",
-                m -> m.sram() != null && livingDex(m.now(), m.sram()));
-
         // Legends: the Pokédex caught flag (also set by a trade or an evolution).
         add("tin-tower-guardian", "Legends", "Tin Tower Guardian", "Catch Ho-Oh", 25, "Pokédex caught flag #250",
                 ownsAll(250));
@@ -121,11 +134,6 @@ public final class Achievements {
                 ownsAll(243));
         add("fire-chaser", "Legends", "Fire Chaser", "Catch Entei", 10, "Pokédex caught flag #244", ownsAll(244));
         add("north-wind", "Legends", "North Wind", "Catch Suicune", 10, "Pokédex caught flag #245", ownsAll(245));
-        add("kantos-strongest", "Legends", "Kanto's Strongest", "Own Mewtwo (trade-only in GSC)", 25,
-                "Pokédex caught flag #150", ownsAll(MEWTWO));
-        add("the-time-traveller", "Legends", "The Time Traveller", "Own Celebi (GS Ball event)", 50,
-                "Pokédex caught flag #251", ownsAll(CELEBI));
-
         // Training.
         add("level-up", "Training", "Level Up", "Any Pokémon reaches Lv 50", 5, "a party member at Lv 50+",
                 s -> s.party().stream().anyMatch(m -> m.level() >= 50));
@@ -152,7 +160,7 @@ public final class Achievements {
         add("wingspan", "Items", "Wingspan", "Hold both the Rainbow Wing and Silver Wing", 10,
                 "RAINBOW_WING and SILVER_WING among the key items",
                 s -> s.items().contains(RAINBOW_WING) && s.items().contains(SILVER_WING));
-        add("full-kit", "Items", "Full Kit", "Own all 7 HMs", 10, "HM01-HM07 in wTMsHMs", s -> s.hms() == 7);
+        add("full-kit", "Items", "Full Kit", "Own all 7 HMs", 5, "HM01-HM07 in wTMsHMs", s -> s.hms() == 7);
         add("stone-collector", "Items", "Stone Collector",
                 "Hold all 6 evolution stones (Fire, Water, Thunder, Leaf, Moon, Sun)", 5, "all six in the bag or PC",
                 s -> Arrays.stream(STONES).allMatch(s.items()::contains));
@@ -161,7 +169,7 @@ public final class Achievements {
         add("unown-scholar", "Side", "Unown Scholar", "Register all 26 Unown forms", 25, "26 forms in wUnownDex",
                 s -> s.unownForms() == 26);
         add("red-gyarados", "Side", "Red Gyarados", "Catch the shiny Gyarados at Lake of Rage (missable if fainted)",
-                10, "an own-caught shiny Gyarados in the party (any shiny Gyarados of the player's counts)",
+                5, "an own-caught shiny Gyarados in the party (any shiny Gyarados of the player's counts)",
                 s -> s.party().stream().anyMatch(m -> m.shiny() && m.ownCatch() && m.species() == GYARADOS));
         add("lucky-star", "Side", "Lucky Star", "Catch any other shiny Pokémon", 25,
                 "an own-caught shiny other than Gyarados in the party (a hatched one counts)",
@@ -181,10 +189,6 @@ public final class Achievements {
                 m -> m.log().contacts().containsAll(phoneNumbers(m.now().crystal())));
         add("high-roller", "Side", "High Roller", "Hold 9,999 coins at the Game Corner", 5, "wCoins = 9,999",
                 s -> s.coins() >= 9999);
-        add("fossil-hunter", "Side", "Fossil Hunter", "Own Aerodactyl, Kabutops and Omastar", 10,
-                "Pokédex caught flags #142, #141, #139", ownsAll(142, 141, 139));
-        add("old-friends", "Side", "Old Friends", "Own all three Kanto starters' final forms", 10,
-                "Pokédex caught flags #3, #6, #9", ownsAll(3, 6, 9));
         add("johto-friends", "Side", "Johto Friends", "Own all three Johto starters' final forms", 10,
                 "Pokédex caught flags #154, #157, #160", ownsAll(154, 157, 160));
 
@@ -221,6 +225,104 @@ public final class Achievements {
         when("social-butterfly", "Link", "Social Butterfly", "Link up with 5 different Pibs", 10,
                 "5 different players at the other end of the link cable",
                 m -> m.log().partners().size() >= SOCIAL_BUTTERFLY);
+
+        // Added in the achievement review (2026-11). Story.
+        add("mystery-egg", "Story", "Mystery Egg", "Receive the egg from Elm's aide", 2,
+                "event flag EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE", flag(EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE));
+        add("odd-tree", "Story", "Odd Tree", "Deal with the strange tree on Route 36", 3,
+                "event flag EVENT_FOUGHT_SUDOWOODO", flag(EVENT_FOUGHT_SUDOWOODO));
+        add("wake-up", "Story", "Wake Up!", "Wake the Snorlax blocking Vermilion's Diglett's Cave", 5,
+                "event flag EVENT_FOUGHT_SNORLAX", flag(EVENT_FOUGHT_SNORLAX));
+        add("power-restored", "Story", "Power Restored", "Get the Kanto Power Plant running again", 5,
+                "event flag EVENT_RESTORED_POWER_TO_KANTO", flag(EVENT_RESTORED_POWER_TO_KANTO));
+        add("ten-time-champion", "Story", "Ten-Time Champion", "Enter the Hall of Fame 10 times", 25,
+                "wHallOfFameCount at 10 or more", s -> s.hallOfFame() >= TEN_TIME_CHAMPION);
+
+        // Pokédex.
+        add("rookie", "Pokédex", "Rookie", "Catch 25 species", 3, "25 Pokédex caught flags",
+                s -> s.caught().cardinality() >= 25);
+        add("eevee-family", "Pokédex", "Eevee Family", "Own all five Eeveelutions", 10,
+                "Pokédex caught flags #134, #135, #136, #196, #197", ownsAll(134, 135, 136, 196, 197));
+        add("baby-boom", "Pokédex", "Baby Boom", "Own all 8 baby Pokémon", 10,
+                "Pokédex caught flags #172-#175, #236, #238-#240", ownsAll(172, 173, 174, 175, 236, 238, 239, 240));
+        add("tyrogue-trio", "Pokédex", "Tyrogue Trio", "Own Hitmonlee, Hitmonchan and Hitmontop", 10,
+                "Pokédex caught flags #106, #107, #237", ownsAll(106, 107, 237));
+        add("grand-collector", "Pokédex", "Grand Collector",
+                "Catch every species Gold, Silver and Crystal can give between them (231)", 50,
+                "Pokédex caught flags for all 251 but #1-#9, #138-#142, #144-#146, #150, #151 and #251",
+                ownsAll(GSC_OBTAINABLE));
+
+        // Legends.
+        add("three-beasts", "Legends", "Three Beasts", "Own Raikou, Entei and Suicune", 25,
+                "Pokédex caught flags #243, #244, #245", ownsAll(243, 244, 245));
+        add("shining-legend", "Legends", "Shining Legend", "Catch a shiny Raikou, Entei, Suicune, Lugia or Ho-Oh", 50,
+                "an own-caught shiny #243-#245, #249 or #250 in the party",
+                s -> s.party().stream().anyMatch(m -> m.shiny() && m.ownCatch()
+                        && Arrays.stream(LEGENDARIES).anyMatch(d -> d == m.species())));
+
+        // Training.
+        add("growing-up", "Training", "Growing Up", "Any Pokémon reaches Lv 30", 2, "a party member at Lv 30+",
+                s -> s.party().stream().anyMatch(m -> m.level() >= 30));
+        when("first-evolution", "Training", "First Evolution", "Evolve a Pokémon", 2,
+                "a party slot changes into its evolution, same OT and DVs", m -> !evolved(m.before(), m.now()).isEmpty());
+        add("best-friends", "Training", "Best Friends", "A party Pokémon at maximum friendship", 5,
+                "a party member's happiness = 255", s -> hatchedSlots(s).anyMatch(x -> x.happiness() >= MAX_HAPPINESS));
+        add("perfect-specimen", "Training", "Perfect Specimen", "Own a Pokémon with perfect DVs (15/15/15/15)", 50,
+                "a party member with Attack, Defense, Speed and Special DVs all 15 (HP DV follows)",
+                s -> hatchedSlots(s).anyMatch(x -> x.dvs() == PERFECT_DVS));
+
+        // Items.
+        add("on-two-wheels", "Items", "On Two Wheels", "Get the Bicycle", 1, "BICYCLE among the key items",
+                s -> s.items().contains(BICYCLE));
+        add("angler", "Items", "Angler", "Hold the Old, Good and Super Rods", 5,
+                "OLD_ROD, GOOD_ROD and SUPER_ROD among the key items",
+                s -> s.items().containsAll(Set.of(OLD_ROD, GOOD_ROD, SUPER_ROD)));
+        add("tm-hoarder", "Items", "TM Hoarder", "Hold 25 different TMs at once", 5, "25 TM bits set in wTMsHMs",
+                s -> s.tms() >= TM_HOARDER);
+        add("moms-savings", "Items", "Mom's Savings", "Mom holds ₽100,000 for you", 5,
+                "wMomsMoney at 100,000 or more", s -> s.momsMoney() >= MOMS_SAVINGS);
+        add("kurts-collection", "Items", "Kurt's Collection",
+                "Hold all 7 Apricorn balls (Level, Lure, Moon, Friend, Fast, Heavy, Love)", 25, "all seven in the bag or PC",
+                s -> Arrays.stream(APRICORN_BALLS).allMatch(s.items()::contains));
+        add("millionaire", "Items", "Millionaire", "Hold ₽999,999", 50, "wMoney = 999,999",
+                s -> s.money() >= MAX_MONEY);
+
+        // Side.
+        add("phone-pal", "Side", "Phone Pal", "Register a trainer's phone number", 1, "any trainer contact in wPhoneList",
+                s -> s.contacts().stream().anyMatch(id -> id > PHONE_ELM));
+        when("first-hatch", "Side", "First Hatch", "Hatch an egg", 2,
+                "a party egg seen hatching (same check as Breeder)", m -> m.log().hatched() > 0);
+        add("ruins-explorer", "Side", "Ruins Explorer", "Solve a puzzle at the Ruins of Alph", 3,
+                "any bit of wUnlockedUnowns", s -> (s.unownPuzzles() & ALL_UNOWN_PUZZLES) != 0);
+        add("puzzle-master", "Side", "Puzzle Master", "Solve all four Ruins of Alph puzzles", 5,
+                "all four wUnlockedUnowns bits", s -> (s.unownPuzzles() & ALL_UNOWN_PUZZLES) == ALL_UNOWN_PUZZLES);
+        add("friday-lapras", "Side", "Friday Lapras", "Catch Lapras", 5, "Pokédex caught flag #131", ownsAll(131));
+        add("karate-king", "Side", "Karate King", "Beat Kiyo in Mt. Mortar and receive Tyrogue", 5,
+                "event flag EVENT_GOT_TYROGUE_FROM_KIYO", flag(EVENT_GOT_TYROGUE_FROM_KIYO));
+        add("week-of-siblings", "Side", "Week of Siblings", "Get the gift from each of the 7 weekday siblings, Monica to Sunny",
+                25, "the seven EVENT_GOT_<item>_FROM_<sibling> flags",
+                s -> Arrays.stream(SIBLING_GIFTS).allMatch(s.flags()::contains));
+        add("dragons-blessing", "Side", "Dragon's Blessing", "Own the Dragon's Den Dratini that knows ExtremeSpeed (Crystal)",
+                25, "a Dratini, Dragonair or Dragonite in the party that knows ExtremeSpeed",
+                s -> hatchedSlots(s).anyMatch(x -> x.extremeSpeed() && x.species() >= DRATINI && x.species() <= DRAGONITE));
+        add("pokerus", "Side", "Pokérus", "Have a Pokémon with Pokérus", 50,
+                "a party member's Pokérus byte is non-zero (infected or cured)", s -> hatchedSlots(s).anyMatch(x -> x.pokerus() != 0));
+
+        // Challenge.
+        when("lean-team", "Challenge", "Lean Team", "Become Champion with no Pokémon above Lv 45", 10,
+                "at the Hall of Fame no party member is above Lv 45",
+                atHallOfFame(s -> !s.party().isEmpty() && s.party().stream().allMatch(m -> m.level() <= 45)));
+        when("lone-wolf", "Challenge", "Lone Wolf", "Defeat Red with only one Pokémon in the party", 50,
+                "at Red's defeat the party count is 1", atRed(s -> s.partyCount() == 1 && s.party().size() == 1));
+
+        // Link.
+        when("raised-by-a-friend", "Link", "Raised by a Friend", "Raise a Pokémon you got in a trade to Lv 50", 10,
+                "a party member with another trainer's OT at Lv 50+ (an in-game trade's counts too)",
+                m -> hatchedSlots(m.now()).anyMatch(x -> x.ot() != m.now().playerId() && x.level() >= 50));
+        when("trader", "Link", "Trader", "Receive 10 Pokémon in link trades", 10,
+                "10 trades seen (same check as First Trade)", m -> m.log().trades() >= TRADER);
+        when("colosseum-regular", "Link", "Colosseum Regular", "Win 10 link battles", 25,
+                "sLinkBattleWins of the battery save at 10 or more", m -> m.log().linkWins() >= COLOSSEUM_REGULAR);
     }
 
     private static boolean monoType(Gen2Save s) {
@@ -251,7 +353,8 @@ public final class Achievements {
     }
 
     /** Link achievements told from the TrainerLog alone (no save needed): unlocked for both Pibs as the cable goes in. */
-    static final List<String> FROM_LOG = List.of("plugged-in", "social-butterfly", "first-trade", "cross-version", "link-champion");
+    static final List<String> FROM_LOG = List.of("plugged-in", "social-butterfly", "first-trade", "cross-version",
+            "link-champion", "trader", "colosseum-regular");
 
     /** The {@link #FROM_LOG} achievements this log earns. */
     static List<String> earnedFromLog(TrainerLog log) {
@@ -271,15 +374,6 @@ public final class Achievements {
         return all;
     }
 
-    /** All 251 species among the party and the boxes. */
-    static boolean livingDex(Gen2Save s, Sram sram) {
-        BitSet all = (BitSet) sram.boxed().clone();
-        s.party().forEach(m -> all.set(m.species()));
-        return all.get(1, DEX_SIZE + 1).cardinality() == DEX_SIZE;
-    }
-
-    private static final int DEX_SIZE = 251;
-
     /** The party slots that were an egg in before and are that Pokémon (species, OT, DVs) hatched now. */
     static List<Slot> hatched(Gen2Save before, Gen2Save now) {
         if (before == null) return List.of();
@@ -287,6 +381,17 @@ public final class Achievements {
         for (int i = 0; i < Math.min(before.slots().size(), now.slots().size()); i++) {
             Slot b = before.slots().get(i), n = now.slots().get(i);
             if (b.egg() && !n.egg() && b.species() == n.species() && b.ot() == n.ot() && b.dvs() == n.dvs()) out.add(n);
+        }
+        return out;
+    }
+
+    /** The party slots that were a Pokémon in before and are its evolution (same OT and DVs, another species) now. */
+    static List<Slot> evolved(Gen2Save before, Gen2Save now) {
+        if (before == null) return List.of();
+        List<Slot> out = new ArrayList<>();
+        for (int i = 0; i < Math.min(before.slots().size(), now.slots().size()); i++) {
+            Slot b = before.slots().get(i), n = now.slots().get(i);
+            if (!b.egg() && !n.egg() && b.species() != n.species() && b.ot() == n.ot() && b.dvs() == n.dvs()) out.add(n);
         }
         return out;
     }

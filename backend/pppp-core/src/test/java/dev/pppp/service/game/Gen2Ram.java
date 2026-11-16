@@ -39,7 +39,7 @@ final class Gen2Ram {
 
     /** A new game in play: a named player, nothing else (empty lists end in -1). */
     void newGame() {
-        mem = new byte[at.unown + 26 - at.id];
+        mem = new byte[at.unown + 27 - at.id]; // through wUnlockedUnowns
         put(at.id, (byte) (PLAYER_ID >> 8), (byte) PLAYER_ID);
         byte[] name = PokemonRedTest.encode("KRIS");
         System.arraycopy(name, 0, mem, at.id + 2 - at.id, name.length);

@@ -291,8 +291,9 @@ class ProgressTrackerTest {
         twice(tracker);
         TrainerScore high = trainers.get(ASH);
         assertThat(high).isEqualTo(new TrainerScore(44, "Youngster", "F", 0, 2, 2, 26, 0, 14, 0));
-        // Ranked by score, then achievement points: Kanto's Strongest 25, High Roller 5, Level Up 5, Centurion 25.
-        assertThat(ranks.get(ASH)).isEqualTo(44 * 10_000L + 60);
+        // Ranked by score, then achievement points: High Roller 5, Level Up 5, Centurion 25, Growing Up 2 and
+        // Raised by a Friend 10 (the traded Mewtwo).
+        assertThat(ranks.get(ASH)).isEqualTo(44 * 10_000L + 47);
         assertThat(tracker.scoreboard().getFirst()).extracting(ScoreRow::trainerScore, ScoreRow::title, ScoreRow::grade)
                 .containsExactly(44, "Youngster", "F");
         assertThat(tracker.scoreboard().getFirst().party())
@@ -306,7 +307,7 @@ class ProgressTrackerTest {
         assertThat(tracker.scoreboard().getFirst().party())
                 .containsExactly(new ScoreRow.Member(150, 100, 100, null, false, false));
         verify(repo, org.mockito.Mockito.atLeastOnce()).saveCard(eq(ASH), any());
-        assertThat(achieved.get(ASH)).containsKeys("kantos-strongest", "high-roller", "level-up", "centurion");
+        assertThat(achieved.get(ASH)).containsKeys("raised-by-a-friend", "high-roller", "level-up", "centurion");
     }
 
     @Test
