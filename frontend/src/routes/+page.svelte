@@ -10,7 +10,7 @@
 	import play from '#lib/assets/banner-play.webp';
 	import face from '#lib/assets/konami-face.webp';
 	import SignInAbout from '#lib/components/SignInAbout.svelte';
-	import SignInBackdrop from '#lib/components/SignInBackdrop.svelte';
+	import SignInMap from '#lib/components/SignInMap.svelte';
 	import { bootChime, fanfare, loadTeaser, type Teaser } from '#lib/teaser.js';
 	import goldTitle from '#lib/assets/titles/gold.webp';
 	import silverTitle from '#lib/assets/titles/silver.webp';
@@ -178,7 +178,7 @@
 
 <svelte:window {onkeydown} {onkeyup} onpointerdown={() => (skip(), activity())} onpointerup={release} onblur={release} />
 
-<SignInBackdrop legend={showing.id === 'pibs' ? null : showing.id} />
+<SignInMap {teaser} />
 
 <main>
 	<div class="device" class:booting class:glitch style:--shell={showing.shell}>

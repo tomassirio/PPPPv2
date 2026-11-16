@@ -172,7 +172,7 @@ public class ProgressTracker {
      */
     private boolean card(String userId, Gen2Save save) {
         TrainerCard now = new TrainerCard(save.members(), save.location(), PokemonGen2.playTime(save),
-                save.johtoBadges(), save.kantoBadges(), save.trainerName());
+                save.johtoBadges(), save.kantoBadges(), save.trainerName(), save.pin());
         TrainerCard was = cards.computeIfAbsent(userId, repo::card);
         if (now.equals(was)) return false;
         repo.saveCard(userId, now);
@@ -340,6 +340,22 @@ public class ProgressTracker {
         sramSamples.remove(userId);
         sramReadAt.remove(userId);
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
+    }
+
+    /** A player's spot on the town map for the sign-in page: no name, just where, which game, and whether online. */
+    public record PlayerPin(String region, int x, int y, String game, boolean online) {}
+
+    /** Every player's last known spot on the town map, in map order (never ranking order: nothing about who). */
+    public List<PlayerPin> pins() {
+        Set<String> running = consoles.running();
+        List<PlayerPin> out = new ArrayList<>();
+        for (String userId : repo.ranking()) {
+            dev.pppp.model.MapPin p = cards.computeIfAbsent(userId, repo::card).pin();
+            if (p != null) out.add(new PlayerPin(p.region(), p.x(), p.y(), consoles.game(userId), running.contains(userId)));
+        }
+        out.sort(java.util.Comparator.comparing(PlayerPin::region).thenComparingInt(PlayerPin::x)
+                .thenComparingInt(PlayerPin::y));
+        return out;
     }
 
     /** How many species at least one player has caught: the group's Pokédex. */

@@ -1,5 +1,6 @@
 package dev.pppp.service.game;
 
+import dev.pppp.model.MapPin;
 import dev.pppp.model.PartyMon;
 import java.util.BitSet;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.Set;
  * @param tms           how many different TMs are held
  * @param unownPuzzles  wUnlockedUnowns: bit 0-3 = the Kabuto, Omanyte, Aerodactyl and Ho-Oh puzzles solved
  * @param flags         which of {@link #WATCHED_EVENTS} are set
+ * @param pin           where the player is on the Pokégear town map, null off the map (link rooms, the ship)
  */
 public record Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallOfFame, boolean redBeaten,
                        boolean gotStarter, boolean radioTowerCleared, boolean gotMasterBall, BitSet caught,
@@ -39,7 +41,20 @@ public record Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallO
                        int unownForms, int phoneContacts, int playHours, int playMinutes, String location,
                        List<PartyMon> members, String trainerName, boolean crystal, String map, int curBox,
                        Set<Integer> contacts, List<Slot> slots, int money, int momsMoney, int tms,
-                       int unownPuzzles, Set<Integer> flags) {
+                       int unownPuzzles, Set<Integer> flags, MapPin pin) {
+
+    /** Without the town-map pin (tests that do not need it). */
+    public Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallOfFame, boolean redBeaten,
+                    boolean gotStarter, boolean radioTowerCleared, boolean gotMasterBall, BitSet caught, BitSet seen,
+                    int partyCount, List<Mon> party, Set<Integer> items, int hms, int coins, int unownForms,
+                    int phoneContacts, int playHours, int playMinutes, String location, List<PartyMon> members,
+                    String trainerName, boolean crystal, String map, int curBox, Set<Integer> contacts,
+                    List<Slot> slots, int money, int momsMoney, int tms, int unownPuzzles, Set<Integer> flags) {
+        this(playerId, johtoBadges, kantoBadges, hallOfFame, redBeaten, gotStarter, radioTowerCleared, gotMasterBall,
+                caught, seen, partyCount, party, items, hms, coins, unownForms, phoneContacts, playHours, playMinutes,
+                location, members, trainerName, crystal, map, curBox, contacts, slots, money, momsMoney, tms,
+                unownPuzzles, flags, null);
+    }
 
     /** Without the fields the later achievements added (older tests). */
     public Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallOfFame, boolean redBeaten,

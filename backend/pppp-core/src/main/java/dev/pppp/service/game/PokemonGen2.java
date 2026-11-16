@@ -45,7 +45,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                           int sBox, int sLinkBattleWins, int sBattleTowerChallengeState, int romNames,
                           int romBaseData, int picPointers, int unownPicPointers, int monPalettes, int badgeGfx,
                           int predefPals, int itemNames, int moveNames, int landmarks, int numLandmarks,
-                          int mapGroups, int dexPointers, int dexBanks, boolean crystal) {}
+                          int mapGroups, int dexPointers, int dexBanks, int kantoLandmark, boolean crystal) {}
 
     /** Offset in the battery save of SRAM bank:address (address in the $a000-$bfff window, 8 KB per bank). */
     private static int sram(int bank, int address) {
@@ -87,6 +87,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             rom(0x25, 0x40ED), // MapGroupPointers
             rom(0x11, 0x4360), // PokedexDataPointerTable
             -1, // entries in banks $68 + (n - 1) / 64 (GetDexEntryPointer)
+            0x2E, // KANTO_LANDMARK (constants/landmark_constants.asm): Pallet Town
             false),
             CRYSTAL = new Layout(0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD95E, 0xDA72, 0xDB72, 0xDC7C, 0xDCD7,
                     0xDE99, 0xDED9, // same order as above
@@ -107,6 +108,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                     rom(0x25, 0x4000), // MapGroupPointers
                     rom(0x11, 0x4378), // PokedexDataPointerTable
                     rom(0x11, 0x4351), // GetDexEntryPointer.PokedexEntryBanks: a bank per 64 numbers
+                    0x2F, // KANTO_LANDMARK: one later than Gold's, after Crystal's Battle Tower
                     true);
 
     private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
@@ -174,6 +176,8 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     private final String[] itemNames, moveNames, landmarkNames; // by id; [0] (none, SPECIAL_MAP) is null
     /** By wMapGroup, wMapNumber (from 1): the pret map constant, and where the player is ({@link #place}). */
     private final String[][] mapIds, places;
+    /** By wMapGroup, wMapNumber: the map's spot on the Pokégear town map, or null (no landmark there). */
+    private final dev.pppp.model.MapPin[][] pins;
 
     /** By header title and game code (0x134, 0x13F), which also tells the English release from the others. */
     static PokemonGen2 forRom(byte[] rom) {
@@ -244,8 +248,10 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         }
         mapIds = mapConstants(at.crystal);
         places = new String[mapIds.length][];
+        pins = new dev.pppp.model.MapPin[mapIds.length][];
         for (int g = 1; g < mapIds.length; g++) {
             places[g] = new String[mapIds[g].length];
+            pins[g] = new dev.pppp.model.MapPin[mapIds[g].length];
             int headers = rom(at.mapGroups / 0x4000, u16le(rom, at.mapGroups + (g - 1) * 2));
             for (int n = 1; n < mapIds[g].length; n++) {
                 int header = headers + (n - 1) * MAP_HEADER_SIZE;
@@ -253,8 +259,21 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 int landmark = rom[header + MAP_LOCATION] & 0xFF, env = rom[header + MAP_ENVIRONMENT] & 0xFF;
                 if (landmark >= landmarkNames.length) continue; // not a landmark: unknown
                 places[g][n] = place(mapIds[g][n], env == TOWN || env == ROUTE, landmarkNames[landmark]);
+                pins[g][n] = pin(landmark);
             }
         }
+    }
+
+    /**
+     * A landmark's spot on the Pokégear town map: Landmarks holds x, y as the cursor sprite's position, so less the
+     * hardware's 8, 16 offset for screen pixels. Johto runs from New Bark Town to KANTO_LANDMARK, Kanto from there to
+     * the last but one; the last (the Fast Ship) and 0 (special maps) are on neither map.
+     */
+    private dev.pppp.model.MapPin pin(int landmark) {
+        if (landmark < 1 || landmark >= at.numLandmarks - 1) return null;
+        int x = (rom[at.landmarks + landmark * 4] & 0xFF) - 8, y = (rom[at.landmarks + landmark * 4 + 1] & 0xFF) - 16;
+        if (x < 0 || x >= 160 || y < 0 || y >= 144) return null;
+        return new dev.pppp.model.MapPin(landmark < at.kantoLandmark ? "johto" : "kanto", x, y);
     }
 
     /**
@@ -443,7 +462,8 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 onMap ? places[group][number] : null, List.copyOf(members),
                 PokemonRed.text(ram.slice(name, NAME_LENGTH), 0, NAME_LENGTH), at.crystal,
                 onMap ? mapIds[group][number] : null, ram.u8(at.curBox), Set.copyOf(contacts), List.copyOf(slots),
-                money, momsMoney, tms, ram.u8(at.unownDex + NUM_UNOWN), Set.copyOf(flags));
+                money, momsMoney, tms, ram.u8(at.unownDex + NUM_UNOWN), Set.copyOf(flags),
+                onMap ? pins[group][number] : null);
     }
 
     private static int u24(Ram ram, int at) {

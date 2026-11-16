@@ -33,10 +33,14 @@ class PublicController {
      * players: everyone who picked a game; versions: how many play each, by ROM header title ("POKEMON_GLD");
      * caughtTogether: species caught by at least one Pib; achievements: unlocked, all Pibs together; trades: link
      * trades (each one is a Pokémon received on both ends, so half the received); battles: link battles played (each
-     * is a win on one end and a loss on the other, so half of all wins and losses).
+     * is a win on one end and a loss on the other, so half of all wins and losses); pins: where players are on the
+     * Pokégear town map, anonymous (region, x, y, version, online), in map order.
      */
     record Teaser(int online, int players, Map<String, Integer> versions, int caughtTogether, int achievements,
-                  int trades, int battles) {}
+                  int trades, int battles, java.util.List<Pin> pins) {}
+
+    /** version: the ROM header title, as in versions. */
+    record Pin(String region, int x, int y, String version, boolean online) {}
 
     @GetMapping("/teaser")
     Teaser teaser() {
@@ -48,6 +52,8 @@ class PublicController {
         return new Teaser(events.viewers().size(), rows.size(), versions, tracker.caughtTogether(),
                 rows.stream().mapToInt(ScoreRow::achievementsUnlocked).sum(),
                 rows.stream().mapToInt(r -> r.link().trades()).sum() / 2,
-                rows.stream().mapToInt(r -> r.link().wins() + r.link().losses()).sum() / 2);
+                rows.stream().mapToInt(r -> r.link().wins() + r.link().losses()).sum() / 2,
+                tracker.pins().stream().map(p -> new Pin(p.region(), p.x(), p.y(),
+                        titles.getOrDefault(p.game(), "OTHER"), p.online())).toList());
     }
 }

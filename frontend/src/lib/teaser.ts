@@ -13,6 +13,8 @@ export type Teaser = {
 	achievements?: number;
 	trades?: number;
 	battles?: number;
+	/** Where players are on the Pokégear town map: x, y in that region's 160x144 screen; version as in versions. */
+	pins?: { region: 'johto' | 'kanto'; x: number; y: number; version: string; online: boolean }[];
 };
 
 export const loadTeaser = () => api<Teaser>('GET', '/public/teaser');

@@ -79,6 +79,7 @@ class GameApiTest {
                 .andExpect(jsonPath("$.achievements").isNumber())
                 .andExpect(jsonPath("$.trades").isNumber())
                 .andExpect(jsonPath("$.battles").isNumber())
+                .andExpect(jsonPath("$.pins").isArray())
                 .andExpect(jsonPath("$.party").doesNotExist())
                 .andExpect(jsonPath("$..userId").isEmpty()); // totals only, never who
         mvc.perform(get("/api/v1/public/screen.png")).andExpect(status().isNotFound());

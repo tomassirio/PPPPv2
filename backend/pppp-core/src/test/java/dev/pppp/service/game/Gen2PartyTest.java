@@ -82,7 +82,11 @@ class Gen2PartyTest {
         for (Gen2Ram.At at : new Gen2Ram.At[] {Gen2Ram.GOLD, Gen2Ram.CRYSTAL}) {
             var g = new Gen2Ram(at);
             g.location(4, 9, 1, ECRUTEAK, ecruteak); // ECRUTEAK_CITY, TOWN
-            assertThat(g.profile().read(g.ram()).location()).isEqualTo("Ecruteak City");
+            g.rom[at.landmarks() + ECRUTEAK * 4] = (byte) 76; // the cursor sprite's x, y in Landmarks
+            g.rom[at.landmarks() + ECRUTEAK * 4 + 1] = (byte) 60;
+            var save = g.profile().read(g.ram());
+            assertThat(save.location()).isEqualTo("Ecruteak City");
+            assertThat(save.pin()).isEqualTo(new dev.pppp.model.MapPin("johto", 68, 44)); // less the sprite offset
         }
         // Crystal added maps to the dungeons group: Mt. Mortar's first map is 3.49 in Gold, 3.57 in Crystal.
         var gold = new Gen2Ram(Gen2Ram.GOLD);
