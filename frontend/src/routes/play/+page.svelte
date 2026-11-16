@@ -621,6 +621,7 @@
 			overflow: hidden; /* sized to fit by measure(): never a scrollbar, not even for a rounding pixel */
 			flex: 0 0 var(--game-w, 40%);
 			min-width: 380px;
+			max-width: none; /* the base 560px cap would squeeze the measured screen and open a gap */
 		}
 		.mid {
 			flex: 1 1 0;
