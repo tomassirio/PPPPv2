@@ -1,7 +1,7 @@
 <!-- First run: the player picks their cartridge, once. PUT /me/game refuses a second, different pick. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
-	import { color, cover, titleScreen, type Cartridge } from '#lib/cartridges.ts';
+	import { byPickerOrder, color, cover, cry, titleScreen, type Cartridge } from '#lib/cartridges.ts';
 	import { reveal } from '#lib/theme.svelte.ts';
 	import { flushSync } from 'svelte';
 
@@ -12,6 +12,7 @@
 	let error = $state('');
 
 	const chosen = $derived(available.find((c) => c.id === choice));
+	const ordered = $derived(byPickerOrder(available));
 
 	/** Picking (not confirming) spreads the version's colour from the cartridge, like the theme switch. */
 	function pick(id: string, el: Element) {
@@ -22,6 +23,13 @@
 	async function start() {
 		if (!choice || saving) return;
 		saving = true;
+		const sound = chosen && cry(chosen);
+		if (sound) {
+			// The click is the gesture that lets it play; it keeps playing after the picker unmounts.
+			const a = new Audio(sound);
+			a.volume = 0.6;
+			a.play().catch(() => {});
+		}
 		error = '';
 		try {
 			const res = await api<{ game: string }>('PUT', '/me/game', { cartridgeId: choice });
@@ -45,7 +53,7 @@
 	{#if available.length}
 		<p class="lead">Pokémon Gold, Silver and Crystal trade and battle with each other. Each has Pokémon the others don't, so pick yours and trade for the rest.</p>
 		<div class="carts" class:has-choice={choice !== null} role="radiogroup" aria-labelledby="pick-title">
-			{#each available as c (c.id)}
+			{#each ordered as c (c.id)}
 				{@const art = cover(c)}
 				<button
 					type="button"
@@ -134,13 +142,14 @@
 		position: absolute;
 		image-rendering: pixelated;
 	}
+	/* The sides: the same loop stretched to the full width, so each band (sky, clouds, sea, logo) carries on
+	   sideways at its own height, then blurred. */
 	.backdrop .fill {
-		inset: -40px;
-		width: calc(100% + 80px);
-		height: calc(100% + 80px);
-		object-fit: cover;
-		filter: blur(28px) saturate(1.2);
-		opacity: 0.6;
+		inset: -60px;
+		width: calc(100% + 120px);
+		height: calc(100% + 120px);
+		object-fit: fill;
+		filter: blur(40px) saturate(1.1);
 	}
 	.backdrop .screen {
 		left: 50%;
@@ -149,6 +158,8 @@
 		width: auto;
 		aspect-ratio: 160 / 144;
 		transform: translate(-50%, -50%);
+		/* Feathered sides: the sharp screen dissolves into the stretched blur instead of ending in an edge. */
+		mask-image: linear-gradient(to right, transparent, black 14%, black 86%, transparent);
 	}
 	.backdrop::after {
 		content: '';
