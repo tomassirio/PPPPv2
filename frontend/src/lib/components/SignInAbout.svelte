@@ -2,6 +2,7 @@
      way in. Drawn as an in-game text box: three features, then the totals. -->
 <script lang="ts">
 	import type { Teaser } from '#lib/teaser.js';
+	import logo from '#lib/assets/ppppv2-logo.png';
 
 	let { teaser }: { teaser: Teaser | null } = $props();
 
@@ -17,7 +18,7 @@
 </script>
 
 <section class="about" aria-labelledby="about-title">
-	<h2 id="about-title">Gold, Silver <br />and Crystal.</h2>
+	<h2 id="about-title"><img class="logo" src={logo} alt="Pibs&amp;Pibettes Play Pokémon V2" /></h2>
 	<p class="pitch">
 		Each player runs their own game on the server. Progress is scored on a shared board.<span class="more" aria-hidden="true">▼</span>
 	</p>
@@ -102,7 +103,15 @@
 	}
 	h2 {
 		margin: 0 0 14px;
+		line-height: 0;
 		font: 18px/1.6 var(--pixel-font);
+	}
+	.logo {
+		display: block;
+		width: 100%;
+		max-width: 260px;
+		height: auto;
+		margin: 0 auto;
 	}
 	.pitch {
 		margin: 0;
@@ -299,11 +308,11 @@
 				0 10px 24px rgb(0 0 0 / 0.3);
 		}
 		h2 {
-			font-size: 9px;
 			margin: 0;
-			white-space: nowrap;
 		}
-		h2 br,
+		.logo {
+			max-width: 150px;
+		}
 		.pitch,
 		.card-title,
 		.pillars,
