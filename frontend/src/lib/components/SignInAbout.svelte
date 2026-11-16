@@ -89,7 +89,10 @@
 		box-sizing: border-box;
 		padding: 26px 26px 22px;
 		border-radius: 12px;
-		background: var(--panel);
+		/* Frosted glass: the world behind shows through, blurred, under a tint that keeps the text readable. */
+		background: color-mix(in oklab, var(--panel) 80%, transparent);
+		backdrop-filter: blur(12px) saturate(1.2);
+		-webkit-backdrop-filter: blur(12px) saturate(1.2);
 		border: 4px solid var(--text);
 		box-shadow:
 			inset 0 0 0 4px var(--panel),

@@ -10,7 +10,7 @@
 	import play from '#lib/assets/banner-play.webp';
 	import face from '#lib/assets/konami-face.webp';
 	import SignInAbout from '#lib/components/SignInAbout.svelte';
-	import SignInMap from '#lib/components/SignInMap.svelte';
+	import SignInScene from '#lib/components/SignInScene.svelte';
 	import { bootChime, fanfare, loadTeaser, type Teaser } from '#lib/teaser.js';
 	import goldTitle from '#lib/assets/titles/gold.webp';
 	import silverTitle from '#lib/assets/titles/silver.webp';
@@ -178,7 +178,7 @@
 
 <svelte:window {onkeydown} {onkeyup} onpointerdown={() => (skip(), activity())} onpointerup={release} onblur={release} />
 
-<SignInMap {teaser} />
+<SignInScene {teaser} />
 
 <main>
 	<div class="device" class:booting class:glitch style:--shell={showing.shell}>
@@ -305,6 +305,15 @@
 		main {
 			flex-direction: row;
 			gap: 72px;
+		}
+	}
+	/* Wider still: the device and the card keep to the left, so the world behind has the right side to itself
+	   (SignInScene keeps the players there). */
+	@media (min-width: 1100px) {
+		main {
+			justify-content: flex-start;
+			gap: 40px;
+			padding-left: max(4vw, 24px);
 		}
 	}
 	p {

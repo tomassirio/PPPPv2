@@ -55,7 +55,7 @@ class PublicController {
      * reading; party: species in order.
      */
     record Trainer(String name, String cartridge, String version, boolean online, String region, int x, int y,
-                   java.util.List<Integer> party) {}
+                   java.util.List<Integer> party, dev.pppp.model.MapSpot spot) {}
 
     @GetMapping("/teaser")
     Teaser teaser() {
@@ -77,7 +77,7 @@ class PublicController {
                 .filter(t -> t.game() != null)
                 .map(t -> new Trainer(firstName(names.get(t.userId())), t.game(), titles.getOrDefault(t.game(), "OTHER"),
                         t.online(), t.pin() == null ? null : t.pin().region(), t.pin() == null ? 0 : t.pin().x(),
-                        t.pin() == null ? 0 : t.pin().y(), t.party()))
+                        t.pin() == null ? 0 : t.pin().y(), t.party(), t.spot()))
                 .sorted(java.util.Comparator.comparing((Trainer t) -> t.region() == null ? "~" : t.region())
                         .thenComparingInt(Trainer::x).thenComparingInt(Trainer::y))
                 .toList();
@@ -99,6 +99,23 @@ class PublicController {
     @GetMapping("/sprites/{cartridge}/{n}.png")
     ResponseEntity<byte[]> mon(@PathVariable String cartridge, @PathVariable int n) {
         return png(known(cartridge) && n >= 1 && n <= 251 ? tracker.iconOf(cartridge, n) : null);
+    }
+
+    /** Margin of border blocks round a map: enough to fill a 4K window at the camera's 3x from any spot on it. */
+    static final int MAP_MARGIN = 14;
+
+    /** A map of Crystal as the game draws it, by pret map constant; time: morn, day or nite. */
+    @GetMapping("/maps/{map}.png")
+    ResponseEntity<byte[]> map(@PathVariable String map,
+                               @org.springframework.web.bind.annotation.RequestParam(defaultValue = "day") String time) {
+        int t = switch (time) {
+            case "morn" -> 0;
+            case "day" -> 1;
+            case "nite" -> 2;
+            default -> -1;
+        };
+        boolean ok = t >= 0 && map.matches("[A-Z0-9_]{1,40}");
+        return png(ok ? tracker.mapArt(map, t, MAP_MARGIN) : null);
     }
 
     /** Only uploaded cartridges, so made-up ids never reach the profile cache. */

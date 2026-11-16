@@ -45,7 +45,8 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                           int sBox, int sLinkBattleWins, int sBattleTowerChallengeState, int romNames,
                           int romBaseData, int picPointers, int unownPicPointers, int monPalettes, int badgeGfx,
                           int predefPals, int itemNames, int moveNames, int landmarks, int numLandmarks,
-                          int mapGroups, int dexPointers, int dexBanks, int kantoLandmark, boolean crystal) {}
+                          int mapGroups, int dexPointers, int dexBanks, int kantoLandmark, int playerDirection,
+                          boolean crystal) {}
 
     /** Offset in the battery save of SRAM bank:address (address in the $a000-$bfff window, 8 KB per bank). */
     private static int sram(int bank, int address) {
@@ -88,6 +89,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             rom(0x11, 0x4360), // PokedexDataPointerTable
             -1, // entries in banks $68 + (n - 1) / 64 (GetDexEntryPointer)
             0x2E, // KANTO_LANDMARK (constants/landmark_constants.asm): Pallet Town
+            0xD205, // wPlayerDirection
             false),
             CRYSTAL = new Layout(0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD95E, 0xDA72, 0xDB72, 0xDC7C, 0xDCD7,
                     0xDE99, 0xDED9, // same order as above
@@ -109,6 +111,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                     rom(0x11, 0x4378), // PokedexDataPointerTable
                     rom(0x11, 0x4351), // GetDexEntryPointer.PokedexEntryBanks: a bank per 64 numbers
                     0x2F, // KANTO_LANDMARK: one later than Gold's, after Crystal's Battle Tower
+                    0xD4DE, // wPlayerDirection
                     true);
 
     private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
@@ -280,7 +283,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
      * pret's map constants per group (constants/map_constants.asm of pokegold or pokecrystal: Crystal adds maps
      * inside groups, so numbers differ), from the resource files; [group][number], both from 1.
      */
-    private static String[][] mapConstants(boolean crystal) {
+    static String[][] mapConstants(boolean crystal) {
         String file = crystal ? "pokecrystal-maps.txt" : "pokegold-maps.txt";
         try (var in = PokemonGen2.class.getResourceAsStream(file)) {
             List<String[]> groups = new ArrayList<>();
@@ -463,8 +466,13 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 PokemonRed.text(ram.slice(name, NAME_LENGTH), 0, NAME_LENGTH), at.crystal,
                 onMap ? mapIds[group][number] : null, ram.u8(at.curBox), Set.copyOf(contacts), List.copyOf(slots),
                 money, momsMoney, tms, ram.u8(at.unownDex + NUM_UNOWN), Set.copyOf(flags),
-                onMap ? pins[group][number] : null);
+                onMap ? pins[group][number] : null,
+                onMap ? new dev.pppp.model.MapSpot(mapIds[group][number], ram.u8(at.partyCount + MAP_GROUP + 3),
+                        ram.u8(at.partyCount + MAP_GROUP + 2), FACING[ram.u8(at.playerDirection) >> 2 & 3]) : null);
     }
+
+    /** wPlayerDirection holds the facing in bits 2-3 (constants/map_object_constants.asm: OW_DOWN .. OW_RIGHT). */
+    private static final String[] FACING = {"down", "up", "left", "right"};
 
     private static int u24(Ram ram, int at) {
         return ram.u8(at) << 16 | ram.u8(at + 1) << 8 | ram.u8(at + 2);

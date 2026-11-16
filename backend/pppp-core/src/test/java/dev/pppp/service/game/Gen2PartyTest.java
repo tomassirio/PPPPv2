@@ -87,6 +87,11 @@ class Gen2PartyTest {
             var save = g.profile().read(g.ram());
             assertThat(save.location()).isEqualTo("Ecruteak City");
             assertThat(save.pin()).isEqualTo(new dev.pppp.model.MapPin("johto", 68, 44)); // less the sprite offset
+            g.set(at.mapGroup() + 2, 5); // wYCoord
+            g.set(at.mapGroup() + 3, 7); // wXCoord
+            g.set(at == Gen2Ram.CRYSTAL ? 0xD4DE : 0xD205, 12); // wPlayerDirection: OW_RIGHT
+            assertThat(g.profile().read(g.ram()).spot())
+                    .isEqualTo(new dev.pppp.model.MapSpot(g.profile().read(g.ram()).map(), 7, 5, "right"));
         }
         // Crystal added maps to the dungeons group: Mt. Mortar's first map is 3.49 in Gold, 3.57 in Crystal.
         var gold = new Gen2Ram(Gen2Ram.GOLD);

@@ -172,7 +172,7 @@ public class ProgressTracker {
      */
     private boolean card(String userId, Gen2Save save) {
         TrainerCard now = new TrainerCard(save.members(), save.location(), PokemonGen2.playTime(save),
-                save.johtoBadges(), save.kantoBadges(), save.trainerName(), save.pin());
+                save.johtoBadges(), save.kantoBadges(), save.trainerName(), save.pin(), save.spot());
         TrainerCard was = cards.computeIfAbsent(userId, repo::card);
         if (now.equals(was)) return false;
         repo.saveCard(userId, now);
@@ -346,7 +346,8 @@ public class ProgressTracker {
      * A player on the town map for the sign-in page: their spot (null before their first reading on a map), their
      * cartridge, whether online, and their party's species (eggs aside) in order.
      */
-    public record OnMap(String userId, dev.pppp.model.MapPin pin, String game, boolean online, List<Integer> party) {}
+    public record OnMap(String userId, dev.pppp.model.MapPin pin, dev.pppp.model.MapSpot spot, String game,
+                        boolean online, List<Integer> party) {}
 
     /** Every player who picked a game, where they last were. */
     public List<OnMap> onMap() {
@@ -354,10 +355,32 @@ public class ProgressTracker {
         List<OnMap> out = new ArrayList<>();
         for (String userId : repo.ranking()) {
             TrainerCard c = cards.computeIfAbsent(userId, repo::card);
-            out.add(new OnMap(userId, c.pin(), consoles.game(userId), running.contains(userId),
+            out.add(new OnMap(userId, c.pin(), c.spot(), consoles.game(userId), running.contains(userId),
                     c.party().stream().filter(m -> !m.egg()).map(dev.pppp.model.PartyMon::species).toList()));
         }
         return out;
+    }
+
+    private volatile Gen2MapArt mapArt; // from the uploaded Crystal cartridge, loaded on first use
+
+    /**
+     * A map of Crystal as the game draws it (PNG), for the sign-in page's camera: time 0 morning, 1 day, 2 night;
+     * margin blocks of the map's border round it. Null without a Crystal cartridge or for an unknown map.
+     */
+    public byte[] mapArt(String map, int time, int margin) {
+        Gen2MapArt art = mapArt;
+        if (art == null) {
+            for (var c : cartridges.list()) {
+                try {
+                    byte[] rom = Files.readAllBytes(cartridges.require(c.id()));
+                    if (Gen2MapArt.fits(rom)) art = mapArt = new Gen2MapArt(rom);
+                } catch (IOException | RuntimeException e) {
+                    log.warn("Could not read {} for the map art", c.id(), e);
+                }
+                if (art != null) break;
+            }
+        }
+        return art == null ? null : art.png(map, time, margin);
     }
 
     /** PNG sprite of a cartridge's game, by icon id (a Pokédex number), for the public sign-in page; or null. */

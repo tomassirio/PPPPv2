@@ -27,6 +27,8 @@ export type Teaser = {
 		x: number;
 		y: number;
 		party: number[];
+		/** Where they stand: the pret map constant, x/y in 16px steps from its top-left, and facing. */
+		spot: { map: string; x: number; y: number; facing: 'down' | 'up' | 'left' | 'right' } | null;
 	}[];
 };
 
