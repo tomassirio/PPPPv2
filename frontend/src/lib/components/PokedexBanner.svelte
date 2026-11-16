@@ -57,6 +57,7 @@
 	// The card: one at a time, beside the banner (to the right of the left one, to the left of the right one).
 	const entries = new Map<string, Promise<Entry | null>>(); // by number and state: a new catch asks again
 	let card = $state<{ n: number; x: number; y: number; entry: Entry | null } | null>(null);
+	let zoom = $state(1); // the page's CSS zoom: the card on <body> is zoomed alike, so its left/top are divided by it
 	let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
 	function load(n: number): Promise<Entry | null> {
@@ -72,8 +73,10 @@
 	function show(n: number, el: HTMLElement) {
 		clearTimeout(hideTimer);
 		const r = el.getBoundingClientRect();
+		zoom = (el as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom ?? 1; // the zoom it inherits
 		const x = half === 1 ? r.right + 10 : r.left - 10;
-		const y = Math.min(Math.max(CARD_HALF, r.top + r.height / 2), innerHeight - CARD_HALF); // card stays on screen
+		const half_ = CARD_HALF * zoom;
+		const y = Math.min(Math.max(half_, r.top + r.height / 2), innerHeight - half_); // card stays on screen
 		card = { n, x, y, entry: card?.n === n ? card.entry : null };
 		load(n).then((entry) => {
 			if (card?.n === n) card = { ...card, entry };
@@ -82,6 +85,16 @@
 
 	function hide() {
 		hideTimer = setTimeout(() => (card = null), 80);
+	}
+
+	/**
+	 * The card lives on <body>: /play may be CSS-zoomed (see uiZoom), and inside a zoomed page a fixed element's
+	 * left/top are not screen pixels. It takes the page's zoom so it matches the panels.
+	 */
+	function portal(node: HTMLElement) {
+		node.style.zoom = String(zoom);
+		document.body.appendChild(node);
+		return { destroy: () => node.remove() };
 	}
 
 	const feet = (e: Entry) => `${e.heightFeet}′${String(e.heightInches).padStart(2, '0')}″`;
@@ -132,7 +145,7 @@
 {#if card}
 	{@const e = card.entry}
 	{@const st = e?.state ?? stateOf(card.n)}
-	<div class="card {st}" class:left={half === 2} style:left="{card.x}px" style:top="{card.y}px" role="tooltip">
+	<div class="card {st}" class:left={half === 2} style:left="{card.x / zoom}px" style:top="{card.y / zoom}px" role="tooltip" use:portal>
 		<div class="card-head">
 			<span class="no pixel">No.{pad(card.n)}</span>
 			<span class="name">{st === 'unseen' ? '???' : (e?.name ?? dex?.names[card.n - 1] ?? '…')}</span>
