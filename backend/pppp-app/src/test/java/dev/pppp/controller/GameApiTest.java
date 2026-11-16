@@ -79,9 +79,15 @@ class GameApiTest {
                 .andExpect(jsonPath("$.achievements").isNumber())
                 .andExpect(jsonPath("$.trades").isNumber())
                 .andExpect(jsonPath("$.battles").isNumber())
-                .andExpect(jsonPath("$.pins").isArray())
+                .andExpect(jsonPath("$.trainers").isArray())
+                .andExpect(jsonPath("$..email").isEmpty())
                 .andExpect(jsonPath("$.party").doesNotExist())
-                .andExpect(jsonPath("$..userId").isEmpty()); // totals only, never who
+                .andExpect(jsonPath("$..userId").isEmpty()); // first names only, never emails or ids
+        mvc.perform(get("/api/v1/public/sprites/nope/player.png")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/public/sprites/nope/25.png")).andExpect(status().isNotFound());
+        org.assertj.core.api.Assertions.assertThat(PublicController.firstName("Tomas Sirio")).isEqualTo("Tomas");
+        org.assertj.core.api.Assertions.assertThat(PublicController.firstName("pib@x.y")).isEqualTo("Pib");
+        org.assertj.core.api.Assertions.assertThat(PublicController.firstName(null)).isEqualTo("Pib");
         mvc.perform(get("/api/v1/public/screen.png")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/presence")).andExpect(status().isUnauthorized());
     }

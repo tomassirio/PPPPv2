@@ -657,6 +657,38 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 .replaceAll(m -> m.group().charAt(0) + m.group().substring(1).toLowerCase(java.util.Locale.ROOT));
     }
 
+    /**
+     * The player walking around (ChrisSpriteGFX, the same address in Gold, Silver and Crystal; gfx/sprites/chris.png):
+     * 16x96, plain 2bpp, two tiles a row, six 16x16 frames: down, up, left, then each one's walking frame. Coloured
+     * with the daytime red overworld palette (gfx/overworld/npc_sprites.pal), colour 0 transparent.
+     */
+    @Override
+    public byte[] playerSprite() {
+        return cached(icons, PLAYER_SPRITE_KEY, () -> {
+            int at = rom(0x30, 0x4000);
+            int[] argb = {0, 0xFF000000 | Gen2Pic.rgb555(31, 19, 10), 0xFF000000 | Gen2Pic.rgb555(31, 7, 1), 0xFF000000};
+            var img = new java.awt.image.BufferedImage(16, 96, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            for (int t = 0; t < 24; t++) {
+                for (int row = 0; row < 8; row++) {
+                    int lo = rom[at + t * 16 + row * 2] & 0xFF, hi = rom[at + t * 16 + row * 2 + 1] & 0xFF;
+                    for (int col = 0; col < 8; col++) {
+                        int v = (lo >> 7 - col & 1) | (hi >> 7 - col & 1) << 1;
+                        img.setRGB(t % 2 * 8 + col, t / 2 * 8 + row, argb[v]);
+                    }
+                }
+            }
+            var out = new java.io.ByteArrayOutputStream();
+            try {
+                javax.imageio.ImageIO.write(img, "png", out);
+            } catch (java.io.IOException e) {
+                return null;
+            }
+            return out.toByteArray();
+        });
+    }
+
+    private static final int PLAYER_SPRITE_KEY = -1; // in the icon cache, beside the dex numbers
+
     /** The front pic of Pokédex number id (Unown as A) in its normal colours, 56x56, from the ROM; null if unreadable. */
     @Override
     public byte[] icon(int id) {

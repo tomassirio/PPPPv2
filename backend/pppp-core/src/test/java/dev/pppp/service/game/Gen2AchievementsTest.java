@@ -35,6 +35,7 @@ class Gen2AchievementsTest {
         assertThat(List.of(dex.heightFeet(), dex.heightInches(), dex.weightTenths())).containsExactly(2, 4, 150);
         assertThat(dex.text()).isEqualTo("Angered Lugia");
         assertThat(g.profile().dex(0)).isNull();
+        assertThat(g.profile().playerSprite()).isNotNull(); // the walking sheet, as on the sign-in map
         assertThat(g.profile().dex(252)).isNull();
     }
 

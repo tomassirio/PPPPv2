@@ -13,8 +13,21 @@ export type Teaser = {
 	achievements?: number;
 	trades?: number;
 	battles?: number;
-	/** Where players are on the Pokégear town map: x, y in that region's 160x144 screen; version as in versions. */
-	pins?: { region: 'johto' | 'kanto'; x: number; y: number; version: string; online: boolean }[];
+	/**
+	 * Everyone on the town map: first name, cartridge (for /public/sprites/{cartridge}/...), version (ROM title),
+	 * online, the spot (x, y in that region's 160x144 Pokégear screen; region null before their first reading) and
+	 * the party's species in order.
+	 */
+	trainers?: {
+		name: string;
+		cartridge: string;
+		version: string;
+		online: boolean;
+		region: 'johto' | 'kanto' | null;
+		x: number;
+		y: number;
+		party: number[];
+	}[];
 };
 
 export const loadTeaser = () => api<Teaser>('GET', '/public/teaser');

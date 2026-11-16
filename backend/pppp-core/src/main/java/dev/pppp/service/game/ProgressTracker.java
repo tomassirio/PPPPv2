@@ -342,20 +342,34 @@ public class ProgressTracker {
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
-    /** A player's spot on the town map for the sign-in page: no name, just where, which game, and whether online. */
-    public record PlayerPin(String region, int x, int y, String game, boolean online) {}
+    /**
+     * A player on the town map for the sign-in page: their spot (null before their first reading on a map), their
+     * cartridge, whether online, and their party's species (eggs aside) in order.
+     */
+    public record OnMap(String userId, dev.pppp.model.MapPin pin, String game, boolean online, List<Integer> party) {}
 
-    /** Every player's last known spot on the town map, in map order (never ranking order: nothing about who). */
-    public List<PlayerPin> pins() {
+    /** Every player who picked a game, where they last were. */
+    public List<OnMap> onMap() {
         Set<String> running = consoles.running();
-        List<PlayerPin> out = new ArrayList<>();
+        List<OnMap> out = new ArrayList<>();
         for (String userId : repo.ranking()) {
-            dev.pppp.model.MapPin p = cards.computeIfAbsent(userId, repo::card).pin();
-            if (p != null) out.add(new PlayerPin(p.region(), p.x(), p.y(), consoles.game(userId), running.contains(userId)));
+            TrainerCard c = cards.computeIfAbsent(userId, repo::card);
+            out.add(new OnMap(userId, c.pin(), consoles.game(userId), running.contains(userId),
+                    c.party().stream().filter(m -> !m.egg()).map(dev.pppp.model.PartyMon::species).toList()));
         }
-        out.sort(java.util.Comparator.comparing(PlayerPin::region).thenComparingInt(PlayerPin::x)
-                .thenComparingInt(PlayerPin::y));
         return out;
+    }
+
+    /** PNG sprite of a cartridge's game, by icon id (a Pokédex number), for the public sign-in page; or null. */
+    public byte[] iconOf(String cartridgeId, int id) {
+        GameProfile<?> profile = profiles.computeIfAbsent(cartridgeId, this::load).orElse(null);
+        return profile == null ? null : profile.icon(id);
+    }
+
+    /** PNG sheet of a cartridge's player walking around, for the public sign-in page; or null. */
+    public byte[] playerSpriteOf(String cartridgeId) {
+        GameProfile<?> profile = profiles.computeIfAbsent(cartridgeId, this::load).orElse(null);
+        return profile == null ? null : profile.playerSprite();
     }
 
     /** How many species at least one player has caught: the group's Pokédex. */

@@ -120,4 +120,9 @@ final class Gen2Pic {
         int c = (rom[at] & 0xFF) | (rom[at + 1] & 0xFF) << 8;
         return 0xFF000000 | (c & 31) * 255 / 31 << 16 | (c >> 5 & 31) * 255 / 31 << 8 | (c >> 10 & 31) * 255 / 31;
     }
+
+    /** A Game Boy Color 5-bit colour as 0xRRGGBB. */
+    static int rgb555(int r, int g, int b) {
+        return (r * 255 / 31) << 16 | (g * 255 / 31) << 8 | b * 255 / 31;
+    }
 }
