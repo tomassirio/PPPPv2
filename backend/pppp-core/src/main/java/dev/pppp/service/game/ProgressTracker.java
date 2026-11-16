@@ -342,6 +342,13 @@ public class ProgressTracker {
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
+    /** How many species at least one player has caught: the group's Pokédex. */
+    public int caughtTogether() {
+        Set<String> all = new java.util.HashSet<>();
+        for (String userId : repo.ranking()) all.addAll(awarded.computeIfAbsent(userId, repo::progress).caught());
+        return all.size();
+    }
+
     /** Every player who picked a game, best Trainer Score first (then achievement points). */
     public List<ScoreRow> scoreboard() {
         Set<String> running = consoles.running();

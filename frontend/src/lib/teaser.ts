@@ -1,8 +1,19 @@
 // The sign-in page's public teaser (GET /api/v1/public/teaser, anonymous) and its sound.
 import { api } from './api.js';
 
-/** players: everyone who picked a game; online: how many have the site open. */
-export type Teaser = { online: number; players: number };
+/**
+ * Totals about the group, never who: players (everyone who picked a game), online, versions (players per ROM title,
+ * "POKEMON_GLD"), caughtTogether (species at least one Pib caught), achievements unlocked, link trades and battles.
+ */
+export type Teaser = {
+	online: number;
+	players: number;
+	versions?: Record<string, number>;
+	caughtTogether?: number;
+	achievements?: number;
+	trades?: number;
+	battles?: number;
+};
 
 export const loadTeaser = () => api<Teaser>('GET', '/public/teaser');
 

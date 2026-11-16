@@ -74,7 +74,13 @@ class GameApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.online").isNumber())
                 .andExpect(jsonPath("$.players").isNumber())
-                .andExpect(jsonPath("$.party").doesNotExist());
+                .andExpect(jsonPath("$.versions").isMap())
+                .andExpect(jsonPath("$.caughtTogether").isNumber())
+                .andExpect(jsonPath("$.achievements").isNumber())
+                .andExpect(jsonPath("$.trades").isNumber())
+                .andExpect(jsonPath("$.battles").isNumber())
+                .andExpect(jsonPath("$.party").doesNotExist())
+                .andExpect(jsonPath("$..userId").isEmpty()); // totals only, never who
         mvc.perform(get("/api/v1/public/screen.png")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/presence")).andExpect(status().isUnauthorized());
     }

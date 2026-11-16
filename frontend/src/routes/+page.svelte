@@ -1,4 +1,6 @@
-<!-- Sign-in page: an original colour handheld that boots into the banner. START (or A, Enter, Space) signs in. -->
+<!-- Sign-in page: an original colour handheld that boots into the banner, then cycles the three cartridges a Pib can
+     pick (each game's title screen, recorded from the ROM) while its plastic turns that version's colour. START (or A,
+     Enter, Space) signs in. -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -10,6 +12,10 @@
 	import SignInAbout from '#lib/components/SignInAbout.svelte';
 	import SignInBackdrop from '#lib/components/SignInBackdrop.svelte';
 	import { bootChime, fanfare, loadTeaser, type Teaser } from '#lib/teaser.js';
+	import goldTitle from '#lib/assets/titles/gold.webp';
+	import silverTitle from '#lib/assets/titles/silver.webp';
+	import crystalTitle from '#lib/assets/titles/crystal.webp';
+	import { fade } from 'svelte/transition';
 
 
 	const BOOT_MS = 2900;
@@ -66,15 +72,16 @@
 
 	let teaser = $state<Teaser | null>(null);
 
-	// Attract mode: after a while with no input the screen alternates the title with a demo slide (who is
-	// playing) like an arcade cabinet; any key or tap brings the title back.
-	const IDLE_MS = 20000;
-	const SLIDE_MS = 4500;
-	let idle = $state(false);
-	let slide = $state(0);
-	let idleTimer: ReturnType<typeof setTimeout>;
-	const slides = $derived(teaser ? (['players', 'title'] as const) : []);
-	const attract = $derived(idle && !glitch && !denied && slides.length > 0 ? slides[slide % slides.length] : 'title');
+	// The cartridge carousel: our banner, then each version's title screen, the shell in that cartridge's plastic.
+	const SCREENS = [
+		{ id: 'pibs', shell: '#7a5cc2', src: null, name: 'Pibs & Pibettes' },
+		{ id: 'gold', shell: '#c99a2e', src: goldTitle, name: 'Pokémon Gold' },
+		{ id: 'crystal', shell: '#3f9fc6', src: crystalTitle, name: 'Pokémon Crystal' },
+		{ id: 'silver', shell: '#9aa3ae', src: silverTitle, name: 'Pokémon Silver' }
+	] as const;
+	const SCREEN_MS = 6000;
+	let screen = $state(0);
+	const showing = $derived(glitch || denied ? SCREENS[0] : SCREENS[screen]);
 
 	// Sound is only allowed after a gesture: the first key or tap plays the power-on chime.
 	let chimed = false;
@@ -83,9 +90,6 @@
 			chimed = true;
 			bootChime();
 		}
-		idle = false;
-		clearTimeout(idleTimer);
-		idleTimer = setTimeout(() => ((idle = true), (slide = 0)), IDLE_MS);
 	}
 
 	function skip() {
@@ -160,13 +164,14 @@
 		const refresh = () => loadTeaser().then((v) => (teaser = v), () => {});
 		refresh();
 		const poll = setInterval(refresh, 30000);
-		const slides = setInterval(() => idle && slide++, SLIDE_MS);
-		idleTimer = setTimeout(() => (idle = true), IDLE_MS);
+		// Reduced motion: the banner stays; the title screens are animations.
+		const carousel = matchMedia('(prefers-reduced-motion: reduce)').matches
+			? undefined
+			: setInterval(() => !booting && (screen = (screen + 1) % SCREENS.length), SCREEN_MS);
 		return () => {
 			clearTimeout(t);
-			clearTimeout(idleTimer);
 			clearInterval(poll);
-			clearInterval(slides);
+			clearInterval(carousel);
 		};
 	});
 </script>
@@ -176,26 +181,24 @@
 <SignInBackdrop />
 
 <main>
-	<div class="device" class:booting class:glitch>
+	<div class="device" class:booting class:glitch style:--shell={showing.shell}>
 		<div class="shell" aria-hidden="true"></div>
 
 		<div class="bezel">
 			<span class="led" aria-hidden="true"></span>
-			<div class="lcd" class:denied>
+			<div class="lcd" class:denied class:cart={!!showing.src}>
 				<h1>
 					<img src={pibs} alt="Pibs&amp;Pibettes" width="720" height="131" /><span class="row"
 						><img src={play} alt="PlayPokemon" width="720" height="171" /></span
 					>
 				</h1>
-				{#if attract === 'players' && teaser}
-					<div class="attract" aria-hidden="true">
-						<p class="slide-title">OUR TRAINERS</p>
-						<dl class="journey">
-							<dt>TRAINERS</dt><dd>{teaser.players}</dd>
-							<dt>ONLINE</dt><dd>{teaser.online}</dd>
-						</dl>
-					</div>
+				{#if showing.src}
+					{#key showing.id}
+						<img class="title-loop" src={showing.src} alt="" transition:fade={{ duration: 250 }} />
+					{/key}
 				{/if}
+				{#if showing.src}<span class="strip" aria-hidden="true"></span>{/if}
+				<span class="sr">Now showing: {showing.name}</span>
 				<p class="press" aria-hidden="true">PRESS START TO SIGN IN</p>
 				{#if glitch}
 					<p class="textbox" role="status">A wild PIBSIGNO. appeared!</p>
@@ -308,11 +311,19 @@
 		margin: 0;
 	}
 
+	/* The shell's plastic is a registered colour so it fades from one cartridge's to the next. */
+	@property --shell {
+		syntax: '<color>';
+		inherits: true;
+		initial-value: #7a5cc2;
+	}
+
 	/* Everything on the device is sized in cqw: 1cqw is 1% of the device width. */
 	.device {
 		/* Shell plastic: change this one line. Also nice: teal #2fa39b, berry #c23a6e,
 		   dandelion #f0c030, kiwi #8fc23a. */
-		--shell: #7a5cc2;
+		--shell: #7a5cc2; /* set per cartridge on the element (SCREENS) */
+		transition: --shell 0.9s ease;
 		--shell-hi: color-mix(in oklab, var(--shell), white 30%);
 		--shell-lo: color-mix(in oklab, var(--shell), black 38%);
 		--guts: color-mix(in oklab, var(--shell), #0a0612 78%);
@@ -866,39 +877,39 @@
 		}
 	}
 
-	/* Attract mode slides: drawn on the glass like the title, in the pixel font. */
-	.attract {
+	/* A cartridge's title screen fills the glass; the banner steps aside; PRESS START sits on a strip over the
+	   game's copyright line. */
+	.title-loop {
 		position: absolute;
 		inset: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 3cqw;
-		padding-bottom: 8cqw;
-		background: inherit;
-		font-family: var(--pixel-font);
-		color: var(--pixel);
-		animation: slide-in 0.35s steps(4) both;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		image-rendering: pixelated;
 	}
-	.slide-title {
-		font-size: 3cqw;
+	.cart h1 {
+		visibility: hidden;
 	}
-	.journey {
-		margin: 0;
-		display: grid;
-		grid-template-columns: auto auto;
-		gap: 2cqw 5cqw;
-		font-size: 2.4cqw;
+	/* A steady strip (the prompt blinks, the strip does not) over the game's copyright line. */
+	.strip {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 12%;
+		background: #100e18;
 	}
-	.journey dd {
-		margin: 0;
-		text-align: right;
+	.cart .press {
+		top: auto;
+		bottom: 3.6%;
+		color: #f6f1e4;
 	}
-	@keyframes slide-in {
-		from {
-			clip-path: inset(0 100% 0 0);
-		}
+	.sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
 	}
 
 	@keyframes blink {

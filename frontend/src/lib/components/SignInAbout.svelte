@@ -1,27 +1,64 @@
-<!-- What PPP is, for first-time visitors, how many are playing right now (public teaser), and the way in.
-     Drawn as an in-game text box, with the numbers as a trainer card. -->
+<!-- What PPPP V2 is, for first-time visitors, the group's numbers (public teaser: totals only, never who), and the
+     way in. Drawn as an in-game text box: three pillars, then a league card. -->
 <script lang="ts">
 	import type { Teaser } from '#lib/teaser.js';
 
 	let { teaser }: { teaser: Teaser | null } = $props();
+
+	/** The three versions, in picker order, with their cartridge plastic. */
+	const VERSIONS = [
+		{ title: 'POKEMON_GLD', name: 'Gold', color: '#d4a72c' },
+		{ title: 'PM_CRYSTAL', name: 'Crystal', color: '#5aaed6' },
+		{ title: 'POKEMON_SLV', name: 'Silver', color: '#a3adb7' }
+	];
+	const split = $derived(VERSIONS.map((v) => ({ ...v, n: teaser?.versions?.[v.title] ?? 0 })));
+	const total = $derived(Math.max(1, split.reduce((a, v) => a + v.n, 0)));
+	const n = (v: number | undefined) => (v == null ? '–' : v.toLocaleString());
 </script>
 
 <section class="about" aria-labelledby="about-title">
 	<h2 id="about-title">A Game Boy <br />for every Pib.</h2>
 	<p class="pitch">
-		Everyone gets their own Game Boy and their own Pokémon save. Climb the shared scoreboard, and plug in a link cable to
-		trade or battle.<span class="more" aria-hidden="true">▼</span>
+		Pick Gold, Silver or Crystal and play your own save. Then plug into everyone else's.<span class="more" aria-hidden="true">▼</span>
 	</p>
 
+	<ul class="pillars">
+		<li class="p-own">
+			<b>YOUR OWN SAVE</b>
+			<span>Your cartridge, your pace. Nobody steals your turn.</span>
+		</li>
+		<li class="p-link">
+			<b>LINK CABLE</b>
+			<span>Trade and battle any Pib, any time.</span>
+		</li>
+		<li class="p-ach">
+			<b>THE LEAGUE</b>
+			<span>Points, grades and achievements, Rattata to Red.</span>
+		</li>
+	</ul>
+
 	<!-- Placeholders until the teaser loads (or if the server is down), so the card keeps its shape. -->
-	<div class="card" aria-label="Who is playing" role="group">
-		<p class="card-title">TRAINER CARD</p>
+	<div class="card" aria-label="The Pibs so far" role="group">
+		<p class="card-title">PIB LEAGUE</p>
+		<div class="split" role="img" aria-label={split.map((v) => `${v.n} on ${v.name}`).join(', ')}>
+			{#each split as v (v.title)}
+				<i style:flex-grow={teaser ? v.n / total : 1} style:background={v.color}></i>
+			{/each}
+		</div>
+		<p class="legend" aria-hidden="true">
+			{#each split as v (v.title)}<span><i style:background={v.color}></i>{teaser ? v.n : '–'} {v.name}</span>{/each}
+		</p>
 		<dl>
 			<dt>TRAINERS</dt>
-			<dd>{teaser?.players ?? '–'}</dd>
-			<dt>ONLINE</dt>
-			<dd><span class="dot" class:live={teaser} aria-hidden="true"></span>{teaser?.online ?? '–'}</dd>
+			<dd>{n(teaser?.players)}&ensp;<span class="soft"><span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online</span></dd>
+			<dt>PIBDEX</dt>
+			<dd>{n(teaser?.caughtTogether)}<span class="soft">&nbsp;/ 251 caught together</span></dd>
+			<dt>ACHIEVED</dt>
+			<dd>{n(teaser?.achievements)}<span class="soft">&nbsp;achievements unlocked</span></dd>
+			<dt>LINK</dt>
+			<dd>{n(teaser?.trades)}<span class="soft">&nbsp;trades&ensp;·&ensp;</span>{n(teaser?.battles)}<span class="soft">&nbsp;battles won</span></dd>
 		</dl>
+		<p class="phone-line">{n(teaser?.players)} trainers · <span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online · {n(teaser?.caughtTogether)}/251 caught</p>
 	</div>
 
 	<a class="cta" href="/oauth2/authorization/google" data-sveltekit-reload>
@@ -113,6 +150,78 @@
 		font-size: 14px;
 		font-weight: 600;
 	}
+	.phone-line {
+		display: none;
+		margin: 0;
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.soft {
+		font-weight: 500;
+		color: var(--muted);
+	}
+	.pillars {
+		margin: 16px 0 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 8px;
+	}
+	.pillars li {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 10px;
+		border-radius: 8px;
+		border: 2px solid var(--c);
+		background: color-mix(in oklab, var(--c), transparent 90%);
+		font-size: 12px;
+		line-height: 1.4;
+	}
+	.pillars b {
+		font: 8px/1.3 var(--pixel-font);
+		color: var(--c);
+	}
+	.p-own {
+		--c: #d4a72c;
+	}
+	.p-link {
+		--c: #6ea3ff;
+	}
+	.p-ach {
+		--c: #b07ce8;
+	}
+	.split {
+		display: flex;
+		gap: 2px;
+		height: 8px;
+		border-radius: 4px;
+		overflow: hidden;
+	}
+	.split i {
+		flex: 1 1 0;
+		min-width: 4px;
+		transition: flex-grow 0.6s ease;
+	}
+	.legend {
+		margin: 6px 0 12px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 12px;
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+	}
+	.legend i {
+		width: 8px;
+		height: 8px;
+		border-radius: 2px;
+	}
 	.dot {
 		display: inline-block;
 		width: 8px;
@@ -193,21 +302,20 @@
 		}
 		h2 br,
 		.pitch,
-		.card-title {
+		.card-title,
+		.pillars,
+		.legend,
+		.split,
+		dl {
 			display: none;
+		}
+		.phone-line {
+			display: block;
 		}
 		.card {
 			margin-top: 8px;
 			padding: 0;
 			background: none;
-		}
-		dl {
-			display: flex;
-			gap: 6px 10px;
-			font-size: 12px;
-		}
-		dd {
-			font-size: 12px;
 		}
 		.cta {
 			margin-top: 10px;
