@@ -76,7 +76,6 @@
 		<RunSummary row={mine} {rank} total={board.rows.length} />
 	{/if}
 	{#if party.length || mine}
-		<div class="line"><span class="muted">Party</span></div>
 		<ul class="cards" aria-label="Your party">
 			{#each party as m, i (i)}
 				<li class="pslot">
@@ -104,7 +103,7 @@
 	{/if}
 	{#if summary}
 		{#each rows as row, r (row.label)}
-			<div class="line wrap" class:later={r > 0 && !row.got}>
+			<div class="line" class:later={r > 0 && !row.got}>
 				<span class="muted">{row.label}</span>
 				{#if named.length}
 					<ul class="badges" aria-label="{row.label}: {row.got} of 8 earned">
@@ -336,16 +335,18 @@
 		background: var(--accent);
 		border-color: var(--accent);
 	}
+	/* Label and its 8 badges on one line: the card stays short enough for the column never to scroll. */
 	.badges {
 		display: flex;
-		gap: 5px;
+		flex: none;
+		gap: 4px;
 		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 	.badges li {
-		width: 24px;
-		height: 24px;
+		width: 20px;
+		height: 20px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
