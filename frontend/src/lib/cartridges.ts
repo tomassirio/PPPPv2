@@ -2,11 +2,16 @@
 import crystal from '#lib/assets/covers/crystal.jpg';
 import gold from '#lib/assets/covers/gold.jpg';
 import silver from '#lib/assets/covers/silver.jpg';
+import crystalTitle from '#lib/assets/titles/crystal.webp';
+import goldTitle from '#lib/assets/titles/gold.webp';
+import silverTitle from '#lib/assets/titles/silver.webp';
 
 /** title: the ROM header's ("PM_CRYSTAL"); name: what players read ("Pokémon Crystal"). */
 export type Cartridge = { id: string; title: string; name: string; size: number; cgb: boolean };
 
 const COVERS: Record<string, string> = { POKEMON_GLD: gold, POKEMON_SLV: silver, PM_CRYSTAL: crystal };
+/** Each game's title screen as an animated loop, recorded from the ROM with no input. */
+const TITLES: Record<string, string> = { POKEMON_GLD: goldTitle, POKEMON_SLV: silverTitle, PM_CRYSTAL: crystalTitle };
 /** Each version's colour, from its cartridge plastic. */
 const COLORS: Record<string, string> = { POKEMON_GLD: '#d4a72c', POKEMON_SLV: '#a3adb7', PM_CRYSTAL: '#5aaed6' };
 
@@ -15,3 +20,6 @@ export const cover = (c: Pick<Cartridge, 'title'>): string | null => COVERS[c.ti
 
 /** The version's colour, or null for a game we have none for. */
 export const color = (c: Pick<Cartridge, 'title'>): string | null => COLORS[c.title] ?? null;
+
+/** The title-screen loop, or null for a game we have none for. */
+export const titleScreen = (c: Pick<Cartridge, 'title'>): string | null => TITLES[c.title] ?? null;

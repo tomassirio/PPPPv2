@@ -1,7 +1,7 @@
 <!-- First run: the player picks their cartridge, once. PUT /me/game refuses a second, different pick. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
-	import { color, cover, type Cartridge } from '#lib/cartridges.ts';
+	import { color, cover, titleScreen, type Cartridge } from '#lib/cartridges.ts';
 	import { reveal } from '#lib/theme.svelte.ts';
 	import { flushSync } from 'svelte';
 
@@ -34,6 +34,13 @@
 </script>
 
 <section class="pick" class:chosen={chosen} aria-labelledby="pick-title" style:--chosen={chosen ? (color(chosen) ?? 'var(--accent)') : 'var(--accent)'}>
+	{#if chosen && titleScreen(chosen)}
+		{@const loop = titleScreen(chosen)}
+		<div class="backdrop" aria-hidden="true">
+			<img class="fill" src={loop} alt="" />
+			<img class="screen" src={loop} alt="" />
+		</div>
+	{/if}
 	<h1 id="pick-title" class="pixel">Pick your game</h1>
 	{#if available.length}
 		<p class="lead">Pokémon Gold, Silver and Crystal trade and battle with each other. Each has Pokémon the others don't, so pick yours and trade for the rest.</p>
@@ -112,6 +119,46 @@
 		justify-content: center;
 		gap: 40px;
 		width: 100%;
+	}
+	/* The chosen game's title screen plays behind everything: sharp in the middle, a blurred copy filling the
+	   sides, dimmed so the text stays readable. Swapped inside the circle reveal, so it spreads from the cartridge. */
+	.backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 0;
+		overflow: hidden;
+		pointer-events: none;
+		background: var(--bg);
+	}
+	.backdrop img {
+		position: absolute;
+		image-rendering: pixelated;
+	}
+	.backdrop .fill {
+		inset: -40px;
+		width: calc(100% + 80px);
+		height: calc(100% + 80px);
+		object-fit: cover;
+		filter: blur(28px) saturate(1.2);
+		opacity: 0.6;
+	}
+	.backdrop .screen {
+		left: 50%;
+		top: 50%;
+		height: 100%;
+		width: auto;
+		aspect-ratio: 160 / 144;
+		transform: translate(-50%, -50%);
+	}
+	.backdrop::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 70%, transparent), color-mix(in srgb, var(--bg) 85%, transparent));
+	}
+	.pick > :not(.backdrop) {
+		position: relative;
+		z-index: 1;
 	}
 	/* The chosen version's colour glows behind the cartridges; it arrives with the circle reveal. */
 	.carts {
