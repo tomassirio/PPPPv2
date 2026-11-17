@@ -8,7 +8,7 @@
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
-	import { act, clock, desk, left, link, roomName, verb, watchLink } from '#lib/link.svelte.ts';
+	import { act, clock, desk, left, link, roomName, since, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -43,7 +43,7 @@
 		{@const d = desk(ss.kind)}
 		<div class="head">
 			<h2 id="link-h" class="kind-title">{@render kindIcon(ss.kind, 18)}{ss.kind === 'TRADE' ? 'Trading' : 'Battling'}</h2>
-			<span class="pixel timer" title="Time left"><span class="sr">Time left: </span>{clock(left(ss.endsAt))}</span>
+			<span class="pixel timer" title="Linked for"><span class="sr">Linked for </span>{clock(since(ss.since))}</span>
 		</div>
 		<div class="cable-row" aria-hidden="true">
 			{#if me}<Avatar user={me} size={44} />{/if}
@@ -75,7 +75,7 @@
 				{nameOf(ss.peer)} walked into the {roomName(ss.peerWrongRoom)}, but this link is a {verb(ss.kind)}. They need the {d.side} receptionist.
 			</p>
 		{/if}
-		<p class="muted">Both consoles run in step until someone unplugs or the 15-minute cap ends.</p>
+		<p class="muted">Both consoles run in step until someone unplugs, with no time limit. Closing the browser for a minute unplugs too.</p>
 		<button class="ghost stop" onclick={() => act('DELETE', '/link/session')}>Unplug cable</button>
 	{:else}
 		<div class="head">

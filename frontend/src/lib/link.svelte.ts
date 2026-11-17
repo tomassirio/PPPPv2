@@ -13,8 +13,8 @@ export type LinkState = {
 	incoming: Challenge | null;
 	outgoing: Challenge | null;
 	/** wrongRoom / peerWrongRoom: a link room (TRADE_CENTER, COLOSSEUM, TIME_CAPSULE) that does not fit kind. */
-	session: { peer: string; kind: LinkKind; endsAt: number; wrongRoom: string | null; peerWrongRoom: string | null } | null;
-	links: { a: string; b: string; kind: LinkKind; endsAt: number }[];
+	session: { peer: string; kind: LinkKind; since: number; wrongRoom: string | null; peerWrongRoom: string | null } | null;
+	links: { a: string; b: string; kind: LinkKind; since: number }[];
 	now: number;
 };
 type SessionEvent = { a: string; b: string; status: 'STARTED' | 'ENDED' | 'ROOM' };
@@ -35,6 +35,8 @@ export const roomName = (room: string) =>
 	({ TRADE_CENTER: 'Trade Center', COLOSSEUM: 'Colosseum', TIME_CAPSULE: 'Time Capsule' })[room] ?? room;
 /** Seconds until an epoch-ms time, by the server's clock. */
 export const left = (until: number) => Math.max(0, Math.ceil((until - link.now) / 1000));
+/** Seconds since an epoch-ms time, by the server's clock. */
+export const since = (from: number) => Math.max(0, Math.floor((link.now - from) / 1000));
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 let skew = 0; // server clock minus this browser's

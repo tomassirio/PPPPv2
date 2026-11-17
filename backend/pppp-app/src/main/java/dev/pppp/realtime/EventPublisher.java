@@ -76,6 +76,11 @@ public class EventPublisher extends TextWebSocketHandler {
                 .toList();
     }
 
+    /** Whether the player has any tab open. */
+    public boolean isOnline(String userId) {
+        return streams.values().stream().anyMatch(s -> s.viewer().id().equals(userId));
+    }
+
     public void publish(String type, Object data) {
         send(type, data, false);
     }

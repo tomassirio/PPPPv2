@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * What one player sees of the link cable: the lobby (everyone ready, themselves included), what they are ready
- * for, the pending challenge to and from them, and their running session. Times are epoch milliseconds; now is
+ * for, the pending challenge to and from them, and their running session. Times are epoch milliseconds (since: when the cable went in); now is
  * the server's clock, so a browser can count down without trusting its own. links: every running session, one entry
  * per pair (who is linked is public, like the lobby).
  */
@@ -20,12 +20,12 @@ public record LinkState(List<Ready> lobby, String ready, Challenge incoming, Cha
      * wrongRoom, peerWrongRoom: the link room (TRADE_CENTER, COLOSSEUM, TIME_CAPSULE) this player or their partner
      * walked into that does not fit kind; null while they are not in one.
      */
-    public record Session(String peer, String kind, long endsAt, String wrongRoom, String peerWrongRoom) {}
-    public record Pair(String a, String b, String kind, long endsAt) {}
+    public record Session(String peer, String kind, long since, String wrongRoom, String peerWrongRoom) {}
+    public record Pair(String a, String b, String kind, long since) {}
 
     /**
      * LINK_SESSION payload. status: STARTED, ENDED, or ROOM (a player of the pair walked into a link room that does
-     * not fit kind, or out of it: fetch the state again); reason (ENDED only): UNPLUGGED, LEFT or TIME_UP.
+     * not fit kind, or out of it: fetch the state again); reason (ENDED only): UNPLUGGED or LEFT.
      */
-    public record SessionEvent(String a, String b, String kind, long endsAt, String status, String reason) {}
+    public record SessionEvent(String a, String b, String kind, long since, String status, String reason) {}
 }

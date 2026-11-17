@@ -103,7 +103,7 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         viewers.remove(userId);
         // A linked player who went to another tab keeps their console running and the cable in: the partner's
         // game runs in step with it. It goes idle when the session ends (below).
-        // ponytail: a closed browser keeps a linked console running until unplug or the session cap (15 min).
+        // A closed browser: LinkService ends the session after a minute with no events socket.
         if (consoles.linkedWith(userId) == null) consoles.idle(userId);
     }
 

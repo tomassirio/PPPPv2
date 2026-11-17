@@ -27,7 +27,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
 	import { board } from '#lib/board.svelte.ts';
-	import { act, clock, left, link } from '#lib/link.svelte.ts';
+	import { act, clock, link, since } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import SoundControl from '#lib/components/SoundControl.svelte';
 	import AppHeader from '#lib/components/AppHeader.svelte';
@@ -272,7 +272,7 @@
 					<div class="linked-banner">
 						<span class="pair" aria-hidden="true"><Avatar user={me.id} /><span class="cable"></span><Avatar user={ls.peer} /></span>
 						<span class="lb-text"
-							><b>Linked with {nameOf(ls.peer)}</b><span>{ls.kind === 'TRADE' ? 'Trade' : 'Battle'} · {clock(left(ls.endsAt))} left</span></span
+							><b>Linked with {nameOf(ls.peer)}</b><span>{ls.kind === 'TRADE' ? 'Trade' : 'Battle'} · linked {clock(since(ls.since))}</span></span
 						>
 						<button type="button" class="unplug" onclick={() => act('DELETE', '/link/session')}>Unplug</button>
 					</div>

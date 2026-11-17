@@ -12,13 +12,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
  * Link cable between two players: a lobby of who is ready to trade or battle, a challenge the ready player
- * accepts or declines, and the session that links their consoles until someone unplugs, leaves or time is up.
+ * accepts or declines, and the session that links their consoles until someone unplugs or leaves (no page open for a minute).
  * Live events (to every browser; they carry the user ids concerned): LOBBY_CHANGED (the lobby list),
  * LINK_CHALLENGE (LinkState.Challenge) and LINK_SESSION (LinkState.SessionEvent).
  */
@@ -28,7 +29,10 @@ public class LinkService {
 
     /** Non-final so tests need not wait a minute. */
     private Duration challengeTtl = Duration.ofSeconds(60);
-    private Duration sessionCap = Duration.ofMinutes(15);
+    /** How long a linked player may have no page open (a closed browser) before their session ends. */
+    private Duration awayLimit = Duration.ofSeconds(60);
+    /** Whether the player has a page open; the app plugs in the events socket's presence. */
+    private Predicate<String> online = id -> true;
 
     // ponytail: challenges and sessions live in this JVM behind one lock (every method is synchronized), fine for
     // a single backend pod. More pods: move both to Redis with TTLs and route the link to the pod holding the consoles.
@@ -38,6 +42,8 @@ public class LinkService {
     private final Map<String, SessionEvent> sessions = new HashMap<>();
     /** Linked players standing in a link room that does not fit their session's kind: userId -> room. */
     private final Map<String, String> wrongRoom = new HashMap<>();
+    /** Linked players with no page open: userId -> since when. */
+    private final Map<String, Long> away = new HashMap<>();
 
     private final LobbyRepository lobby;
     private final PlayerConsoles consoles;
@@ -66,13 +72,18 @@ public class LinkService {
                 out != null && out.expiresAt() > now ? out : null,
                 s == null ? null : session(userId, s),
                 sessions.values().stream().distinct()
-                        .map(e -> new LinkState.Pair(e.a(), e.b(), e.kind(), e.endsAt())).toList(),
+                        .map(e -> new LinkState.Pair(e.a(), e.b(), e.kind(), e.since())).toList(),
                 now);
     }
 
     private LinkState.Session session(String userId, SessionEvent s) {
         String peer = s.a().equals(userId) ? s.b() : s.a();
-        return new LinkState.Session(peer, s.kind(), s.endsAt(), wrongRoom.get(userId), wrongRoom.get(peer));
+        return new LinkState.Session(peer, s.kind(), s.since(), wrongRoom.get(userId), wrongRoom.get(peer));
+    }
+
+    /** Tells the service who has a page open (the app's events socket). */
+    public void presence(Predicate<String> online) {
+        this.online = online;
     }
 
     /** kind TRADE or BATTLE, or null to leave the lobby. */
@@ -145,7 +156,7 @@ public class LinkService {
                     .forEach(o -> close(o, "CANCELLED"));
         }
         lobbyChanged();
-        var s = new SessionEvent(c.from(), userId, c.kind(), System.currentTimeMillis() + sessionCap.toMillis(), "STARTED", null);
+        var s = new SessionEvent(c.from(), userId, c.kind(), System.currentTimeMillis(), "STARTED", null);
         sessions.put(s.a(), s);
         sessions.put(s.b(), s);
         events.publishEvent(new LiveEvent("LINK_SESSION", s));
@@ -165,14 +176,18 @@ public class LinkService {
     }
 
     /**
-     * Drops challenges nobody answered in time and sessions past the cap, and tells a pair when one of them walks into
-     * the wrong link room (LINK_SESSION status ROOM): the trade room for a battle, the Colosseum for a trade.
+     * Drops challenges nobody answered in time, ends the session of a player who has had no page open for awayLimit
+     * (sessions have no time cap: a battle must not be cut off), and tells a pair when one of them walks into the
+     * wrong link room (LINK_SESSION status ROOM): the trade room for a battle, the Colosseum for a trade.
      */
     @Scheduled(fixedDelay = 1000)
     public synchronized void sweep() {
         long now = System.currentTimeMillis();
         List.copyOf(challenges.values()).stream().filter(c -> c.expiresAt() <= now).forEach(c -> close(c, "EXPIRED"));
-        List.copyOf(sessions.values()).stream().filter(s -> s.endsAt() <= now).forEach(s -> end(s.a(), "TIME_UP"));
+        for (String id : List.copyOf(sessions.keySet())) {
+            if (online.test(id)) away.remove(id);
+            else if (now - away.computeIfAbsent(id, k -> now) >= awayLimit.toMillis()) end(id, "LEFT");
+        }
         for (SessionEvent s : sessions.values().stream().distinct().toList()) {
             boolean changed = false;
             for (String id : List.of(s.a(), s.b())) {
@@ -183,7 +198,7 @@ public class LinkService {
                 changed = true;
             }
             if (changed) {
-                events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.endsAt(), "ROOM", null)));
+                events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.since(), "ROOM", null)));
             }
         }
     }
@@ -208,8 +223,10 @@ public class LinkService {
         sessions.remove(s.a().equals(userId) ? s.b() : s.a());
         wrongRoom.remove(s.a());
         wrongRoom.remove(s.b());
+        away.remove(s.a());
+        away.remove(s.b());
         consoles.unlink(userId); // parks both consoles
-        events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.endsAt(), "ENDED", reason)));
+        events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.since(), "ENDED", reason)));
     }
 
     private void close(Challenge c, String status) {

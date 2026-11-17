@@ -16,7 +16,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`. Key bindings per user: `GET/PUT /api/v1/me/keys`, Redis hash `pibs:keys:{userId}` (kept across a reset).
   `/ws/screen` and `/ws/audio` carry only the caller's own console. /play shows `GamePicker` until a game is picked.
 - Done: lobby and link sessions. `LinkService` (core): ready to TRADE/BATTLE in Redis hash `pibs:lobby`, challenges
-  (60 s) and sessions (15 min cap) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events
+  (60 s) and sessions (no time cap; a player with no tab open for 60 s leaves, via `LinkService.presence` = EventPublisher.isOnline) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events
   `LOBBY_CHANGED`, `LINK_CHALLENGE`, `LINK_SESSION` (to everyone, with user ids). Panel: `LinkPanel.svelte`.
 - Done: accepting a link Digs both players up to the Cable Club, onto the tile below the receptionist for the
   kind (trade left, battle middle), facing her (`PokecenterDig`, core `service/game`). `accept` refuses (409,

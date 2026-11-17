@@ -65,7 +65,8 @@ class LinkApiTest {
     @BeforeEach
     void openConsoles() {
         ReflectionTestUtils.setField(link, "challengeTtl", Duration.ofSeconds(60));
-        ReflectionTestUtils.setField(link, "sessionCap", Duration.ofMinutes(15));
+        ReflectionTestUtils.setField(link, "awayLimit", Duration.ofSeconds(60));
+        link.presence(id -> true); // no events sockets here: everyone counts as having a tab open
         for (String id : new String[] {ASH, SAM, GARY}) {
             consoles.pick(id, "test");
             consoles.idle(id); // ends whatever the previous test left
@@ -182,7 +183,7 @@ class LinkApiTest {
     }
 
     @Test
-    void theSessionEndsWhenOnePlayerLeavesOrTimeIsUp() throws Exception {
+    void theSessionEndsWhenOnePlayerLeavesOrClosesTheBrowser() throws Exception {
         linkAshAndSam();
         consoles.idle(ASH); // Ash's last screen socket closed
         assertThat(consoles.linkedWith(SAM)).isNull();
@@ -191,10 +192,11 @@ class LinkApiTest {
 
         consoles.open(ASH);
         consoles.open(SAM); // no screen socket of Sam's kept it awake
-        ReflectionTestUtils.setField(link, "sessionCap", Duration.ZERO);
-        ready(SAM, "TRADE"); // not linkAshAndSam(): the scheduled sweep may end this session at any moment
-        challenge(ASH, SAM).andExpect(status().isOk());
-        as(SAM, post("/api/v1/link/challenges/accept"), null).andExpect(status().isOk());
+        linkAshAndSam();
+        link.sweep();
+        assertThat(consoles.linkedWith(ASH)).isEqualTo(SAM); // no time cap
+        link.presence(id -> !id.equals(ASH)); // Ash closed the browser
+        ReflectionTestUtils.setField(link, "awayLimit", Duration.ZERO);
         link.sweep();
         assertThat(consoles.linkedWith(ASH)).isNull();
         as(ASH, get("/api/v1/link"), null).andExpect(jsonPath("$.session").doesNotExist());
