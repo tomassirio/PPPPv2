@@ -4,6 +4,7 @@ import dev.pppp.emulator.Button;
 import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
+import dev.pppp.service.game.Ghosts;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,11 +49,13 @@ public class PlayerConsoles {
     private final PlayerRepository players;
     private final CartridgeService cartridges;
     private final CartridgeRepository files;
+    private final Ghosts ghosts;
 
-    public PlayerConsoles(PlayerRepository players, CartridgeService cartridges, CartridgeRepository files) {
+    public PlayerConsoles(PlayerRepository players, CartridgeService cartridges, CartridgeRepository files, Ghosts ghosts) {
         this.players = players;
         this.cartridges = cartridges;
         this.files = files;
+        this.ghosts = ghosts;
     }
 
     /** The player's cartridge id, or null before they picked. */
@@ -87,6 +90,7 @@ public class PlayerConsoles {
             }
         }
         releaseAll(userId);
+        ghosts.leave(userId);
         unlink(userId); // before pausing: a paused driver would freeze the other player's console too
         consoles.computeIfPresent(userId, (id, c) -> {
             c.host().pause();
@@ -267,7 +271,10 @@ public class PlayerConsoles {
         if (game == null) throw new IllegalStateException("Pick a game first");
         EmulatorHost host = new EmulatorHost();
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game));
-        host.onFrame(pixels -> frameListeners.forEach(l -> l.accept(userId, pixels)));
+        host.onFrame(pixels -> {
+            ghosts.frame(userId, game, host, pixels); // before the listeners: they send this array to the browser
+            frameListeners.forEach(l -> l.accept(userId, pixels));
+        });
         host.onAudio(samples -> audioListeners.forEach(l -> l.accept(userId, samples)));
         host.powerOn();
         Path state = files.playerState(userId, game);

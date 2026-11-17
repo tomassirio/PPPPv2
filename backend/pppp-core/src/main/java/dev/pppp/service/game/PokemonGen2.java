@@ -189,11 +189,21 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
 
     /** By header title and game code (0x134, 0x13F), which also tells the English release from the others. */
     static PokemonGen2 forRom(byte[] rom) {
+        Layout layout = layout(rom);
+        return layout == null || rom.length < layout.romNames + DEX_SIZE * 10 ? null : new PokemonGen2(rom, layout);
+    }
+
+    /** True for Crystal, false for Gold or Silver, null for any other ROM (the check {@link #forRom} makes). */
+    static Boolean crystal(byte[] rom) {
+        Layout layout = layout(rom);
+        return layout == null ? null : layout.crystal;
+    }
+
+    private static Layout layout(byte[] rom) {
         if (rom.length < 0x150) return null;
         String header = new String(rom, 0x134, 15, StandardCharsets.US_ASCII);
-        Layout layout = header.equals("POKEMON_GLDAAUE") || header.equals("POKEMON_SLVAAXE") ? GOLD_SILVER
+        return header.equals("POKEMON_GLDAAUE") || header.equals("POKEMON_SLVAAXE") ? GOLD_SILVER
                 : header.equals("PM_CRYSTAL\0BYTE") ? CRYSTAL : null;
-        return layout == null || rom.length < layout.romNames + DEX_SIZE * 10 ? null : new PokemonGen2(rom, layout);
     }
 
     /** "Gold", "Silver" or "Crystal", by the header title. */
