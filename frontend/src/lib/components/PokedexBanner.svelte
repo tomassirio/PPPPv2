@@ -21,7 +21,7 @@
 	};
 
 	let { half }: { half: 1 | 2 } = $props();
-	const GAP = 4;
+	const GAP = 3;
 	const CARD_HALF = 130; // about half the card's height, plus a margin
 
 	$effect(() => watchGame());
@@ -43,15 +43,17 @@
 
 	let w = $state(0);
 	let h = $state(0);
+	// The column count with the biggest square cells; but the fewest columns within 5% of that size, so the grid runs
+	// the banner's whole height instead of stopping short (one more column often wins by under a pixel).
 	const columns = $derived.by(() => {
-		let best = 4;
-		let cell = 0;
-		for (let c = 2; c <= 12; c++) {
+		const size = (c: number) => {
 			const rows = Math.ceil(numbers.length / c);
-			const size = Math.min((w - (c - 1) * GAP) / c, (h - (rows - 1) * GAP) / rows);
-			if (size > cell) [best, cell] = [c, size];
-		}
-		return best;
+			return Math.min((w - (c - 1) * GAP) / c, (h - (rows - 1) * GAP) / rows);
+		};
+		let biggest = 0;
+		for (let c = 2; c <= 12; c++) biggest = Math.max(biggest, size(c));
+		for (let c = 2; c <= 12; c++) if (size(c) >= biggest * 0.95) return c;
+		return 4;
 	});
 
 	// The card: one at a time, beside the banner (to the right of the left one, to the left of the right one).
@@ -239,7 +241,7 @@
 		padding: 0;
 		list-style: none;
 		display: grid;
-		--gap: 4px; /* GAP in the script */
+		--gap: 3px; /* GAP in the script */
 		--cell: min(
 			calc((100cqw - (var(--cols) - 1) * var(--gap)) / var(--cols)),
 			calc((100cqh - (var(--rows) - 1) * var(--gap)) / var(--rows))
@@ -248,7 +250,8 @@
 		grid-auto-rows: var(--cell);
 		gap: var(--gap);
 		justify-content: center;
-		align-content: start;
+		/* When the banner's width caps the cells, the rows spread over the height left instead of leaving it empty. */
+		align-content: space-between;
 		height: 100%;
 	}
 	li {
