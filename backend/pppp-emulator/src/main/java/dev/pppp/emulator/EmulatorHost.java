@@ -586,14 +586,17 @@ public class EmulatorHost {
     /** Runs the task on the emulator thread between frames and waits for it. Console must be ON. */
     private <T> T call(Callable<T> task) {
         FutureTask<T> f = new FutureTask<>(task);
+        // On the machine's own thread (a frame listener reading memory) run it here and take no lock: a power off
+        // holds the lock while it waits for this very thread, so locking would deadlock. The thread is on by
+        // definition; it reads its own `thread` field, set before it started.
+        EmulatorHost d = driver;
+        if (Thread.currentThread() == thread || (d != null && Thread.currentThread() == d.thread)) {
+            f.run();
+            return await(f);
+        }
         synchronized (this) {
             requireOn();
-            EmulatorHost d = driver;
-            if (Thread.currentThread() == thread || (d != null && Thread.currentThread() == d.thread)) {
-                f.run();
-            } else {
-                tasks.add(f);
-            }
+            tasks.add(f);
         }
         return await(f);
     }

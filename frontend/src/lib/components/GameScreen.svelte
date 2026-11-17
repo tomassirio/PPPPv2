@@ -1,7 +1,15 @@
-<!-- The player's own live screen: PNG frames from /ws/screen drawn on a 160x144 canvas, scaled with pixelated rendering. -->
+<!-- The player's own live screen: PNG frames from /ws/screen drawn on a 160x144 canvas, scaled with pixelated rendering.
+     Other players' ghosts (drawn into the frames by the server) get a name label here, and their chat lines float above
+     them for a few seconds. Text only, never HTML. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { backoff } from '#lib/play.ts';
+	import { on } from '#lib/events.ts';
+	import { nameOf, needPicture } from '#lib/pictures.svelte.ts';
+	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
+
+	type Ghost = { user: string; x: number; y: number };
+	const BUBBLE_MS = 5000;
 
 	// `controls` renders at the right of the bezel's status strip (e.g. the sound control); `leading` right after LIVE.
 	let { controls, leading }: { controls?: Snippet; leading?: Snippet } = $props();
@@ -10,6 +18,19 @@
 	let connected = $state(false);
 
 	const overlay = $derived(connected ? null : 'Reconnecting…');
+	// Where the server drew other players this frame (sprite top left, screen pixels), and their latest chat line.
+	let ghosts = $state<Ghost[]>([]);
+	let said = $state<Record<string, { id: string; text: string }>>({});
+
+	$effect(() =>
+		on('CHAT_MESSAGE', (m: ChatMessage) => {
+			if (m.kind !== 'USER') return;
+			said[m.user] = { id: m.id, text: m.text };
+			setTimeout(() => {
+				if (said[m.user]?.id === m.id) delete said[m.user];
+			}, BUBBLE_MS);
+		})
+	);
 
 	$effect(() => {
 		const ctx = canvas.getContext('2d')!;
@@ -47,11 +68,17 @@
 				attempt = 0;
 			};
 			ws.onmessage = (e) => {
+				if (typeof e.data === 'string') {
+					ghosts = JSON.parse(e.data).ghosts ?? [];
+					ghosts.forEach((g) => needPicture(g.user));
+					return;
+				}
 				if (busy) pending = e.data;
 				else draw(e.data);
 			};
 			ws.onclose = () => {
 				connected = false;
+				ghosts = [];
 				if (!stopped) timer = setTimeout(connect, backoff(attempt++));
 			};
 		}
@@ -70,6 +97,14 @@
 	<div class="bezel">
 		<div class="screen">
 			<canvas bind:this={canvas} width="160" height="144" aria-label="Live game screen"></canvas>
+			{#if !overlay}
+				{#each ghosts as g (g.user)}
+					<div class="ghost" style:left="{((g.x + 8) / 160) * 100}%" style:top="{(g.y / 144) * 100}%" aria-hidden="true">
+						{#if said[g.user]}<p class="said">{said[g.user].text}</p>{/if}
+						<span class="who" style:color={nameColor(g.user)}>{nameOf(g.user)}</span>
+					</div>
+				{/each}
+			{/if}
 			{#if overlay}
 				<div class="overlay pixel" aria-hidden="true">{overlay}</div>
 			{/if}
@@ -130,6 +165,49 @@
 		color: #0f380f;
 		font-size: 14px;
 		line-height: 1.6;
+	}
+	/* Anchored at the ghost's head, centred; grows upwards: chat bubble, then the name. Sizes follow the screen width. */
+	.ghost {
+		position: absolute;
+		transform: translate(-50%, -100%);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.6cqw;
+		pointer-events: none;
+		max-width: 45%;
+		padding-bottom: 0.4cqw;
+	}
+	.who {
+		font-size: max(10px, 2.4cqw);
+		font-weight: 600;
+		line-height: 1.2;
+		padding: 0.1em 0.4em;
+		border-radius: 0.4em;
+		background: rgb(0 0 0 / 0.6);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 100%;
+	}
+	.said {
+		margin: 0;
+		font-size: max(10px, 2.4cqw);
+		line-height: 1.3;
+		padding: 0.3em 0.6em;
+		border-radius: 0.6em;
+		background: #fff;
+		color: #111;
+		box-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
+		overflow-wrap: anywhere;
+		text-align: center;
+		display: -webkit-box;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		width: max-content;
+		max-width: 100%;
 	}
 	.sr-only {
 		position: absolute;

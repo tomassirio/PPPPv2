@@ -4,6 +4,8 @@ import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.service.CartridgeService;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -57,6 +59,9 @@ public class Ghosts {
     /** A player on a map: world pixels of their sprite's top left, and the 16x16 frame to draw (0 = see-through). */
     record Spot(String map, int x, int y, int[] sprite) {}
 
+    /** A ghost drawn on a player's screen: whose, and the screen pixel of its sprite's top left (may be off the edge). */
+    public record OnScreen(String user, int x, int y) {}
+
     private record Game(Layout at, byte[] rom, String[][] maps, Map<Integer, int[][]> sprites) {}
 
     /** The scroll's anchor: scroll = anchor + 16 * tile while standing still. Per player, owned by their console's thread. */
@@ -70,6 +75,7 @@ public class Ghosts {
     private final Map<String, Optional<Game>> games = new ConcurrentHashMap<>();
     private final Map<String, Camera> cameras = new ConcurrentHashMap<>();
     private final Map<String, Spot> spots = new ConcurrentHashMap<>();
+    private final Map<String, List<OnScreen>> onScreen = new ConcurrentHashMap<>();
 
     public Ghosts(CartridgeService cartridges) {
         this.cartridges = cartridges;
@@ -89,7 +95,10 @@ public class Ghosts {
         if (map == null || player == null || mode == null || battle == null || windows == null) return; // another WRAM bank is in
         // In a menu, a text box, a cutscene or a battle the scroll means something else: others keep seeing
         // the player where they last stood, and the player sees no one.
-        if (mode[0] == SCRIPT_READ || battle[0] != 0 || windows[0] != 0) return;
+        if (mode[0] == SCRIPT_READ || battle[0] != 0 || windows[0] != 0) {
+            onScreen.put(userId, List.of());
+            return;
+        }
         String here = mapId(game, map[0] & 0xFF, map[1] & 0xFF);
         Camera camera = cameras.computeIfAbsent(userId, id -> new Camera());
         int tileY = map[2] & 0xFF, tileX = map[3] & 0xFF, scrollX = scroll[0] & 0xFF, scrollY = scroll[1] & 0xFF;
@@ -101,19 +110,31 @@ public class Ghosts {
         }
         if (!camera.anchored || here == null || !here.equals(camera.map) || LINK_ROOMS.contains(here)) {
             spots.remove(userId); // a new map not redrawn yet, or a link room
+            onScreen.put(userId, List.of());
             return;
         }
         int x = world(tileX, scrollX, camera.anchorX), y = world(tileY, scrollY, camera.anchorY);
         spots.put(userId, new Spot(here, x, y, sprite(game, player[0] & 0xFF, player[OBJECT_DIRECTION] >> 2 & 3, x, y)));
+        List<OnScreen> seen = new ArrayList<>();
         spots.forEach((other, s) -> {
-            if (!other.equals(userId) && here.equals(s.map)) draw(pixels, s.sprite, SCREEN_X + s.x - x, SCREEN_Y + s.y - y);
+            int sx = SCREEN_X + s.x - x, sy = SCREEN_Y + s.y - y;
+            if (other.equals(userId) || !here.equals(s.map) || sx <= -SIZE || sx >= SCREEN_W || sy <= -SIZE || sy >= SCREEN_H) return;
+            draw(pixels, s.sprite, sx, sy);
+            seen.add(new OnScreen(other, sx, sy));
         });
+        onScreen.put(userId, List.copyOf(seen));
+    }
+
+    /** The ghosts on the player's screen in the frame just drawn; empty in a menu, a battle or when nobody is near. */
+    public List<OnScreen> onScreen(String userId) {
+        return onScreen.getOrDefault(userId, List.of());
     }
 
     /** The player left: they vanish from everyone's screen. */
     public void leave(String userId) {
         spots.remove(userId);
         cameras.remove(userId);
+        onScreen.remove(userId);
     }
 
     /**

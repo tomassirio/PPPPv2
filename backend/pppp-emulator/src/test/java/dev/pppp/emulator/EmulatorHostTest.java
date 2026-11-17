@@ -40,6 +40,31 @@ class EmulatorHostTest {
         assertThat(host.status().cartridgeId()).isNull();
     }
 
+    /** Frame listeners may read memory (the ghosts do); a power off waiting for the emulator thread must not deadlock. */
+    @Test
+    void powerOffWhileAFrameListenerReadsMemory() throws Exception {
+        host.insert("test", TestRom.write(dir), dir.resolve("test.sav"));
+        var inListener = new java.util.concurrent.CountDownLatch(1);
+        var once = new java.util.concurrent.atomic.AtomicBoolean();
+        host.onFrame(pixels -> {
+            if (!once.compareAndSet(false, true)) return;
+            inListener.countDown();
+            try {
+                Thread.sleep(300); // the power off takes the console's lock meanwhile
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            host.readByte(0xC001);
+        });
+        host.powerOn();
+        assertThat(inListener.await(5, TimeUnit.SECONDS)).isTrue();
+        var off = new Thread(host::powerOff);
+        off.start();
+        off.join(5_000);
+        assertThat(off.isAlive()).as("powerOff deadlocked").isFalse();
+        assertThat(host.status().power()).isEqualTo(EmulatorHost.Power.OFF);
+    }
+
     @Test
     void pressSaveStateAndBattery() throws Exception {
         Path sav = dir.resolve("test.sav");
