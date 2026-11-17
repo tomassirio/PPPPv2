@@ -26,6 +26,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   newloadmap MAPSETUP_TELEPORT); `queue` arms one through wMapReentryScriptQueueFlag and sets wBackupWarp* so the 2F
   stairs lead into that Center (the current one, or wLastSpawnMap's). The link sweep reads each linked player's room;
   a link room that does not fit the kind sends LINK_SESSION status ROOM and `Session.wrongRoom/peerWrongRoom`.
+  `PokecenterDig.patientReceptionist` (a frame hook per console) stretches the receptionist's "Please wait" from 8.5 s
+  to about a minute while linked (`LinkWaitTest`).
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs
   the real ROMs and parked states in `data/` (skipped without them).
 - Done: progress + scoreboard. `ProgressTracker` (core, `service/game`) samples every running console once a second

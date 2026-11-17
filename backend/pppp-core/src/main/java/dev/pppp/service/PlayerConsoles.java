@@ -284,6 +284,7 @@ public class PlayerConsoles {
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game),
                 rom -> PokecenterDig.patch(red.patch(rom)));
         host.afterFrame(red::nicknames);
+        host.afterFrame(PokecenterDig.patientReceptionist(host::isLinked));
         host.onFrame(pixels -> {
             ghosts.frame(userId, game, host, pixels); // before the listeners: they send this array to the browser
             frameListeners.forEach(l -> l.accept(userId, pixels));

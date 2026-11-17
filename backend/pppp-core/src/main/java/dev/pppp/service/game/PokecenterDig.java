@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -67,6 +69,8 @@ public class PokecenterDig {
     private static final int DIG_BANK = 3, SVBK = 0xFF70, SCRIPT_READ = 1, MAPSTATUS_HANDLE = 2, MAPEVENTS_ON = 0,
             BUG_CONTEST_TIMER = 1 << 2, TOWN = 1, ROUTE = 2, CAVE = 4, DUNGEON = 7, MAPSETUP_DOOR = 0xF5,
             MAPSETUP_TELEPORT = 0xF4, SPAWN_N_A = 0xFF, PLAYER = 0, UP = 1, SCRIPT_SIZE = 0x40;
+    /** wLinkTimeoutFrames (WRAM bank 0); 12 extensions of 256 frames: 8.5 s + 51 s, about a minute. */
+    private static final int GOLD_SILVER_LINK_TIMEOUT = 0xCE5B, CRYSTAL_LINK_TIMEOUT = 0xCF5B, WAIT_EXTENSIONS = 12;
     /** Where the two scripts go: bank 3 is zero from $7a0b (Crystal) / $7a3e (Gold) to its end. */
     private static final int TRADE_SCRIPT = 0x7F00, BATTLE_SCRIPT = TRADE_SCRIPT + SCRIPT_SIZE;
     /** Pokecenter2F: the receptionists stand at (5, 2) trade and (9, 2) battle; the player one step below. */
@@ -257,6 +261,55 @@ public class PokecenterDig {
             if (tail && free) return Optional.of(new Game(at, maps, script + 2, pc2f));
         }
         return Optional.empty();
+    }
+
+    /**
+     * A frame hook for a console (one each): while its cable is plugged in and its player stands upstairs in a
+     * Pokémon Center, the receptionist's "Please wait..." waits about a minute for the friend instead of 8.5 s.
+     * WaitForLinkedFriend (engine/link/link.asm) counts wLinkTimeoutFrames down from $02FF, one a frame, the low byte
+     * first; halfway through its last 256 frames the high byte goes back to 2, at most WAIT_EXTENSIONS times per
+     * wait (a fresh $02FF starts a new one). A browser player has to get through the dialog and the save first, and
+     * one person playing both ends has to switch windows. The other link timeouts (the same variable, link only) only
+     * get longer. The game is told by its ROM header; anything but Gold, Silver or Crystal is left alone.
+     */
+    public static Consumer<AddressSpace> patientReceptionist(BooleanSupplier linked) {
+        return new Consumer<>() {
+            Boolean crystal;
+            int[] pc2f;
+            int extensions;
+
+            @Override
+            public void accept(AddressSpace bus) {
+                if (!linked.getAsBoolean()) return;
+                if (crystal == null) {
+                    byte[] title = new byte[15];
+                    for (int i = 0; i < 15; i++) title[i] = (byte) bus.getByte(0x134 + i);
+                    String t = new String(title, java.nio.charset.StandardCharsets.US_ASCII);
+                    crystal = t.equals("PM_CRYSTAL\0BYTE") ? Boolean.TRUE
+                            : t.equals("POKEMON_GLDAAUE") || t.equals("POKEMON_SLVAAXE") ? Boolean.FALSE : null;
+                    if (crystal == null) {
+                        crystal = Boolean.FALSE;
+                        pc2f = new int[] {-1, -1}; // not a game we know: never matches
+                        return;
+                    }
+                    String[][] ids = PokemonGen2.mapConstants(crystal);
+                    for (int g = 1; g < ids.length && pc2f == null; g++) {
+                        for (int n = 1; n < ids[g].length; n++) if ("POKECENTER_2F".equals(ids[g][n])) pc2f = new int[] {g, n};
+                    }
+                    if (pc2f == null) pc2f = new int[] {-1, -1};
+                }
+                Layout at = crystal ? CRYSTAL : GOLD_SILVER;
+                int timeout = crystal ? CRYSTAL_LINK_TIMEOUT : GOLD_SILVER_LINK_TIMEOUT;
+                int lo = u8(bus, timeout), hi = u8(bus, timeout + 1);
+                if (hi == 2 && lo == 0xFF) extensions = 0;
+                if (hi != 1 || lo != 0x80 || extensions >= WAIT_EXTENSIONS) return;
+                int svbk = bus.getByte(SVBK);
+                if (svbk != 0xFF && (svbk & 7) > 1) return;
+                if (u8(bus, at.mapGroup) != pc2f[0] || u8(bus, at.mapGroup + 1) != pc2f[1]) return;
+                bus.setByte(timeout + 1, 2);
+                extensions++;
+            }
+        };
     }
 
     private static int offset(int address) {
