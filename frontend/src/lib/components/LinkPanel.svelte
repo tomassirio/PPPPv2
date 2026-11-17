@@ -21,6 +21,10 @@
 	const rowOf = (user: string) => board.rows.find((r) => r.userId === user);
 	const mine = $derived(me ? rowOf(me)?.link : undefined);
 	let finding = $state(false);
+	// Linked up: the finder is done. Left open, it would pop back up the moment the cable is unplugged.
+	$effect(() => {
+		if (s?.session) finding = false;
+	});
 	const gameOf = (user: string) => {
 		const g = rowOf(user)?.game;
 		return g ? board.names[g] : undefined;
