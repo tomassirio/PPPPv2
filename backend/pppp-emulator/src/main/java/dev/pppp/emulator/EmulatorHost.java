@@ -1,5 +1,6 @@
 package dev.pppp.emulator;
 
+import eu.rekawek.coffeegb.core.AddressSpace;
 import eu.rekawek.coffeegb.core.Gameboy;
 import eu.rekawek.coffeegb.core.Gameboy.GameboyConfiguration;
 import eu.rekawek.coffeegb.core.events.EventBus;
@@ -34,6 +35,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,6 +81,7 @@ public class EmulatorHost {
     private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
     private final List<Consumer<int[]>> frameListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<short[]>> audioListeners = new CopyOnWriteArrayList<>();
+    private final List<Consumer<AddressSpace>> frameHooks = new CopyOnWriteArrayList<>();
 
     private Gameboy gb;
     private EventBusImpl bus;
@@ -99,9 +102,14 @@ public class EmulatorHost {
 
     /** Inserts a ROM. Console must be OFF. batterySave is where the cartridge's .sav lives (may not exist yet). */
     public synchronized void insert(String cartridgeId, Path rom, Path batterySave) {
+        insert(cartridgeId, rom, batterySave, UnaryOperator.identity());
+    }
+
+    /** Like {@link #insert(String, Path, Path)}, with the ROM's bytes changed in memory by patch (the file is untouched). */
+    public synchronized void insert(String cartridgeId, Path rom, Path batterySave, UnaryOperator<byte[]> patch) {
         requireOff("insert a cartridge");
         try {
-            this.rom = new Rom(rom.toFile());
+            this.rom = new Rom(patch.apply(Files.readAllBytes(rom)), rom.toFile());
         } catch (IOException e) {
             throw new IllegalArgumentException("Unreadable ROM: " + e.getMessage(), e);
         }
@@ -363,6 +371,14 @@ public class EmulatorHost {
     }
 
     /**
+     * Runs hook on the emulator thread after every frame with the bus, to read and write memory. A Game Boy Color
+     * game may have any WRAM bank in at D000-DFFF (SVBK, FF70): check it before touching that range.
+     */
+    public void afterFrame(Consumer<AddressSpace> hook) {
+        frameHooks.add(hook);
+    }
+
+    /**
      * Registers a listener for the console's sound: mono signed 16-bit samples at {@link #audioSampleRate()},
      * about one frame's worth (~369) per call, in a fresh array shared by all listeners (don't modify it).
      * Silent while paused or at any speed but 1.0. Runs on the emulator thread: hand off and return.
@@ -486,6 +502,13 @@ public class EmulatorHost {
     private void endFrame() {
         Press p = press;
         frame++;
+        for (Consumer<AddressSpace> h : frameHooks) {
+            try {
+                h.accept(gb.getAddressSpace());
+            } catch (RuntimeException e) {
+                log.warn("Frame hook failed", e);
+            }
+        }
         if (frame % 2 == 0 && !frameListeners.isEmpty()) {
             for (Consumer<int[]> l : frameListeners) {
                 try {

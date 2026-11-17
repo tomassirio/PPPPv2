@@ -5,6 +5,7 @@ import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
 import dev.pppp.service.game.Ghosts;
+import dev.pppp.service.game.V1Red;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -270,7 +271,9 @@ public class PlayerConsoles {
         String game = players.game(userId);
         if (game == null) throw new IllegalStateException("Pick a game first");
         EmulatorHost host = new EmulatorHost();
-        host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game));
+        V1Red red = new V1Red();
+        host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game), red::patch);
+        host.afterFrame(red::nicknames);
         host.onFrame(pixels -> {
             ghosts.frame(userId, game, host, pixels); // before the listeners: they send this array to the browser
             frameListeners.forEach(l -> l.accept(userId, pixels));
