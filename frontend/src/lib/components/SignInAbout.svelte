@@ -4,7 +4,8 @@
 	import type { Teaser } from '#lib/teaser.js';
 	import logo from '#lib/assets/ppppv2-logo.png';
 
-	let { teaser }: { teaser: Teaser | null } = $props();
+	/** requested: this sign-in was turned into an access request (not on the list yet). */
+	let { teaser, requested = false }: { teaser: Teaser | null; requested?: boolean } = $props();
 
 	/** The three versions, in picker order, with their cartridge plastic. */
 	const VERSIONS = [
@@ -62,7 +63,19 @@
 		<p class="phone-line">{n(teaser?.players)} players · <span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online · {n(teaser?.caughtTogether)}/251 caught</p>
 	</div>
 
-	<a class="cta" href="/oauth2/authorization/google" data-sveltekit-reload>
+	{#if requested}
+		<div class="requested" role="status">
+			<span class="hourglass" aria-hidden="true">⌛</span>
+			<div>
+				<b>Access requested</b>
+				<p class="long">You're not on the player list yet, so an admin has been asked to let you in. Nothing else to
+					do: once they accept, sign in again and your Game Boy will be waiting.</p>
+				<p class="short">An admin will let you in. Sign in again once they do.</p>
+			</div>
+		</div>
+	{/if}
+
+	<a class="cta" class:again={requested} href="/oauth2/authorization/google" data-sveltekit-reload>
 		<!-- Google's G, in Poké Ball colours: red top, black band, white bottom, the button where the bar starts. -->
 		<svg class="g" viewBox="0 0 24 24" aria-hidden="true">
 			<defs>
@@ -77,7 +90,7 @@
 			<path d="M18.13 6.86A8 8 0 1 0 20 12H12" fill="none" stroke="url(#g-ball)" stroke-width="4" />
 			<circle cx="12" cy="12" r="2.3" fill="#f8f8f8" stroke="#202020" stroke-width="1.4" />
 		</svg>
-		Sign in with Google
+		{requested ? 'Check again' : 'Sign in with Google'}
 	</a>
 </section>
 
@@ -247,6 +260,47 @@
 		box-shadow: 0 0 6px #3fb950;
 	}
 
+	.requested {
+		margin-top: 16px;
+		display: flex;
+		gap: 12px;
+		align-items: flex-start;
+		padding: 12px 14px;
+		border-radius: 8px;
+		border: 2px solid var(--accent);
+		background: color-mix(in oklab, var(--accent), transparent 85%);
+	}
+	.requested b {
+		font: 10px/1.4 var(--pixel-font);
+		color: var(--accent-text);
+	}
+	.requested p {
+		margin: 6px 0 0;
+		font-size: 13px;
+		line-height: 1.45;
+	}
+	.short {
+		display: none;
+	}
+	.hourglass {
+		font-size: 22px;
+		line-height: 1;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.hourglass {
+			animation: turn 2.4s steps(2) infinite;
+		}
+	}
+	@keyframes turn {
+		50% {
+			rotate: 180deg;
+		}
+	}
+	.cta.again {
+		background: var(--panel);
+		color: var(--text);
+		box-shadow: inset 0 0 0 2px var(--border-strong);
+	}
 	.cta {
 		margin-top: 18px;
 		display: flex;
@@ -322,6 +376,16 @@
 			display: none;
 		}
 		.phone-line {
+			display: block;
+		}
+		.requested {
+			margin-top: 8px;
+			padding: 8px 10px;
+		}
+		.long {
+			display: none;
+		}
+		.short {
 			display: block;
 		}
 		.card {

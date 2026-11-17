@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { isAdmin, logout, type Me } from '#lib/session.svelte.ts';
+	import { pending, watchRequests } from '#lib/requests.svelte.ts';
 	import { switchTheme, theme } from '#lib/theme.svelte.ts';
 	import { dexBanners, setDexBanners } from '#lib/dex.svelte.ts';
 	import SettingsDialog from '#lib/components/SettingsDialog.svelte';
@@ -10,6 +11,10 @@
 	let { me }: { me: Me } = $props();
 
 	let open = $state(false);
+	$effect(() => {
+		if (isAdmin(me)) watchRequests();
+	});
+	const waiting = $derived(isAdmin(me) ? pending.count : 0);
 	let root = $state<HTMLDivElement>();
 	let trigger = $state<HTMLButtonElement>();
 	let pictureFailed = $state(false);
@@ -58,7 +63,7 @@
 		aria-haspopup="true"
 		aria-expanded={open}
 		aria-controls="user-menu"
-		aria-label="Account menu for {me.name}"
+		aria-label="Account menu for {me.name}{waiting ? `, ${waiting} access ${waiting === 1 ? 'request' : 'requests'} waiting` : ''}"
 		title={me.name}
 		onclick={() => (open = !open)}
 	>
@@ -68,6 +73,7 @@
 		{:else}
 			<span class="avatar initials" aria-hidden="true">{initials}</span>
 		{/if}
+		{#if waiting}<span class="dot" aria-hidden="true">{waiting > 9 ? '9+' : waiting}</span>{/if}
 		<svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"
 			><path d="M6 9l6 6 6-6" /></svg
 		>
@@ -112,7 +118,9 @@
 				}}>Settings</button
 			>
 			{#if isAdmin(me) && !page.url.pathname.startsWith('/admin')}
-				<a class="item" href="/admin">Admin</a>
+				<a class="item" href="/admin"
+					>Admin{#if waiting}<span class="badge">{waiting} {waiting === 1 ? 'request' : 'requests'}</span>{/if}</a
+				>
 			{/if}
 			<button type="button" class="item" onclick={logout}>Sign out</button>
 		</div>
@@ -141,7 +149,33 @@
 	.menu {
 		position: relative;
 	}
+	/* Access requests waiting (admins): a red count on the avatar, and on the Admin item. */
+	.dot {
+		position: absolute;
+		top: -2px;
+		left: 26px;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 5px;
+		box-sizing: border-box;
+		border-radius: 9px;
+		background: #e5383b;
+		color: #fff;
+		font: 700 11px/18px var(--font, system-ui);
+		text-align: center;
+		box-shadow: 0 0 0 2px var(--bg);
+	}
+	.badge {
+		margin-left: 8px;
+		padding: 1px 7px;
+		border-radius: 999px;
+		background: #e5383b;
+		color: #fff;
+		font-size: 11px;
+		font-weight: 700;
+	}
 	.trigger {
+		position: relative;
 		display: flex;
 		align-items: center;
 		gap: 6px;

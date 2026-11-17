@@ -74,14 +74,15 @@
 
 	// The cartridge carousel: our banner, then each version's title screen, the shell in that cartridge's plastic.
 	const SCREENS = [
-		{ id: 'pibs', shell: '#7a5cc2', src: null, name: 'Pibs & Pibettes' },
 		{ id: 'gold', shell: '#c99a2e', src: goldTitle, name: 'Pokémon Gold' },
 		{ id: 'crystal', shell: '#3f9fc6', src: crystalTitle, name: 'Pokémon Crystal' },
 		{ id: 'silver', shell: '#9aa3ae', src: silverTitle, name: 'Pokémon Silver' }
 	] as const;
 	const SCREEN_MS = 6000;
 	let screen = $state(0);
-	const showing = $derived(glitch || denied ? SCREENS[0] : SCREENS[screen]);
+	// The banner only boots the device (and frames the Konami egg and the sign-in messages); then the cartridges.
+	const BANNER = { id: 'pibs', shell: '#7a5cc2', src: null, name: 'Pibs & Pibettes' } as const;
+	const showing = $derived(glitch || denied || booting ? BANNER : SCREENS[screen]);
 
 	// Sound is only allowed after a gesture: the first key or tap plays the power-on chime.
 	let chimed = false;
@@ -181,7 +182,7 @@
 <SignInScene {teaser} />
 
 <main>
-	<div class="device" class:booting class:glitch style:--shell={showing.shell}>
+	<div class="device" class:booting class:glitch class:asked={requested} style:--shell={showing.shell}>
 		<div class="shell" aria-hidden="true"></div>
 
 		<div class="bezel">
@@ -194,7 +195,7 @@
 				</h1>
 				{#if showing.src}
 					{#key showing.id}
-						<img class="title-loop" src={showing.src} alt="" transition:fade={{ duration: 250 }} />
+						<img class="title-loop {showing.id}" src={showing.src} alt="" transition:fade={{ duration: 250 }} />
 					{/key}
 				{/if}
 				{#if showing.src}<span class="strip" aria-hidden="true"></span>{/if}
@@ -203,7 +204,7 @@
 				{#if glitch}
 					<p class="textbox" role="status">A wild PIBSIGNO. appeared!</p>
 				{:else if requested}
-					<p class="textbox" role="status">Request sent! A host will check the trainer list. Try again later.</p>
+					<p class="textbox" role="status">Access requested! An admin will let you in soon.</p>
 				{:else if denied}
 					<p class="textbox" role="alert">You're not on the trainer list. Ask the host to add you.</p>
 				{/if}
@@ -262,7 +263,7 @@
 		<div class="speaker" aria-hidden="true"></div>
 	</div>
 
-	<SignInAbout {teaser} />
+	<SignInAbout {teaser} {requested} />
 
 	{#if bursts.length}
 		<div class="fireworks" aria-hidden="true">
@@ -879,7 +880,10 @@
 
 	@media (max-width: 899px) {
 		.device {
-			--below: 150px;
+			--below: 190px; /* the about strip: logo, numbers, button */
+		}
+		.device.asked {
+			--below: 260px; /* plus the access-requested note */
 		}
 		main {
 			gap: 14px;
@@ -898,6 +902,12 @@
 	}
 	.cart h1 {
 		visibility: hidden;
+	}
+	/* Crystal's Suicune runs along the bottom: lift the screen so the strip below doesn't cut it. */
+	.title-loop.crystal {
+		object-position: 50% 0;
+		height: 112%;
+		top: -10%;
 	}
 	/* A steady strip (the prompt blinks, the strip does not) over the game's copyright line. */
 	.strip {
