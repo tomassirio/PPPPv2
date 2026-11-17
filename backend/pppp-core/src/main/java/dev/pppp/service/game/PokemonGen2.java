@@ -46,7 +46,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                           int romBaseData, int picPointers, int unownPicPointers, int monPalettes, int badgeGfx,
                           int predefPals, int itemNames, int moveNames, int landmarks, int numLandmarks,
                           int mapGroups, int dexPointers, int dexBanks, int kantoLandmark, int playerDirection,
-                          boolean crystal) {}
+                          int digWarp, boolean crystal) {}
 
     /** Offset in the battery save of SRAM bank:address (address in the $a000-$bfff window, 8 KB per bank). */
     private static int sram(int bank, int address) {
@@ -90,6 +90,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             -1, // entries in banks $68 + (n - 1) / 64 (GetDexEntryPointer)
             0x2E, // KANTO_LANDMARK (constants/landmark_constants.asm): Pallet Town
             0xD205, // wPlayerDirection
+            0xD9F2, // wDigWarpNumber (wDigMapGroup, wDigMapNumber next)
             false),
             CRYSTAL = new Layout(0xD47B, 0xD4C4, 0xD855, 0xD857, 0xD859, 0xD95E, 0xDA72, 0xDB72, 0xDC7C, 0xDCD7,
                     0xDE99, 0xDED9, // same order as above
@@ -112,6 +113,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                     rom(0x11, 0x4351), // GetDexEntryPointer.PokedexEntryBanks: a bank per 64 numbers
                     0x2F, // KANTO_LANDMARK: one later than Gold's, after Crystal's Battle Tower
                     0xD4DE, // wPlayerDirection
+                    0xDCA9, // wDigWarpNumber
                     true);
 
     private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
@@ -181,6 +183,9 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     private final String[][] mapIds, places;
     /** By wMapGroup, wMapNumber: the map's spot on the Pokégear town map, or null (no landmark there). */
     private final dev.pppp.model.MapPin[][] pins;
+    /** By wMapGroup, wMapNumber: a town or route (the world map); and the map's warps as {x, y}, by warp number - 1. */
+    private final boolean[][] outdoor;
+    private final int[][][][] warps;
 
     /** By header title and game code (0x134, 0x13F), which also tells the English release from the others. */
     static PokemonGen2 forRom(byte[] rom) {
@@ -252,19 +257,64 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         mapIds = mapConstants(at.crystal);
         places = new String[mapIds.length][];
         pins = new dev.pppp.model.MapPin[mapIds.length][];
+        outdoor = new boolean[mapIds.length][];
+        warps = new int[mapIds.length][][][];
         for (int g = 1; g < mapIds.length; g++) {
             places[g] = new String[mapIds[g].length];
             pins[g] = new dev.pppp.model.MapPin[mapIds[g].length];
+            outdoor[g] = new boolean[mapIds[g].length];
+            warps[g] = new int[mapIds[g].length][][];
             int headers = rom(at.mapGroups / 0x4000, u16le(rom, at.mapGroups + (g - 1) * 2));
             for (int n = 1; n < mapIds[g].length; n++) {
                 int header = headers + (n - 1) * MAP_HEADER_SIZE;
                 if (header < 0 || header + MAP_HEADER_SIZE > rom.length) continue;
                 int landmark = rom[header + MAP_LOCATION] & 0xFF, env = rom[header + MAP_ENVIRONMENT] & 0xFF;
+                outdoor[g][n] = env == TOWN || env == ROUTE;
+                warps[g][n] = warps(header);
                 if (landmark >= landmarkNames.length) continue; // not a landmark: unknown
                 places[g][n] = place(mapIds[g][n], env == TOWN || env == ROUTE, landmarkNames[landmark]);
                 pins[g][n] = pin(landmark);
             }
         }
+    }
+
+    /**
+     * A map's warps (doors, stairs, cave mouths) as {x, y}. The header points at the map's attributes (bank at 0, address
+     * at 3); there the events pointer (address at 9, in the scripts' bank at 6) leads to two filler bytes, the warp
+     * count, then 5 bytes per warp_event: y, x, destination warp, map group, map number (macros/scripts/maps.asm).
+     */
+    private int[][] warps(int header) {
+        int attr = rom(rom[header] & 0xFF, u16le(rom, header + 3));
+        if (attr < 0 || attr + 11 > rom.length) return new int[0][];
+        int events = rom(rom[attr + 6] & 0xFF, u16le(rom, attr + 9));
+        if (events < 0 || events + 3 > rom.length) return new int[0][];
+        int count = rom[events + 2] & 0xFF;
+        if (events + 3 + count * 5 > rom.length) return new int[0][];
+        int[][] out = new int[count][];
+        for (int i = 0; i < count; i++) out[i] = new int[] {rom[events + 4 + i * 5] & 0xFF, rom[events + 3 + i * 5] & 0xFF};
+        return out;
+    }
+
+    /**
+     * Where the player stands on the world map. Indoors (a house, a cave, a gate) that is the door they came in by:
+     * stepping from a town or route into one, the game keeps the warp used outside for Dig and the Escape Rope
+     * (engine/overworld/warp_connection.asm, SaveDigWarp: wDigWarpNumber, from 1, wDigMapGroup, wDigMapNumber).
+     * Null when that is unknown (a new game indoors, before ever going out).
+     */
+    dev.pppp.model.MapSpot spot(Ram ram, int group, int number) {
+        int x = ram.u8(at.partyCount + MAP_GROUP + 3), y = ram.u8(at.partyCount + MAP_GROUP + 2);
+        String facing = FACING[ram.u8(at.playerDirection) >> 2 & 3];
+        if (!outdoor[group][number]) {
+            int warp = ram.u8(at.digWarp), g = ram.u8(at.digWarp + 1), n = ram.u8(at.digWarp + 2);
+            if (g < 1 || g >= mapIds.length || n < 1 || n >= mapIds[g].length || !outdoor[g][n]) return null;
+            if (warp < 1 || warp > warps[g][n].length) return null;
+            group = g;
+            number = n;
+            x = warps[g][n][warp - 1][0];
+            y = warps[g][n][warp - 1][1];
+            facing = "down"; // just out of the door
+        }
+        return new dev.pppp.model.MapSpot(mapIds[group][number], x, y, facing);
     }
 
     /**
@@ -467,8 +517,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 onMap ? mapIds[group][number] : null, ram.u8(at.curBox), Set.copyOf(contacts), List.copyOf(slots),
                 money, momsMoney, tms, ram.u8(at.unownDex + NUM_UNOWN), Set.copyOf(flags),
                 onMap ? pins[group][number] : null,
-                onMap ? new dev.pppp.model.MapSpot(mapIds[group][number], ram.u8(at.partyCount + MAP_GROUP + 3),
-                        ram.u8(at.partyCount + MAP_GROUP + 2), FACING[ram.u8(at.playerDirection) >> 2 & 3]) : null);
+                onMap ? spot(ram, group, number) : null);
     }
 
     /** wPlayerDirection holds the facing in bits 2-3 (constants/map_object_constants.asm: OW_DOWN .. OW_RIGHT). */

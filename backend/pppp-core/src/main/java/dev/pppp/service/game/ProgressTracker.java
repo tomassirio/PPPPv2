@@ -355,7 +355,9 @@ public class ProgressTracker {
         List<OnMap> out = new ArrayList<>();
         for (String userId : repo.ranking()) {
             TrainerCard c = cards.computeIfAbsent(userId, repo::card);
-            out.add(new OnMap(userId, c.pin(), c.spot(), consoles.game(userId), running.contains(userId),
+            // Spots read before indoor ones became the door outside may still be indoors: unknown until the next one.
+            var spot = c.spot() != null && art() != null && !art().outdoor(c.spot().map()) ? null : c.spot();
+            out.add(new OnMap(userId, c.pin(), spot, consoles.game(userId), running.contains(userId),
                     c.party().stream().filter(m -> !m.egg()).map(dev.pppp.model.PartyMon::species).toList()));
         }
         return out;
@@ -368,6 +370,11 @@ public class ProgressTracker {
      * margin blocks of the map's border round it. Null without a Crystal cartridge or for an unknown map.
      */
     public byte[] mapArt(String map, int time, int margin) {
+        Gen2MapArt art = art();
+        return art == null ? null : art.png(map, time, margin);
+    }
+
+    private Gen2MapArt art() {
         Gen2MapArt art = mapArt;
         if (art == null) {
             for (var c : cartridges.list()) {
@@ -380,7 +387,7 @@ public class ProgressTracker {
                 if (art != null) break;
             }
         }
-        return art == null ? null : art.png(map, time, margin);
+        return art;
     }
 
     /** PNG sprite of a cartridge's game, by icon id (a Pokédex number), for the public sign-in page; or null. */

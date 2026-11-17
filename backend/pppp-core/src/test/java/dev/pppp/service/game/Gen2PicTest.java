@@ -75,6 +75,37 @@ class Gen2PicTest {
         }
     }
 
+    /**
+     * Indoors, the world map shows the player at the door they came in by: in the player's house, with the Dig warp
+     * saying they entered by New Bark Town's warp 2, they stand on that door (13, 5 in pret's new_bark_town.asm).
+     */
+    @Test
+    void indoorsThePlayerStandsAtTheDoorTheyCameInBy() throws IOException {
+        Path dir = Path.of(System.getenv().getOrDefault("PPPP_ROMS", "../../data/roms"));
+        List<Path> roms = Files.isDirectory(dir) ? listGbc(dir) : List.of();
+        List<PokemonGen2> profiles = roms.stream().map(Gen2PicTest::profile).filter(p -> p != null).toList();
+        assumeTrue(!profiles.isEmpty(), "no Gold/Silver/Crystal ROM in " + dir.toAbsolutePath());
+        for (PokemonGen2 p : profiles) {
+            String[][] ids = PokemonGen2.mapConstants(p.version().equals("Crystal"));
+            int[] town = find(ids, "NEW_BARK_TOWN"), house = find(ids, "PLAYERS_HOUSE_1F");
+            int dig = p.version().equals("Crystal") ? 0xDCA9 : 0xD9F2;
+            byte[] mem = new byte[0x2000];
+            mem[dig - 0xC000] = 2;
+            mem[dig + 1 - 0xC000] = (byte) town[0];
+            mem[dig + 2 - 0xC000] = (byte) town[1];
+            Ram ram = new Ram(0xC000, mem);
+            assertThat(p.spot(ram, house[0], house[1]))
+                    .isEqualTo(new dev.pppp.model.MapSpot("NEW_BARK_TOWN", 13, 5, "down"));
+            mem[dig + 1 - 0xC000] = 0; // never been outside
+            assertThat(p.spot(ram, house[0], house[1])).isNull();
+        }
+    }
+
+    private static int[] find(String[][] ids, String map) {
+        for (int g = 1; g < ids.length; g++) for (int n = 1; n < ids[g].length; n++) if (ids[g][n].equals(map)) return new int[] {g, n};
+        throw new AssertionError(map);
+    }
+
     private static List<Path> listGbc(Path dir) throws IOException {
         try (Stream<Path> files = Files.list(dir)) {
             return files.filter(f -> f.toString().endsWith(".gbc")).toList();

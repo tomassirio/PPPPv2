@@ -45,6 +45,14 @@ final class Gen2MapArt {
         return cache.computeIfAbsent(map + ":" + time + ":" + margin, k -> draw(at[0], at[1], time, margin));
     }
 
+    /** Whether the map is a town or a route (on the world map, not inside a building, cave or gate). */
+    boolean outdoor(String map) {
+        int[] at = find(map);
+        if (at == null) return false;
+        int env = rom[header(at[0], at[1]) + 2] & 0xFF;
+        return env == TOWN || env == ROUTE;
+    }
+
     /** Width and height in blocks of a map, or null. */
     int[] size(String map) {
         int[] at = find(map);
