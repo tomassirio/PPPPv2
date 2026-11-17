@@ -81,7 +81,7 @@
 						{#if u.role === 'ADMIN'}
 							<button class="danger" disabled title="Demote to player first" aria-label="Remove {u.id} (demote to player first)">Remove</button>
 						{:else}
-							<button class="danger" onclick={() => change(`Remove ${u.id}`, () => api('DELETE', `/admin/allowlist/${enc(u.id)}`), `Remove ${u.id} from the allowlist?`)}>Remove</button>
+							<button class="danger" onclick={() => change(`Remove ${u.id}`, () => api('DELETE', `/admin/allowlist/${enc(u.id)}`), `Remove ${u.id}? They lose access, and their game choice, save, points and activity are deleted. It cannot be undone.`)}>Remove</button>
 						{/if}
 					</span>
 				</li>
