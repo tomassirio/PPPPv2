@@ -1,6 +1,7 @@
 package dev.pppp.service;
 
 import dev.pppp.emulator.Button;
+import eu.rekawek.coffeegb.core.AddressSpace;
 import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
@@ -21,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.ContextClosedEvent;
@@ -223,6 +225,12 @@ public class PlayerConsoles {
     public byte[] readBytes(String userId, int address, int length) {
         Console c = consoles.get(userId);
         return c == null ? null : c.host().readBytes(address, length);
+    }
+
+    /** Runs task on the player's console between frames with its bus, to read and write. Null when their console is not in memory. */
+    public <T> T withBus(String userId, Function<AddressSpace, T> task) {
+        Console c = consoles.get(userId);
+        return c == null ? null : c.host().withBus(task);
     }
 
     /**

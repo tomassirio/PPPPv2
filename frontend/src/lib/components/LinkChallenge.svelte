@@ -39,14 +39,15 @@
 				</div>
 			{/if}
 			<ol class="steps">
-				<li><b aria-hidden="true">1</b><span>Accept. Your game pauses for a second while the cable goes in.</span></li>
-				<li><b aria-hidden="true">2</b><span>Walk to the Cable Club, upstairs in any Pokémon Center.</span></li>
+				<li><b aria-hidden="true">1</b><span>Accept when you're free to leave: outdoors or in a cave, no battle, menu or dialog open.</span></li>
+				<li><b aria-hidden="true">2</b><span>You both Dig to your last Pokémon Center. Go upstairs to the Cable Club.</span></li>
 				<li><b aria-hidden="true">3</b><span>{c.kind === 'TRADE' ? 'Trade' : 'Battle'} as on a real Game Boy. Unplug any time.</span></li>
 			</ol>
 			<div class="actions">
 				<button class="primary" onclick={() => act('POST', '/link/challenges/accept')}>Accept {verb(c.kind)}</button>
 				<button class="ghost" onclick={() => act('POST', '/link/challenges/decline')}>Decline</button>
 			</div>
+			{#if link.error}<p class="error" role="alert">{link.error}</p>{/if}
 			<div class="expiry" aria-live="off">
 				<span class="bar"><span style:width="{Math.min(100, (left(c.expiresAt) * 100_000) / CHALLENGE_MS)}%"></span></span>
 				<span class="muted">Expires in {left(c.expiresAt)} s</span>
@@ -152,6 +153,11 @@
 		flex-direction: column;
 		gap: 6px;
 		text-align: center;
+	}
+	.error {
+		margin: 0;
+		font-size: 13px;
+		color: var(--danger);
 	}
 	.expiry .muted {
 		font-size: 12px;

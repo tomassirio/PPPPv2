@@ -123,7 +123,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
             MONEY = -7, MOMS_MONEY = -4, MAX_MONEY = 999_999, // wMoney, wMomsMoney from wCoins (3 bytes each)
             PARTY_NICKNAMES = 0x16A, MAP_GROUP = -0x22, // from wPartyCount, see Layout
             NUM_ITEMS = 0xFF, NUM_ATTACKS = 251, ITEM_NAME_LENGTH = 13, // item_constants, move_constants, text_constants
-            MAP_HEADER_SIZE = 9, MAP_ENVIRONMENT = 2, MAP_LOCATION = 5, // the "map" macro
+            MAP_HEADER_SIZE = 9, MAP_TILESET = 1, MAP_ENVIRONMENT = 2, MAP_LOCATION = 5, // the "map" macro
             TOWN = 1, ROUTE = 2, // constants/map_data_constants.asm: the outdoor environments
             DIZZY_PUNCH = 0x92, EXTREMESPEED = 0xF5, // constants/move_constants.asm
             BASE_DATA_SIZE = 0x20, BASE_TYPES = 0x07, // constants/pokemon_data_constants.asm
@@ -183,8 +183,12 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     private final String[][] mapIds, places;
     /** By wMapGroup, wMapNumber: the map's spot on the Pokégear town map, or null (no landmark there). */
     private final dev.pppp.model.MapPin[][] pins;
-    /** By wMapGroup, wMapNumber: a town or route (the world map); and the map's warps as {x, y}, by warp number - 1. */
+    /**
+     * By wMapGroup, wMapNumber: a town or route (the world map); the map header's environment and tileset; and the
+     * map's warps as {x, y, destination warp, group, number}, by warp number - 1.
+     */
     private final boolean[][] outdoor;
+    private final int[][] environment, tileset;
     private final int[][][][] warps;
 
     /** By header title and game code (0x134, 0x13F), which also tells the English release from the others. */
@@ -268,11 +272,15 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         places = new String[mapIds.length][];
         pins = new dev.pppp.model.MapPin[mapIds.length][];
         outdoor = new boolean[mapIds.length][];
+        environment = new int[mapIds.length][];
+        tileset = new int[mapIds.length][];
         warps = new int[mapIds.length][][][];
         for (int g = 1; g < mapIds.length; g++) {
             places[g] = new String[mapIds[g].length];
             pins[g] = new dev.pppp.model.MapPin[mapIds[g].length];
             outdoor[g] = new boolean[mapIds[g].length];
+            environment[g] = new int[mapIds[g].length];
+            tileset[g] = new int[mapIds[g].length];
             warps[g] = new int[mapIds[g].length][][];
             int headers = rom(at.mapGroups / 0x4000, u16le(rom, at.mapGroups + (g - 1) * 2));
             for (int n = 1; n < mapIds[g].length; n++) {
@@ -280,6 +288,8 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 if (header < 0 || header + MAP_HEADER_SIZE > rom.length) continue;
                 int landmark = rom[header + MAP_LOCATION] & 0xFF, env = rom[header + MAP_ENVIRONMENT] & 0xFF;
                 outdoor[g][n] = env == TOWN || env == ROUTE;
+                environment[g][n] = env;
+                tileset[g][n] = rom[header + MAP_TILESET] & 0xFF;
                 warps[g][n] = warps(header);
                 if (landmark >= landmarkNames.length) continue; // not a landmark: unknown
                 places[g][n] = place(mapIds[g][n], env == TOWN || env == ROUTE, landmarkNames[landmark]);
@@ -288,8 +298,40 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         }
     }
 
+    /** The map header's environment (TOWN 1 to DUNGEON 7, constants/map_data_constants.asm); 0 for an unknown map. */
+    int environment(int group, int number) {
+        return known(group, number) ? environment[group][number] : 0;
+    }
+
     /**
-     * A map's warps (doors, stairs, cave mouths) as {x, y}. The header points at the map's attributes (bank at 0, address
+     * Whether the map is a Pokémon Center, told as EnterMapWarp.SetSpawn tells one: by its tileset,
+     * TILESET_POKECENTER (Gold 6, Crystal 7) or Crystal's TILESET_POKECOM_CENTER (15).
+     */
+    boolean pokecenter(int group, int number) {
+        if (!known(group, number)) return false;
+        int t = tileset[group][number];
+        return at.crystal ? t == 7 || t == 15 : t == 6;
+    }
+
+    /**
+     * The door from the map into its Pokémon Center as {warp number here, warp number inside, center group, center
+     * number}, warp numbers from 1 as the game counts them; null when the map has none.
+     */
+    int[] pokecenterDoor(int group, int number) {
+        if (!known(group, number)) return null;
+        int[][] w = warps[group][number];
+        for (int i = 0; i < w.length; i++) {
+            if (pokecenter(w[i][3], w[i][4])) return new int[] {i + 1, w[i][2], w[i][3], w[i][4]};
+        }
+        return null;
+    }
+
+    private boolean known(int group, int number) {
+        return group >= 1 && group < mapIds.length && number >= 1 && number < mapIds[group].length && warps[group][number] != null;
+    }
+
+    /**
+     * A map's warps (doors, stairs, cave mouths) as {x, y, destination warp, group, number}. The header points at the map's attributes (bank at 0, address
      * at 3); there the events pointer (address at 9, in the scripts' bank at 6) leads to two filler bytes, the warp
      * count, then 5 bytes per warp_event: y, x, destination warp, map group, map number (macros/scripts/maps.asm).
      */
@@ -301,7 +343,10 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         int count = rom[events + 2] & 0xFF;
         if (events + 3 + count * 5 > rom.length) return new int[0][];
         int[][] out = new int[count][];
-        for (int i = 0; i < count; i++) out[i] = new int[] {rom[events + 4 + i * 5] & 0xFF, rom[events + 3 + i * 5] & 0xFF};
+        for (int i = 0; i < count; i++) {
+            int w = events + 3 + i * 5;
+            out[i] = new int[] {rom[w + 1] & 0xFF, rom[w] & 0xFF, rom[w + 2] & 0xFF, rom[w + 3] & 0xFF, rom[w + 4] & 0xFF};
+        }
         return out;
     }
 

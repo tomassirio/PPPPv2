@@ -35,6 +35,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -376,6 +377,14 @@ public class EmulatorHost {
      */
     public void afterFrame(Consumer<AddressSpace> hook) {
         frameHooks.add(hook);
+    }
+
+    /**
+     * Runs task once on the emulator thread between frames with the bus, to read and write memory in one go (the same
+     * WRAM bank caveat as {@link #afterFrame}). Console must be ON.
+     */
+    public <T> T withBus(Function<AddressSpace, T> task) {
+        return call(() -> task.apply(gb.getAddressSpace()));
     }
 
     /**

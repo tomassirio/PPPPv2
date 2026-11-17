@@ -18,6 +18,12 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Done: lobby and link sessions. `LinkService` (core): ready to TRADE/BATTLE in Redis hash `pibs:lobby`, challenges
   (60 s) and sessions (15 min cap) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events
   `LOBBY_CHANGED`, `LINK_CHALLENGE`, `LINK_SESSION` (to everyone, with user ids). Panel: `LinkPanel.svelte`.
+- Done: accepting a link Digs both players to their last Pokémon Center (`PokecenterDig`, core `service/game`).
+  `accept` refuses (409, challenge kept) while either Gold/Silver/Crystal player is in a battle, a menu, a dialog or
+  event, mid-step, in the Bug-Catching Contest, or indoors where neither Fly nor Dig works; already in a Center, they
+  stay. It queues the ROM's own Dig script tail through wMapReentryScriptQueueFlag with wNextWarp = the Center door
+  of wLastSpawnMap; writes go through `EmulatorHost.withBus` / `PlayerConsoles.withBus`. `PokecenterDigTest` runs
+  the real ROMs and parked states in `data/` (skipped without them).
 - Done: progress + scoreboard. `ProgressTracker` (core, `service/game`) samples every running console once a second
   and scores badges, Pokédex, level milestones. Redis: `pibs:events` stream, `pibs:scoreboard` sorted set (also the
   list of players), `pibs:progress:{userId}` hash. `GET /api/v1/scoreboard`, `GET /api/v1/activity`; events `PROGRESS`,

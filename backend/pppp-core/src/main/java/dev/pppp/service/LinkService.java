@@ -6,6 +6,7 @@ import dev.pppp.model.LinkState.Ready;
 import dev.pppp.model.LinkState.SessionEvent;
 import dev.pppp.model.LiveEvent;
 import dev.pppp.repository.LobbyRepository;
+import dev.pppp.service.game.PokecenterDig;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -38,12 +39,15 @@ public class LinkService {
 
     private final LobbyRepository lobby;
     private final PlayerConsoles consoles;
+    private final PokecenterDig dig;
     private final ChatService chat;
     private final ApplicationEventPublisher events;
 
-    public LinkService(LobbyRepository lobby, PlayerConsoles consoles, ChatService chat, ApplicationEventPublisher events) {
+    public LinkService(LobbyRepository lobby, PlayerConsoles consoles, PokecenterDig dig, ChatService chat,
+                       ApplicationEventPublisher events) {
         this.lobby = lobby;
         this.consoles = consoles;
+        this.dig = dig;
         this.chat = chat;
         this.events = events;
         lobby.clear(); // no console survives a restart, so nobody is ready
@@ -102,7 +106,11 @@ public class LinkService {
         events.publishEvent(new LiveEvent("LINK_CHALLENGE", c));
     }
 
-    /** Links the two consoles. IllegalStateException when no challenge is waiting or a console is gone. */
+    /**
+     * Links the two consoles, after sending both players digging to their Pokémon Center (PokecenterDig).
+     * IllegalStateException when no challenge is waiting, a console is gone, or a player cannot leave where they are
+     * (the challenge stays, to accept again once they can).
+     */
     public synchronized void accept(String userId) {
         sweep();
         Challenge c = challenges.get(userId);
@@ -112,6 +120,15 @@ public class LinkService {
         // timeout if Pibs accept and never open /play.
         consoles.open(c.from());
         consoles.open(userId);
+        for (String id : List.of(userId, c.from())) {
+            String why = dig.blocker(id);
+            if (why != null) {
+                throw new IllegalStateException((id.equals(userId) ? "You can't" : name(id) + " can't")
+                        + " leave right now: " + why + ". Try again in a moment.");
+            }
+        }
+        dig.dig(c.from());
+        dig.dig(userId);
         consoles.link(c.from(), userId);
         close(c, "ACCEPTED");
         for (String id : List.of(c.from(), userId)) { // both are busy now: out of the lobby, other challenges off

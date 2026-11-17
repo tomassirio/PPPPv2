@@ -57,8 +57,8 @@
 			</div>
 		</div>
 		<p class="muted">
-			Both consoles run in step until someone unplugs or the 15-minute cap ends. Go to the Cable Club upstairs in any
-			Pokémon Center.
+			Both consoles run in step until someone unplugs or the 15-minute cap ends. You both dug to your last Pokémon Center:
+			the Cable Club is upstairs.
 		</p>
 		<button class="ghost stop" onclick={() => act('DELETE', '/link/session')}>Unplug cable</button>
 	{:else}
@@ -99,7 +99,7 @@
 		{/if}
 		</div>
 		{#if s?.ready}
-			<p class="muted">Stand in a Pokémon Center so you can walk straight up to the Cable Club.</p>
+			<p class="muted">When someone accepts, you both Dig to your last Pokémon Center, so be free to leave: outdoors or in a cave, no battle, menu or dialog open.</p>
 		{/if}
 
 		{#if s?.outgoing}
