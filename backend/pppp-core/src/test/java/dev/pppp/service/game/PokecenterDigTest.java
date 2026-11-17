@@ -12,8 +12,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Digs players of the real ROMs from their parked states in the repo's data/ (not in git; skipped without them) and
- * checks they come up in a Pokémon Center. A player already in one digs anyway, to the same Center.
+ * Digs players of the real ROMs from their parked states in the repo's data/ (not in git; skipped without them): up
+ * in front of the trade receptionist, facing her, with the stairs leading down into a Pokémon Center; then from there
+ * over to the battle one.
  */
 class PokecenterDigTest {
     private static final Path DATA = Path.of("../../data");
@@ -44,22 +45,28 @@ class PokecenterDigTest {
         Path original = state.resolveSibling(cartridge(state) + ".sav");
         if (Files.exists(original)) Files.copy(original, sav);
         EmulatorHost host = new EmulatorHost();
-        host.insert("game", rom, sav);
+        host.insert("game", rom, sav, PokecenterDig::patch);
         host.powerOn();
         try {
             host.loadState(Files.readAllBytes(state));
             host.setSpeed(4);
-            String why = host.withBus(bus -> PokecenterDig.run(game, bus, false, ""));
-            for (int i = 0; i < 6 && why != null && why.startsWith("in a menu"); i++) { // a menu left open: close it
+            String why = host.withBus(bus -> PokecenterDig.check(game, bus));
+            for (int i = 0; i < 20 && why != null && why.startsWith("in a menu"); i++) { // a menu left open: close it
                 host.press(Button.B, 6, 30);
-                why = host.withBus(bus -> PokecenterDig.run(game, bus, false, ""));
+                why = host.withBus(bus -> PokecenterDig.check(game, bus));
             }
             assumeTrue(why == null, why);
-            assertThat(host.<Boolean>withBus(bus -> PokecenterDig.queue("", game, bus))).isTrue();
-            Thread.sleep(3000);
-            int[] now = host.withBus(bus -> new int[] {bus.getByte(mapGroup), bus.getByte(mapGroup + 1)});
-            assertThat(game.maps().pokecenter(now[0], now[1])).as("in a Pokémon Center").isTrue();
-            assertThat(host.<String>withBus(bus -> PokecenterDig.run(game, bus, false, ""))).as("free again").isNull();
+            for (String kind : new String[] {"TRADE", "BATTLE"}) {
+                assertThat(host.<Boolean>withBus(bus -> PokecenterDig.queue("", game, bus, kind))).isTrue();
+                Thread.sleep(3000);
+                int[] now = host.withBus(bus -> new int[] {bus.getByte(mapGroup), bus.getByte(mapGroup + 1),
+                        bus.getByte(mapGroup + 3), bus.getByte(mapGroup + 2), bus.getByte(game.at().backupWarp() + 1),
+                        bus.getByte(game.at().backupWarp() + 2)});
+                assertThat(game.maps().mapId(now[0], now[1])).isEqualTo("POKECENTER_2F");
+                assertThat(new int[] {now[2], now[3]}).as(kind).containsExactly(kind.equals("TRADE") ? 5 : 9, 3);
+                assertThat(game.maps().pokecenter(now[4], now[5])).as("stairs lead down into a Center").isTrue();
+                assertThat(host.<String>withBus(bus -> PokecenterDig.check(game, bus))).as("free again").isNull();
+            }
         } finally {
             host.shutdown();
         }

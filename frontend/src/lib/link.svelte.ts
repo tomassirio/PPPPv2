@@ -12,11 +12,12 @@ export type LinkState = {
 	ready: LinkKind | null;
 	incoming: Challenge | null;
 	outgoing: Challenge | null;
-	session: { peer: string; kind: LinkKind; endsAt: number } | null;
+	/** wrongRoom / peerWrongRoom: a link room (TRADE_CENTER, COLOSSEUM, TIME_CAPSULE) that does not fit kind. */
+	session: { peer: string; kind: LinkKind; endsAt: number; wrongRoom: string | null; peerWrongRoom: string | null } | null;
 	links: { a: string; b: string; kind: LinkKind; endsAt: number }[];
 	now: number;
 };
-type SessionEvent = { a: string; b: string; status: 'STARTED' | 'ENDED' };
+type SessionEvent = { a: string; b: string; status: 'STARTED' | 'ENDED' | 'ROOM' };
 
 export const link = $state<{ state: LinkState | null; links: Record<string, string>; now: number; error: string }>({
 	state: null,
@@ -28,6 +29,10 @@ export const link = $state<{ state: LinkState | null; links: Record<string, stri
 /** Challenges last 60 s (LinkService). */
 export const CHALLENGE_MS = 60_000;
 export const verb = (k: LinkKind) => (k === 'TRADE' ? 'trade' : 'battle');
+/** Upstairs in every Pokémon Center: which receptionist runs which link, and her room. */
+export const desk = (k: LinkKind) => (k === 'TRADE' ? { side: 'left', room: 'Trade Center' } : { side: 'middle', room: 'Colosseum' });
+export const roomName = (room: string) =>
+	({ TRADE_CENTER: 'Trade Center', COLOSSEUM: 'Colosseum', TIME_CAPSULE: 'Time Capsule' })[room] ?? room;
 /** Seconds until an epoch-ms time, by the server's clock. */
 export const left = (until: number) => Math.max(0, Math.ceil((until - link.now) / 1000));
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -78,7 +83,7 @@ export function watchLink(): () => void {
 			on('LINK_SESSION', (e: SessionEvent) => {
 				const links = { ...link.links };
 				if (e.status === 'STARTED') Object.assign(links, { [e.a]: e.b, [e.b]: e.a });
-				else if (links[e.a] === e.b) {
+				else if (e.status === 'ENDED' && links[e.a] === e.b) {
 					delete links[e.a];
 					delete links[e.b];
 				}

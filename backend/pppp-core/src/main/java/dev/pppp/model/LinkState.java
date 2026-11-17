@@ -16,9 +16,16 @@ public record LinkState(List<Ready> lobby, String ready, Challenge incoming, Cha
     /** Also the LINK_CHALLENGE payload. status: PENDING, ACCEPTED, DECLINED, EXPIRED or CANCELLED. */
     public record Challenge(String from, String to, String kind, long expiresAt, String status) {}
 
-    public record Session(String peer, String kind, long endsAt) {}
+    /**
+     * wrongRoom, peerWrongRoom: the link room (TRADE_CENTER, COLOSSEUM, TIME_CAPSULE) this player or their partner
+     * walked into that does not fit kind; null while they are not in one.
+     */
+    public record Session(String peer, String kind, long endsAt, String wrongRoom, String peerWrongRoom) {}
     public record Pair(String a, String b, String kind, long endsAt) {}
 
-    /** LINK_SESSION payload. status: STARTED or ENDED; reason (ENDED only): UNPLUGGED, LEFT or TIME_UP. */
+    /**
+     * LINK_SESSION payload. status: STARTED, ENDED, or ROOM (a player of the pair walked into a link room that does
+     * not fit kind, or out of it: fetch the state again); reason (ENDED only): UNPLUGGED, LEFT or TIME_UP.
+     */
     public record SessionEvent(String a, String b, String kind, long endsAt, String status, String reason) {}
 }

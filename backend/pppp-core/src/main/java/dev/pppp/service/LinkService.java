@@ -36,6 +36,8 @@ public class LinkService {
     private final Map<String, Challenge> challenges = new HashMap<>();
     /** Running sessions, one entry per player. */
     private final Map<String, SessionEvent> sessions = new HashMap<>();
+    /** Linked players standing in a link room that does not fit their session's kind: userId -> room. */
+    private final Map<String, String> wrongRoom = new HashMap<>();
 
     private final LobbyRepository lobby;
     private final PlayerConsoles consoles;
@@ -62,10 +64,15 @@ public class LinkService {
         return new LinkState(lobbyList(), lobby.kind(userId),
                 in != null && in.expiresAt() > now ? in : null,
                 out != null && out.expiresAt() > now ? out : null,
-                s == null ? null : new LinkState.Session(s.a().equals(userId) ? s.b() : s.a(), s.kind(), s.endsAt()),
+                s == null ? null : session(userId, s),
                 sessions.values().stream().distinct()
                         .map(e -> new LinkState.Pair(e.a(), e.b(), e.kind(), e.endsAt())).toList(),
                 now);
+    }
+
+    private LinkState.Session session(String userId, SessionEvent s) {
+        String peer = s.a().equals(userId) ? s.b() : s.a();
+        return new LinkState.Session(peer, s.kind(), s.endsAt(), wrongRoom.get(userId), wrongRoom.get(peer));
     }
 
     /** kind TRADE or BATTLE, or null to leave the lobby. */
@@ -127,8 +134,8 @@ public class LinkService {
                         + " leave right now: " + why + ". Try again in a moment.");
             }
         }
-        dig.dig(c.from());
-        dig.dig(userId);
+        dig.dig(c.from(), c.kind());
+        dig.dig(userId, c.kind());
         consoles.link(c.from(), userId);
         close(c, "ACCEPTED");
         for (String id : List.of(c.from(), userId)) { // both are busy now: out of the lobby, other challenges off
@@ -157,12 +164,33 @@ public class LinkService {
         end(userId, "UNPLUGGED");
     }
 
-    /** Drops challenges nobody answered in time and sessions past the cap. */
+    /**
+     * Drops challenges nobody answered in time and sessions past the cap, and tells a pair when one of them walks into
+     * the wrong link room (LINK_SESSION status ROOM): the trade room for a battle, the Colosseum for a trade.
+     */
     @Scheduled(fixedDelay = 1000)
     public synchronized void sweep() {
         long now = System.currentTimeMillis();
         List.copyOf(challenges.values()).stream().filter(c -> c.expiresAt() <= now).forEach(c -> close(c, "EXPIRED"));
         List.copyOf(sessions.values()).stream().filter(s -> s.endsAt() <= now).forEach(s -> end(s.a(), "TIME_UP"));
+        for (SessionEvent s : sessions.values().stream().distinct().toList()) {
+            boolean changed = false;
+            for (String id : List.of(s.a(), s.b())) {
+                String room = dig.linkRoom(id);
+                String wrong = room == null || fits(s.kind(), room) ? null : room;
+                if (java.util.Objects.equals(wrong, wrongRoom.get(id))) continue;
+                if (wrong == null) wrongRoom.remove(id); else wrongRoom.put(id, wrong);
+                changed = true;
+            }
+            if (changed) {
+                events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.endsAt(), "ROOM", null)));
+            }
+        }
+    }
+
+    /** The Time Capsule trades too (with Red, Blue and Yellow). */
+    private static boolean fits(String kind, String room) {
+        return "BATTLE".equals(kind) ? room.equals("COLOSSEUM") : !room.equals("COLOSSEUM");
     }
 
     /** The player's console went idle: out of the lobby, their challenges off, their session over. */
@@ -178,6 +206,8 @@ public class LinkService {
         SessionEvent s = sessions.remove(userId);
         if (s == null) return;
         sessions.remove(s.a().equals(userId) ? s.b() : s.a());
+        wrongRoom.remove(s.a());
+        wrongRoom.remove(s.b());
         consoles.unlink(userId); // parks both consoles
         events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.endsAt(), "ENDED", reason)));
     }

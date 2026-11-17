@@ -8,7 +8,7 @@
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
-	import { act, clock, left, link, verb, watchLink } from '#lib/link.svelte.ts';
+	import { act, clock, desk, left, link, roomName, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -31,11 +31,18 @@
 	};
 </script>
 
-<section class="panel card" class:linked={!!s?.session} aria-labelledby="link-h">
+{#snippet kindIcon(kind: 'TRADE' | 'BATTLE', size: number)}
+	<svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+		{#if kind === 'TRADE'}<path d="M4 8h13l-3-3M20 16H7l3 3" />{:else}<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M9.5 17.5L21 6V3h-3L6.5 14.5M5 13l6 6M8 16l-4 4M3 19l2 2" />{/if}
+	</svg>
+{/snippet}
+
+<section class="panel card {s?.session ? (s.session.kind === 'TRADE' ? 'k-trade' : 'k-battle') : ''}" class:linked={!!s?.session} aria-labelledby="link-h">
 	{#if s?.session}
 		{@const ss = s.session}
+		{@const d = desk(ss.kind)}
 		<div class="head">
-			<h2 id="link-h" class="blue">Link cable · {verb(ss.kind)}</h2>
+			<h2 id="link-h" class="kind-title">{@render kindIcon(ss.kind, 18)}{ss.kind === 'TRADE' ? 'Trading' : 'Battling'}</h2>
 			<span class="pixel timer" title="Time left"><span class="sr">Time left: </span>{clock(left(ss.endsAt))}</span>
 		</div>
 		<div class="cable-row" aria-hidden="true">
@@ -56,10 +63,19 @@
 				<PartyIcons party={rowOf(ss.peer)?.party} />
 			</div>
 		</div>
-		<p class="muted">
-			Both consoles run in step until someone unplugs or the 15-minute cap ends. You both dug to your last Pokémon Center:
-			the Cable Club is upstairs.
+		<p class="where">
+			Upstairs in the Pokémon Center, talk to the <b>{d.side}</b> receptionist ({d.room}).
 		</p>
+		{#if ss.wrongRoom}
+			<p class="error" role="alert">
+				You walked into the {roomName(ss.wrongRoom)}, but this link is a {verb(ss.kind)}. Walk back out and talk to the {d.side} receptionist.
+			</p>
+		{:else if ss.peerWrongRoom}
+			<p class="error" role="alert">
+				{nameOf(ss.peer)} walked into the {roomName(ss.peerWrongRoom)}, but this link is a {verb(ss.kind)}. They need the {d.side} receptionist.
+			</p>
+		{/if}
+		<p class="muted">Both consoles run in step until someone unplugs or the 15-minute cap ends.</p>
 		<button class="ghost stop" onclick={() => act('DELETE', '/link/session')}>Unplug cable</button>
 	{:else}
 		<div class="head">
@@ -82,9 +98,7 @@
 			{#each ['TRADE', 'BATTLE'] as const as kind (kind)}
 				{@const on = s?.ready === kind}
 				<button class="toggle {kind === 'TRADE' ? 't-trade' : 't-battle'}" class:on aria-pressed={on} title="Let others offer you a {verb(kind)}" onclick={() => act('PUT', '/link/ready', { kind: on ? null : kind })}>
-					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-						{#if kind === 'TRADE'}<path d="M4 8h13l-3-3M20 16H7l3 3" />{:else}<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M9.5 17.5L21 6V3h-3L6.5 14.5M5 13l6 6M8 16l-4 4M3 19l2 2" />{/if}
-					</svg>
+					{@render kindIcon(kind, 20)}
 					<span class="tl"><b>{on ? '✓ ' : ''}{kind === 'TRADE' ? 'Trade' : 'Battle'}</b><span class="sr"> ready</span></span>
 				</button>
 			{/each}
@@ -186,8 +200,9 @@
 	}
 	.card,
 	.card.linked {
-		border-color: var(--link);
-		box-shadow: inset 0 3px 0 var(--link);
+		--kind: var(--link);
+		border-color: var(--kind);
+		box-shadow: inset 0 3px 0 var(--kind);
 	}
 	.title {
 		display: inline-flex;
@@ -266,6 +281,25 @@
 	.tl b {
 		font-size: 14px;
 		white-space: nowrap;
+	}
+	.card.k-trade {
+		--kind: var(--accent-text);
+	}
+	.card.k-battle {
+		--kind: var(--danger);
+	}
+	.kind-title {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--kind);
+	}
+	.where {
+		margin: 0;
+		padding: 8px 12px;
+		border-radius: 10px;
+		border-left: 3px solid var(--kind);
+		background: color-mix(in oklab, var(--kind) 10%, transparent);
 	}
 	.toggle.t-trade.on {
 		border-color: var(--accent-text);

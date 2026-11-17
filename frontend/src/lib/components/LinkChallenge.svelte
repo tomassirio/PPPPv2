@@ -5,7 +5,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
-	import { act, CHALLENGE_MS, left, link, verb, watchLink } from '#lib/link.svelte.ts';
+	import { act, CHALLENGE_MS, desk, left, link, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 
 	let { sheet = false, floating = false }: { sheet?: boolean; floating?: boolean } = $props();
@@ -40,8 +40,8 @@
 			{/if}
 			<ol class="steps">
 				<li><b aria-hidden="true">1</b><span>Accept when you're free to leave: outdoors or in a cave, no battle, menu or dialog open.</span></li>
-				<li><b aria-hidden="true">2</b><span>You both Dig to your last Pokémon Center. Go upstairs to the Cable Club.</span></li>
-				<li><b aria-hidden="true">3</b><span>{c.kind === 'TRADE' ? 'Trade' : 'Battle'} as on a real Game Boy. Unplug any time.</span></li>
+				<li><b aria-hidden="true">2</b><span>You both Dig to your last Pokémon Center, upstairs, in front of the {desk(c.kind).side} receptionist ({desk(c.kind).room}).</span></li>
+				<li><b aria-hidden="true">3</b><span>Talk to her and {verb(c.kind)} as on a real Game Boy. Unplug any time.</span></li>
 			</ol>
 			<div class="actions">
 				<button class="primary" onclick={() => act('POST', '/link/challenges/accept')}>Accept {verb(c.kind)}</button>

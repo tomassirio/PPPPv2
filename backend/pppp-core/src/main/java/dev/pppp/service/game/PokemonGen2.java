@@ -326,6 +326,27 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         return null;
     }
 
+    /** The warp number (from 1) in the map that leads to the destination map, or 0 when none does. */
+    int warpTo(int group, int number, int destGroup, int destNumber) {
+        if (!known(group, number)) return 0;
+        int[][] w = warps[group][number];
+        for (int i = 0; i < w.length; i++) if (w[i][3] == destGroup && w[i][4] == destNumber) return i + 1;
+        return 0;
+    }
+
+    /** The pret map constant at wMapGroup, wMapNumber (as "POKECENTER_2F"), or null. */
+    String mapId(int group, int number) {
+        return known(group, number) ? mapIds[group][number] : null;
+    }
+
+    /** {group, number} of a pret map constant, or null. */
+    int[] map(String constant) {
+        for (int g = 1; g < mapIds.length; g++) {
+            for (int n = 1; n < mapIds[g].length; n++) if (constant.equals(mapIds[g][n])) return new int[] {g, n};
+        }
+        return null;
+    }
+
     private boolean known(int group, int number) {
         return group >= 1 && group < mapIds.length && number >= 1 && number < mapIds[group].length && warps[group][number] != null;
     }
