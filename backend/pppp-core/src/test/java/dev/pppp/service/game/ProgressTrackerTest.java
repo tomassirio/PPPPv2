@@ -330,14 +330,16 @@ class ProgressTrackerTest {
         assertThat(scored()).noneMatch(s -> s.startsWith("LINK"));
         when(consoles.isAwake(ASH)).thenReturn(false); // then left /play: the console paused
         tracker.poll(); // still read again, so it counts
-        assertThat(scored()).containsOnlyOnce("LINK_WIN misty@x.y +0");
+        assertThat(scored()).containsOnlyOnce("LINK_WIN misty@x.y +25");
+        assertThat(tracker.scoreboard().getFirst().points()).isEqualTo(25); // a win counts towards the points
 
         sav[wins + 3] = 1; // a loss can only come from a running console
         twice(tracker);
         assertThat(scored()).noneMatch(s -> s.startsWith("LINK_LOSS"));
         when(consoles.isAwake(ASH)).thenReturn(true);
         twice(tracker);
-        assertThat(scored()).containsSubsequence("LINK_WIN misty@x.y +0", "LINK_LOSS misty@x.y +0");
+        assertThat(scored()).containsSubsequence("LINK_WIN misty@x.y +25", "LINK_LOSS misty@x.y +0");
+        assertThat(tracker.scoreboard().getFirst().points()).isEqualTo(25); // a loss costs nothing
     }
 
     @Test

@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * A scoreboard row (GET /scoreboard, SCOREBOARD_CHANGED), ranked by points + achievementPoints (uncapped; the
- * capped trainerScore breaks ties). points is the per-step tally (badges, Pokédex, levels; see ProgressTracker). game is the cartridge id;
+ * capped trainerScore breaks ties). points is the per-step tally (badges, Pokédex, levels, link battles won; see ProgressTracker). game is the cartridge id;
  * online = console in memory. party (eggs included, in order), location (TrainerCard's: "Route 42",
  * "Violet City · Pokémon Center", "Trade Center"; null when unknown), playTime ("H:MM", null when unknown), the badge
  * bitmasks (wJohtoBadges, wKantoBadges) and trainerName (wPlayerName; null for other games or before a reading) are

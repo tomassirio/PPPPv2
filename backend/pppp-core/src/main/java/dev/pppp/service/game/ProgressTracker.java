@@ -57,6 +57,8 @@ import org.springframework.stereotype.Service;
 public class ProgressTracker {
     /** Points per event; placeholders. */
     static final int BADGE = 100, CAUGHT = 10, SEEN = 2, LEVEL_MILESTONE = 5, HALL_OF_FAME = 500;
+    // ponytail: no cap, two Pibs could farm link battles; cap per opponent per day if the scoreboard sees it.
+    static final int LINK_WIN = 25; // per link battle won (the save's record), added to the activity points
     /** The party's highest level scores each time it passes a multiple of this. */
     static final int LEVEL_STEP = 10;
     /** How often the battery save is flushed and read (ms); in the Battle Tower, whose win lasts a short while. */
@@ -277,7 +279,7 @@ public class ProgressTracker {
     }
 
     /**
-     * A LINK_WIN or LINK_LOSS feed entry (0 points) per link battle the save's record gained since the last read;
+     * A LINK_WIN (LINK_WIN points) or LINK_LOSS (0) feed entry per link battle the save's record gained since the last read;
      * detail: the opponent's user id (on the cable now, else the last one there, else their only partner ever), or
      * "" when unknown. At most a few per read, so an old save's first read does not flood the feed.
      */
@@ -287,7 +289,7 @@ public class ProgressTracker {
         if (partner == null) partner = now.partners().size() == 1 ? now.partners().iterator().next() : "";
         List<ScoreEvent> out = new ArrayList<>();
         for (int i = was.linkWins(); i < Math.min(now.linkWins(), was.linkWins() + 3); i++) {
-            out.add(new ScoreEvent(userId, "LINK_WIN", partner, 0, at));
+            out.add(new ScoreEvent(userId, "LINK_WIN", partner, LINK_WIN, at));
         }
         for (int i = was.linkLosses(); i < Math.min(now.linkLosses(), was.linkLosses() + 3); i++) {
             out.add(new ScoreEvent(userId, "LINK_LOSS", partner, 0, at));
@@ -456,10 +458,12 @@ public class ProgressTracker {
             TrainerScore t = trainers.computeIfAbsent(userId, repo::trainer);
             Map<String, Long> a = unlocked.computeIfAbsent(userId, repo::achievements);
             TrainerCard c = cards.computeIfAbsent(userId, repo::card);
-            rows.add(new ScoreRow(userId, points(p), p.badges().size(), p.caught().size(), p.seen().size(),
+            TrainerLog log = logs.computeIfAbsent(userId, repo::log);
+            int linkPoints = log == null ? 0 : log.linkWins() * LINK_WIN;
+            rows.add(new ScoreRow(userId, points(p) + linkPoints, p.badges().size(), p.caught().size(), p.seen().size(),
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
                     a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges(), c.trainerName(),
-                    ScoreRow.Link.of(logs.computeIfAbsent(userId, repo::log))));
+                    ScoreRow.Link.of(log)));
         }
         // Ranked by the uncapped total (activity points + achievement points); the capped Trainer Score order of
         // pibs:scoreboard breaks ties (the sort is stable).
