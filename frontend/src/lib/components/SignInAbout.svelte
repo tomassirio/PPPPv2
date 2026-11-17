@@ -252,6 +252,7 @@
 		width: 8px;
 		height: 8px;
 		margin-right: 6px;
+		vertical-align: 1px; /* centred on the digits; an empty inline-block would sit on the baseline and lift the row */
 		border-radius: 50%;
 		background: var(--muted);
 	}
