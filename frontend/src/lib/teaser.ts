@@ -29,7 +29,28 @@ export type Teaser = {
 		party: number[];
 		/** Where they stand: the pret map constant, x/y in 16px steps from its top-left, and facing. */
 		spot: { map: string; x: number; y: number; facing: 'down' | 'up' | 'left' | 'right' } | null;
+		/** For the card over their name: Trainer Title, badges, Pokémon caught, "H:MM" played, the landmark. */
+		title?: string | null;
+		badges?: number;
+		caught?: number;
+		playTime?: string | null;
+		location?: string | null;
 	}[];
+	/** Latest catches, badges, achievements and Hall of Fame entries, newest first; trainer: index in trainers. */
+	moments?: { trainer: number; type: 'CAUGHT' | 'BADGE' | 'ACHIEVEMENT' | 'HALL_OF_FAME'; detail: string; at: number }[];
+};
+
+/** What stands on a map image (GET /public/maps/{MAP}.json): see Gen2MapArt.Info. */
+export type MapInfo = {
+	width: number;
+	height: number;
+	/** Connected maps in the image: their top-left block relative to this map's. */
+	neighbours: { map: string; x: number; y: number }[];
+	npcs: { sprite: number; palette: number; x: number; y: number; move: 'still' | 'wander' | 'spin' | 'updown' | 'leftright'; rx: number; ry: number; facing: 'down' | 'up' | 'left' | 'right'; frames: number }[];
+	/** Tall grass steps as [x, y]. */
+	grass: [number, number][];
+	/** Pokédex numbers in that grass at this time of day. */
+	wild: number[];
 };
 
 export const loadTeaser = () => api<Teaser>('GET', '/public/teaser');

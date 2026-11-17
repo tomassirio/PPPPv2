@@ -374,6 +374,18 @@ public class ProgressTracker {
         return art == null ? null : art.png(map, time, margin);
     }
 
+    /** Neighbours, NPCs, tall grass and wild Pokémon of a Crystal map at a time of day (Gen2MapArt.Info); or null. */
+    public Object mapInfo(String map, int time, int margin) {
+        Gen2MapArt art = art();
+        return art == null ? null : art.info(map, time, margin);
+    }
+
+    /** PNG sheet of a Crystal overworld sprite in a palette at a time of day; or null. */
+    public byte[] npcSheet(int sprite, int palette, int time) {
+        Gen2MapArt art = art();
+        return art == null ? null : art.npcSheet(sprite, palette, time);
+    }
+
     private Gen2MapArt art() {
         Gen2MapArt art = mapArt;
         if (art == null) {

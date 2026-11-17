@@ -44,18 +44,28 @@ class PublicController {
      * caught: Pokémon caught, every Pib's added up; achievements: unlocked, all Pibs together; trades: link
      * trades (each one is a Pokémon received on both ends, so half the received); battles: link battles played (each
      * is a win on one end and a loss on the other, so half of all wins and losses); trainers: everyone on the town
-     * map, in map order.
+     * map, in map order; moments: the latest catches, badges, achievements and Hall of Fame entries, newest first.
      */
     record Teaser(int online, int players, Map<String, Integer> versions, int caught, int achievements,
-                  int trades, int battles, java.util.List<Trainer> trainers) {}
+                  int trades, int battles, java.util.List<Trainer> trainers, java.util.List<Moment> moments) {}
+
+    /**
+     * trainer: index in trainers (who it was, without saying more than their first name); type: CAUGHT, BADGE,
+     * ACHIEVEMENT or HALL_OF_FAME; detail: the species, badge or achievement name; at: epoch millis.
+     */
+    record Moment(int trainer, String type, String detail, long at) {}
+
+    static final java.util.Set<String> MOMENT_TYPES = java.util.Set.of("CAUGHT", "BADGE", "ACHIEVEMENT", "HALL_OF_FAME");
 
     /**
      * name: the first word of their name; cartridge: for /public/sprites/{cartridge}/...; version: the ROM header
      * title; region, x, y: the town-map spot (x, y in that region's 160x144 screen), region null before their first
-     * reading; party: species in order.
+     * reading; party: species in order; title, badges (Johto and Kanto), caught, playTime ("H:MM" or null) and
+     * location (the landmark, or null) for the card shown over their name.
      */
     record Trainer(String name, String cartridge, String version, boolean online, String region, int x, int y,
-                   java.util.List<Integer> party, dev.pppp.model.MapSpot spot) {}
+                   java.util.List<Integer> party, dev.pppp.model.MapSpot spot, String title, int badges, int caught,
+                   String playTime, String location) {}
 
     @GetMapping("/teaser")
     Teaser teaser() {
@@ -64,22 +74,44 @@ class PublicController {
                 .collect(Collectors.toMap(Cartridge::id, Cartridge::title, (a, b) -> a));
         Map<String, Integer> versions = new TreeMap<>();
         rows.forEach(r -> versions.merge(titles.getOrDefault(r.game(), "OTHER"), 1, Integer::sum));
+        var ids = new java.util.ArrayList<String>();
         return new Teaser(events.viewers().size(), rows.size(), versions, tracker.caughtByAll(),
                 rows.stream().mapToInt(ScoreRow::achievementsUnlocked).sum(),
                 rows.stream().mapToInt(r -> r.link().trades()).sum() / 2,
                 rows.stream().mapToInt(r -> r.link().wins() + r.link().losses()).sum() / 2,
-                trainers(titles));
+                trainers(titles, rows, ids), moments(ids));
     }
 
-    private java.util.List<Trainer> trainers(Map<String, String> titles) {
+    /** User ids in trainers' order, filled by trainers() for moments(); never sent. */
+    private java.util.List<Trainer> trainers(Map<String, String> titles, java.util.List<ScoreRow> rows,
+                                             java.util.List<String> ids) {
         Map<String, String> names = allowlist.names();
-        return tracker.onMap().stream()
+        Map<String, ScoreRow> byId = rows.stream().collect(Collectors.toMap(ScoreRow::userId, r -> r, (a, b) -> a));
+        record Placed(String userId, Trainer trainer) {}
+        var placed = tracker.onMap().stream()
                 .filter(t -> t.game() != null)
-                .map(t -> new Trainer(firstName(names.get(t.userId())), t.game(), titles.getOrDefault(t.game(), "OTHER"),
-                        t.online(), t.pin() == null ? null : t.pin().region(), t.pin() == null ? 0 : t.pin().x(),
-                        t.pin() == null ? 0 : t.pin().y(), t.party(), t.spot()))
-                .sorted(java.util.Comparator.comparing((Trainer t) -> t.region() == null ? "~" : t.region())
-                        .thenComparingInt(Trainer::x).thenComparingInt(Trainer::y))
+                .map(t -> {
+                    ScoreRow r = byId.get(t.userId());
+                    String location = r == null || r.location() == null ? null : r.location().split(" · ")[0];
+                    return new Placed(t.userId(), new Trainer(firstName(names.get(t.userId())), t.game(),
+                            titles.getOrDefault(t.game(), "OTHER"), t.online(),
+                            t.pin() == null ? null : t.pin().region(), t.pin() == null ? 0 : t.pin().x(),
+                            t.pin() == null ? 0 : t.pin().y(), t.party(), t.spot(), r == null ? null : r.title(),
+                            r == null ? 0 : r.badges(), r == null ? 0 : r.caught(), r == null ? null : r.playTime(),
+                            location));
+                })
+                .sorted(java.util.Comparator.comparing((Placed p) -> p.trainer().region() == null ? "~" : p.trainer().region())
+                        .thenComparingInt(p -> p.trainer().x()).thenComparingInt(p -> p.trainer().y()))
+                .toList();
+        placed.forEach(p -> ids.add(p.userId()));
+        return placed.stream().map(Placed::trainer).toList();
+    }
+
+    private java.util.List<Moment> moments(java.util.List<String> ids) {
+        return tracker.activity(100).stream()
+                .filter(e -> MOMENT_TYPES.contains(e.type()) && ids.contains(e.user()))
+                .limit(12)
+                .map(e -> new Moment(ids.indexOf(e.user()), e.type(), e.detail(), e.at()))
                 .toList();
     }
 
@@ -101,21 +133,43 @@ class PublicController {
         return png(known(cartridge) && n >= 1 && n <= 251 ? tracker.iconOf(cartridge, n) : null);
     }
 
-    /** Margin of border blocks round a map: enough to fill a 4K window at the camera's 3x from any spot on it. */
-    static final int MAP_MARGIN = 14;
+    /** Margin of border blocks round a map: fills a 4K window at 3x from any spot, and a pan to a neighbour. */
+    static final int MAP_MARGIN = 20;
 
     /** A map of Crystal as the game draws it, by pret map constant; time: morn, day or nite. */
     @GetMapping("/maps/{map}.png")
     ResponseEntity<byte[]> map(@PathVariable String map,
                                @org.springframework.web.bind.annotation.RequestParam(defaultValue = "day") String time) {
-        int t = switch (time) {
+        int t = time(time);
+        boolean ok = t >= 0 && map.matches("[A-Z0-9_]{1,40}");
+        return png(ok ? tracker.mapArt(map, t, MAP_MARGIN) : null);
+    }
+
+    /** What stands on that map image at a time of day: neighbours, NPCs, tall grass, wild Pokémon (Gen2MapArt.Info). */
+    @GetMapping("/maps/{map}.json")
+    ResponseEntity<Object> mapInfo(@PathVariable String map,
+                                   @org.springframework.web.bind.annotation.RequestParam(defaultValue = "day") String time) {
+        int t = time(time);
+        Object info = t >= 0 && map.matches("[A-Z0-9_]{1,40}") ? tracker.mapInfo(map, t, MAP_MARGIN) : null;
+        if (info == null) throw new NotFoundException("No map " + map);
+        return ResponseEntity.ok().cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePublic()).body(info);
+    }
+
+    /** A Crystal overworld sprite's sheet (Gen2MapArt#npcSheet) in palette 0-7. */
+    @GetMapping("/npcs/{sprite}/{palette}.png")
+    ResponseEntity<byte[]> npc(@PathVariable int sprite, @PathVariable int palette,
+                               @org.springframework.web.bind.annotation.RequestParam(defaultValue = "day") String time) {
+        int t = time(time);
+        return png(t >= 0 ? tracker.npcSheet(sprite, palette, t) : null);
+    }
+
+    private static int time(String time) {
+        return switch (time) {
             case "morn" -> 0;
             case "day" -> 1;
             case "nite" -> 2;
             default -> -1;
         };
-        boolean ok = t >= 0 && map.matches("[A-Z0-9_]{1,40}");
-        return png(ok ? tracker.mapArt(map, t, MAP_MARGIN) : null);
     }
 
     /** Only uploaded cartridges, so made-up ids never reach the profile cache. */

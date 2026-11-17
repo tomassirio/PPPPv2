@@ -80,6 +80,7 @@ class GameApiTest {
                 .andExpect(jsonPath("$.trades").isNumber())
                 .andExpect(jsonPath("$.battles").isNumber())
                 .andExpect(jsonPath("$.trainers").isArray())
+                .andExpect(jsonPath("$.moments").isArray())
                 .andExpect(jsonPath("$..email").isEmpty())
                 .andExpect(jsonPath("$.party").doesNotExist())
                 .andExpect(jsonPath("$..userId").isEmpty()); // first names only, never emails or ids
@@ -89,6 +90,9 @@ class GameApiTest {
         org.assertj.core.api.Assertions.assertThat(PublicController.firstName("pib@x.y")).isEqualTo("Pib");
         org.assertj.core.api.Assertions.assertThat(PublicController.firstName(null)).isEqualTo("Pib");
         mvc.perform(get("/api/v1/public/screen.png")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/public/maps/ROUTE_29.json?time=dusk")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/public/maps/route_29.json")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/public/npcs/999/0.png")).andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/presence")).andExpect(status().isUnauthorized());
     }
 }

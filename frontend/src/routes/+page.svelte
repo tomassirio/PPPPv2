@@ -162,7 +162,7 @@
 		// The teaser is public; refreshed while the page is open. Fails quietly (the page works without it).
 		const refresh = () => loadTeaser().then((v) => (teaser = v), () => {});
 		refresh();
-		const poll = setInterval(refresh, 30000);
+		const poll = setInterval(refresh, 15000); // new moments show within a few seconds of the next reading
 		// Reduced motion: the first cartridge stays.
 		const carousel = matchMedia('(prefers-reduced-motion: reduce)').matches
 			? undefined
@@ -294,6 +294,10 @@
 		overflow: hidden;
 		position: relative;
 		z-index: 1; /* above the backdrop */
+		pointer-events: none; /* the map's name tags stay hoverable round the device and the card */
+	}
+	main > :global(*) {
+		pointer-events: auto;
 	}
 	/* The backdrop is see-through; the page colour sits under it. */
 	:global(body:has(main > .device)) {

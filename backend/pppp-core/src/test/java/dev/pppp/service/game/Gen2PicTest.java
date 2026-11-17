@@ -101,6 +101,38 @@ class Gen2PicTest {
         }
     }
 
+    /**
+     * Against a real Crystal: Cherrygrove's neighbours, people and (no) grass; Route 29's grass and its night
+     * Pokémon (pret data/wild/johto_grass.asm: Hoothoot and Rattata); a walking sprite's six-frame sheet.
+     */
+    @Test
+    void readsWhatStandsOnACrystalMap() throws IOException {
+        Path dir = Path.of(System.getenv().getOrDefault("PPPP_ROMS", "../../data/roms"));
+        byte[] rom = null;
+        for (Path p : Files.isDirectory(dir) ? listGbc(dir) : List.<Path>of()) {
+            byte[] b = Files.readAllBytes(p);
+            if (Gen2MapArt.fits(b)) rom = b;
+        }
+        assumeTrue(rom != null, "no Crystal ROM in " + dir.toAbsolutePath());
+        Gen2MapArt art = new Gen2MapArt(rom);
+        var city = art.info("CHERRYGROVE_CITY", Gen2MapArt.DAY, 20);
+        assertThat(city.neighbours()).contains(new Gen2MapArt.Neighbour("ROUTE_29", 20, 0));
+        assertThat(city.npcs()).anySatisfy(n -> {
+            assertThat(n.x()).isEqualTo(27); // the teacher walking left and right, pret maps/CherrygroveCity.asm
+            assertThat(n.y()).isEqualTo(12);
+            assertThat(n.move()).isEqualTo("leftright");
+        });
+        assertThat(city.grass()).isEmpty();
+        var route = art.info("ROUTE_29", Gen2MapArt.NITE, 20);
+        assertThat(route.grass()).isNotEmpty();
+        assertThat(route.wild()).containsExactlyInAnyOrder(163, 19);
+        assertThat(art.outdoor("ROUTE_29")).isTrue();
+        assertThat(art.outdoor("CHERRYGROVE_POKECENTER_1F")).isFalse();
+        var sheet = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(art.npcSheet(41, 1, Gen2MapArt.DAY)));
+        assertThat(sheet.getHeight()).isEqualTo(96);
+        assertThat(art.npcSheet(0, 0, Gen2MapArt.DAY)).isNull();
+    }
+
     private static int[] find(String[][] ids, String map) {
         for (int g = 1; g < ids.length; g++) for (int n = 1; n < ids[g].length; n++) if (ids[g][n].equals(map)) return new int[] {g, n};
         throw new AssertionError(map);

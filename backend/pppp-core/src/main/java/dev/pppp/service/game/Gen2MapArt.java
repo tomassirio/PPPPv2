@@ -21,11 +21,16 @@ final class Gen2MapArt {
             ENVIRONMENT_COLORS = rom(0x02, 0x7279), BG_PALETTES = rom(0x02, 0x7319), ROOF_PALS = rom(0x02, 0x7569),
             MAP_GROUP_ROOFS = rom(0x07, 0x4021), ROOFS = rom(0x07, 0x403c), PALMAP_BANK = 0x13,
             TILESET_ENTRY = 15, HEADER = 9, ROOF_LENGTH = 9, ROOF_TILE = 0x0A, TILESET_JOHTO = 1,
-            TILESET_JOHTO_MODERN = 2, TILESET_BATTLE_TOWER_OUTSIDE = 4, TOWN = 1, ROUTE = 2;
+            TILESET_JOHTO_MODERN = 2, TILESET_BATTLE_TOWER_OUTSIDE = 4, TOWN = 1, ROUTE = 2,
+            OVERWORLD_SPRITES = rom(0x05, 0x4736), MAP_OBJECT_PALS = rom(0x02, 0x7469),
+            JOHTO_GRASS = rom(0x0A, 0x65E9), KANTO_GRASS = rom(0x0A, 0x7274), GRASS_ENTRY = 47, GRASS_SLOTS = 7,
+            NUM_OVERWORLD_SPRITES = 0x66, WALKING_SPRITE = 1, STILL_SPRITE = 3, OBJECT = 13,
+            COLL_LONG_GRASS = 0x14, COLL_TALL_GRASS = 0x18;
 
     private final byte[] rom;
     private final String[][] mapIds;
     private final Map<String, byte[]> cache = new ConcurrentHashMap<>();
+    private final Map<String, Info> infos = new ConcurrentHashMap<>();
 
     Gen2MapArt(byte[] rom) {
         this.rom = rom;
@@ -43,6 +48,141 @@ final class Gen2MapArt {
         int[] at = find(map);
         if (at == null || time < MORN || time > NITE) return null;
         return cache.computeIfAbsent(map + ":" + time + ":" + margin, k -> draw(at[0], at[1], time, margin));
+    }
+
+    /**
+     * What the sign-in page puts on a map besides its picture, at a time of day.
+     * neighbours: connected maps drawn into the picture, by where their top-left block sits relative to this map's
+     * (in blocks; 2 steps each). npcs: the people and things standing on it. grass: steps of tall grass, as {x, y}.
+     * wild: the Pokédex numbers that can jump out of that grass at that time.
+     */
+    record Info(int width, int height, java.util.List<Neighbour> neighbours, java.util.List<Npc> npcs,
+                java.util.List<int[]> grass, java.util.List<Integer> wild) {}
+
+    record Neighbour(String map, int x, int y) {}
+
+    /**
+     * sprite: a SPRITE_* id (sheet: {@link #npcSheet}); palette 0-7 (MapObjectPals); x, y: their step; move: still,
+     * wander, spin, updown or leftright; rx, ry: how far they roam; facing: where they look first; frames: in the
+     * sheet (6 walking, 3 standing, 1 still).
+     */
+    record Npc(int sprite, int palette, int x, int y, String move, int rx, int ry, String facing, int frames) {}
+
+    Info info(String map, int time, int margin) {
+        int[] at = find(map);
+        if (at == null || time < MORN || time > NITE) return null;
+        return infos.computeIfAbsent(map + ":" + time + ":" + margin, k -> describe(at[0], at[1], time, margin));
+    }
+
+    private Info describe(int group, int number, int time, int margin) {
+        var maps = world(group, number, time, margin);
+        Layer home = maps.getFirst();
+        var neighbours = new java.util.ArrayList<Neighbour>();
+        for (Layer m : maps.subList(1, maps.size())) neighbours.add(new Neighbour(mapIds[m.group()][m.number()], m.x(), m.y()));
+        int h = header(group, number), attr = attributes(h);
+        // Tall grass, from the tileset's collision: four bytes a block, one per step (top left, top right, ...).
+        int ts = TILESETS + (rom[h + 1] & 0xFF) * TILESET_ENTRY, coll = rom(rom[ts + 6] & 0xFF, u16(ts + 7));
+        var grass = new java.util.ArrayList<int[]>();
+        for (int by = 0; by < home.height(); by++) {
+            for (int bx = 0; bx < home.width(); bx++) {
+                int b = rom[home.blocks() + by * home.width() + bx] & 0xFF;
+                for (int k = 0; k < 4; k++) {
+                    int c = rom[coll + b * 4 + k] & 0xFF;
+                    if (c == COLL_TALL_GRASS || c == COLL_LONG_GRASS) grass.add(new int[] {bx * 2 + k % 2, by * 2 + k / 2});
+                }
+            }
+        }
+        return new Info(home.width(), home.height(), neighbours, npcs(attr, time), grass, wild(group, number, time));
+    }
+
+    /**
+     * The map's object events (macros/scripts/maps.asm): after two filler bytes, the warps (5 bytes each), coord
+     * events (8), bg events (5), then objects of 13 bytes: sprite, y + 4, x + 4, movement, radius (y, x nybbles),
+     * hours h1, h2, palette and type nybbles, sight, script, event flag. Kept: overworld sprites that always appear
+     * (no event flag) at this time of day; the Pokémon and variable sprites (the rival, the Pokémon walking) are not.
+     */
+    private java.util.List<Npc> npcs(int attr, int time) {
+        int at = rom(rom[attr + 6] & 0xFF, u16(attr + 9)) + 2;
+        at += 1 + (rom[at] & 0xFF) * 5;
+        at += 1 + (rom[at] & 0xFF) * 8;
+        at += 1 + (rom[at] & 0xFF) * 5;
+        int count = rom[at++] & 0xFF;
+        var out = new java.util.ArrayList<Npc>();
+        int hour = time == MORN ? 7 : time == DAY ? 14 : 22;
+        for (int i = 0; i < count; i++, at += OBJECT) {
+            int sprite = rom[at] & 0xFF, h1 = rom[at + 5] & 0xFF, h2 = rom[at + 6] & 0xFF, flag = u16(at + 11);
+            if (sprite < 1 || sprite > NUM_OVERWORLD_SPRITES || flag != 0xFFFF) continue;
+            boolean shown = h1 == 0xFF ? h2 == 0xFF || (h2 & 1 << time) != 0
+                    : h1 == h2 || (h1 < h2 ? hour >= h1 && hour < h2 : hour >= h1 || hour < h2);
+            if (!shown) continue;
+            int pal = (rom[at + 7] & 0xFF) >> 4, radius = rom[at + 4] & 0xFF;
+            int palette = pal != 0 ? pal & 7 : rom[OVERWORLD_SPRITES + (sprite - 1) * 6 + 5] & 7;
+            int movement = rom[at + 3] & 0xFF;
+            String move = switch (movement) {
+                case 0x02, 0x24 -> "wander";
+                case 0x03, 0x0A -> "spin";
+                case 0x04 -> "updown";
+                case 0x05 -> "leftright";
+                default -> "still";
+            };
+            String facing = switch (movement) {
+                case 0x07 -> "up";
+                case 0x08 -> "left";
+                case 0x09 -> "right";
+                default -> "down";
+            };
+            int type = rom[OVERWORLD_SPRITES + (sprite - 1) * 6 + 4] & 0xFF;
+            int frames = type == WALKING_SPRITE ? 6 : type == STILL_SPRITE ? 1 : 3;
+            out.add(new Npc(sprite, palette, (rom[at + 2] & 0xFF) - 4, (rom[at + 1] & 0xFF) - 4,
+                    frames == 6 ? move : "still", radius & 0xF, radius >> 4, facing, frames));
+        }
+        return out;
+    }
+
+    /** The species in the map's grass at a time of day (data/wild/*_grass.asm: map id, 3 rates, 7 slots a time). */
+    private java.util.List<Integer> wild(int group, int number, int time) {
+        var out = new java.util.LinkedHashSet<Integer>();
+        for (int table : new int[] {JOHTO_GRASS, KANTO_GRASS}) {
+            for (int at = table; (rom[at] & 0xFF) != 0xFF; at += GRASS_ENTRY) {
+                if ((rom[at] & 0xFF) != group || (rom[at + 1] & 0xFF) != number) continue;
+                for (int s = 0; s < GRASS_SLOTS; s++) out.add(rom[at + 5 + time * GRASS_SLOTS * 2 + s * 2 + 1] & 0xFF);
+            }
+        }
+        return java.util.List.copyOf(out);
+    }
+
+    /**
+     * An overworld sprite's sheet (data/sprites/sprites.asm OverworldSprites: pointer, length, bank, type, palette),
+     * 16 px wide, a 2x2-tile frame under the other: down, up, left, then for walking sprites their stepping frames;
+     * one frame for still ones. Colour 0 is see-through; the rest from MapObjectPals at the time of day.
+     */
+    byte[] npcSheet(int sprite, int palette, int time) {
+        if (sprite < 1 || sprite > NUM_OVERWORLD_SPRITES || palette < 0 || palette > 7 || time < MORN || time > NITE) return null;
+        return cache.computeIfAbsent("npc:" + sprite + ":" + palette + ":" + time, k -> {
+            int e = OVERWORLD_SPRITES + (sprite - 1) * 6, type = rom[e + 4] & 0xFF;
+            int gfx = rom(rom[e + 3] & 0xFF, u16(e));
+            int tiles = type == STILL_SPRITE ? 4 : type == WALKING_SPRITE ? 24 : 12;
+            int pal = MAP_OBJECT_PALS + time * 64 + palette * 8;
+            int[] argb = {0, 0xFF000000 | Gen2Pic.rgb(rom, pal + 2), 0xFF000000 | Gen2Pic.rgb(rom, pal + 4),
+                    0xFF000000 | Gen2Pic.rgb(rom, pal + 6)};
+            var img = new BufferedImage(16, tiles / 4 * 16, BufferedImage.TYPE_INT_ARGB);
+            for (int t = 0; t < tiles; t++) {
+                for (int row = 0; row < 8; row++) {
+                    int lo = rom[gfx + t * 16 + row * 2] & 0xFF, hi = rom[gfx + t * 16 + row * 2 + 1] & 0xFF;
+                    for (int col = 0; col < 8; col++) {
+                        int v = (lo >> 7 - col & 1) | (hi >> 7 - col & 1) << 1;
+                        img.setRGB(t % 2 * 8 + col, t / 2 * 8 + row, argb[v]);
+                    }
+                }
+            }
+            var out = new ByteArrayOutputStream();
+            try {
+                ImageIO.write(img, "png", out);
+            } catch (IOException ex) {
+                return null;
+            }
+            return out.toByteArray();
+        });
     }
 
     /** Whether the map is a town or a route (on the world map, not inside a building, cave or gate). */
