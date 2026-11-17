@@ -7,6 +7,7 @@
 	import { activityText, ago, type ScoreEvent } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
+	import { arrive } from '#lib/motion.ts';
 
 	let { limit = Infinity, label, events }: { limit?: number; label?: string; events?: ScoreEvent[] } = $props();
 	$effect(() => watchBoard());
@@ -18,14 +19,22 @@
 		return () => clearInterval(tick);
 	});
 
-	const shown = $derived((events ?? board.activity).slice(0, limit));
+	// Keyed by what happened, not by position, so a new entry animates in instead of relabelling the list.
+	const shown = $derived.by(() => {
+		const seen: Record<string, number> = {};
+		return (events ?? board.activity).slice(0, limit).map((e) => {
+			const k = `${e.at}:${e.user}:${e.type}:${e.detail}`;
+			seen[k] = (seen[k] ?? 0) + 1;
+			return { e, key: `${k}:${seen[k]}` };
+		});
+	});
 </script>
 
 {#if shown.length}
 	<ul class="feed" aria-label={label}>
-		{#each shown as e, i (i + ':' + e.at + e.user)}
+		{#each shown as { e, key } (key)}
 			{@const you = e.user === session.me?.id}
-			<li>
+			<li in:arrive>
 				<FeedIcon {e} />
 				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '').trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
 			</li>
@@ -45,6 +54,7 @@
 		gap: 12px;
 	}
 	li {
+		border-radius: 6px;
 		display: flex;
 		gap: 10px;
 		font-size: 13px;

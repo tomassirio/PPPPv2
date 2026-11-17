@@ -12,6 +12,9 @@
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { fitItems } from '#lib/fit.ts';
+	import { flip } from 'svelte/animate';
+	import CountUp from '#lib/components/CountUp.svelte';
+	import { arrive, glow, ms } from '#lib/motion.ts';
 
 	// The top ten at most (fewer if the card is short: fitItems); the rest are on /scoreboard.
 	let { limit = 10 }: { limit?: number } = $props();
@@ -30,8 +33,10 @@
 				{@const you = r.userId === session.me?.id}
 				{@const st = playerStatus(r.userId, r.online, session.me?.id, link.state?.lobby ?? [], link.links)}
 				{@const where = st.kind === 'linked' ? 'Trade Center' : place(r.location).city}
-				<li>
+				<!-- Higher ranks paint on top, so a player climbing slides over the ones they pass. -->
+				<li animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={shown.length - i}>
 					<a class="standing" class:you href="/pib/{encodeURIComponent(r.userId)}">
+						{#key score(r)}<span class="flash" aria-hidden="true" in:glow></span>{/key}
 						<span class="rank pixel" aria-hidden="true">{i + 1}</span>
 						<Avatar user={r.userId} size={32} />
 						<span class="mid">
@@ -45,7 +50,7 @@
 							</span>
 						</span>
 						<span class="score">
-							<span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span>
+							<span class="pts"><CountUp value={score(r)} /><span class="sr-only"> points, grade</span></span>
 							<GradeChip grade={r.grade} rating={r.trainerScore} />
 						</span>
 					</a>
@@ -104,6 +109,19 @@
 		border-radius: 8px;
 		color: inherit;
 		text-decoration: none;
+	}
+	/* Lights up when the row's points change (the {#key} re-mounts it), then fades. */
+	.standing {
+		position: relative;
+		background: var(--panel); /* solid, so a row sliding past another doesn't show through it */
+	}
+	.flash {
+		position: absolute;
+		inset: 0;
+		border-radius: 8px;
+		background: color-mix(in oklab, var(--accent) 22%, transparent);
+		opacity: 0;
+		pointer-events: none;
 	}
 	.standing:hover {
 		background: var(--sunk);

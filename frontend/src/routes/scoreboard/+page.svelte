@@ -8,6 +8,9 @@
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
 	import { goto } from '$app/navigation';
+	import { flip } from 'svelte/animate';
+	import CountUp from '#lib/components/CountUp.svelte';
+	import { arrive, ms } from '#lib/motion.ts';
 	import { page } from '$app/state';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { link, watchLink } from '#lib/link.svelte.ts';
@@ -112,7 +115,7 @@
 					{@const st = status(r.userId, r.online)}
 					{@const v = versionOf(r.game, board.names)}
 					{@const where = [st.kind === 'linked' ? 'Trade Center' : place(r.location).city, v].filter(Boolean).join(' · ')}
-					<a class="tr" class:you={r.userId === session.me?.id} href={href(r.userId)}>
+					<a class="tr" class:you={r.userId === session.me?.id} href={href(r.userId)} animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={pageRows.length - j}>
 						<span class="rank pixel">{i + 1}</span>
 						<span class="row">
 							<Avatar user={r.userId} />
@@ -131,7 +134,7 @@
 							<span class="small"><b>{r.caught}</b> <span class="muted">caught · {r.seen} seen</span></span>
 							<span class="bar"><b style:width="{(r.caught * 100) / 251}%"></b></span>
 						</span>
-						<span class="num"><span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
+						<span class="num"><span class="pts"><CountUp value={score(r)} /><span class="sr-only"> points, grade</span></span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
 					</a>
 				{/each}
 			</div>
@@ -389,6 +392,9 @@
 		text-transform: uppercase;
 		color: var(--muted);
 		padding-block: 12px;
+	}
+	a.tr {
+		background: var(--panel); /* solid, so a row sliding past another doesn't show through it */
 	}
 	a.tr:hover {
 		background: var(--sunk);
