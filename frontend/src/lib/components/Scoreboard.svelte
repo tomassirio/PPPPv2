@@ -13,8 +13,8 @@
 	import { session } from '#lib/session.svelte.ts';
 	import { fitItems } from '#lib/fit.ts';
 
-	// As many standings and Latest lines as fit the card (fitItems); these are only upper bounds.
-	let { limit = 20 }: { limit?: number } = $props();
+	// The top ten at most (fewer if the card is short: fitItems); the rest are on /scoreboard.
+	let { limit = 10 }: { limit?: number } = $props();
 
 	$effect(() => watchBoard());
 	$effect(() => watchLink());

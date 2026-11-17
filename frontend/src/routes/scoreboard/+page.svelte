@@ -1,11 +1,14 @@
 <!-- /scoreboard (frontend/design/PlayV2.mock.html, #scoreboard): the top three on a podium, then every Pib in a table
      (rank, avatar, name, status · where · game, party, badges, Pokédex, Trainer Score), filtered by version and sorted
-     by a column. Rows open the Pib's profile. Live from board.svelte.ts. -->
+     by a column, a page at a time (?page=, from 1; ?size= rows a page, 25 by default). Rows open the Pib's profile.
+     Live from board.svelte.ts; paged here, since every row is already on the page for the live updates. -->
 <script lang="ts">
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { link, watchLink } from '#lib/link.svelte.ts';
 	import { boardRows, place, playerStatus, versionOf, winRate, type BoardSort, type Version, score } from '#lib/play.ts';
@@ -27,6 +30,24 @@
 		['level', 'Top level']
 	];
 	const rows = $derived(boardRows(board.rows, version, sort, board.names));
+
+	// Paging: the page and its size live in the URL, so a page can be linked and Back goes to the previous one.
+	const size = $derived(Math.min(100, Math.max(1, Number(page.url.searchParams.get('size')) || 25)));
+	const pages = $derived(Math.max(1, Math.ceil(rows.length / size)));
+	const current = $derived(Math.min(pages, Math.max(1, Number(page.url.searchParams.get('page')) || 1)));
+	const first = $derived((current - 1) * size); // rank offset of this page
+	const pageRows = $derived(rows.slice(first, first + size));
+	function go(to: number) {
+		const url = new URL(page.url.href);
+		if (to === 1) url.searchParams.delete('page');
+		else url.searchParams.set('page', String(to));
+		goto(url);
+	}
+	// A new filter or sort starts again from the first page.
+	function pick(apply: () => void) {
+		apply();
+		if (current !== 1) go(1);
+	}
 	const href = (user: string) => `/pib/${encodeURIComponent(user)}`;
 	const status = (user: string, online: boolean) => playerStatus(user, online, session.me?.id, link.state?.lobby ?? [], link.links);
 </script>
@@ -42,18 +63,19 @@
 		<div class="filters">
 			<div class="seg" role="group" aria-label="Game">
 				{#each VERSIONS as v (v)}
-					<button type="button" aria-pressed={version === v} onclick={() => (version = v)}>{v}</button>
+					<button type="button" aria-pressed={version === v} onclick={() => pick(() => (version = v))}>{v}</button>
 				{/each}
 			</div>
 			<div class="seg" role="group" aria-label="Sort by">
 				{#each SORTS as [k, label] (k)}
-					<button type="button" aria-pressed={sort === k} onclick={() => (sort = k)}>{label}</button>
+					<button type="button" aria-pressed={sort === k} onclick={() => pick(() => (sort = k))}>{label}</button>
 				{/each}
 			</div>
 		</div>
 	</div>
 
 	{#if rows.length}
+		{#if current === 1}
 		<ol class="podium" aria-label="Top three">
 			{#each rows.slice(0, 3) as r, i (r.userId)}
 				{@const v = versionOf(r.game, board.names)}
@@ -78,13 +100,15 @@
 				</li>
 			{/each}
 		</ol>
+		{/if}
 
 		<div class="tablewrap">
 			<div class="tbl">
 				<div class="tr th" aria-hidden="true">
 					<span>#</span><span>Pib</span><span>Party</span><span>Link</span><span class="num">Badges</span><span>Pokédex</span><span class="num">Points</span>
 				</div>
-				{#each rows as r, i (r.userId)}
+				{#each pageRows as r, j (r.userId)}
+					{@const i = first + j}
 					{@const st = status(r.userId, r.online)}
 					{@const v = versionOf(r.game, board.names)}
 					{@const where = [st.kind === 'linked' ? 'Trade Center' : place(r.location).city, v].filter(Boolean).join(' · ')}
@@ -112,6 +136,15 @@
 				{/each}
 			</div>
 		</div>
+		{#if pages > 1}
+			<nav class="pager" aria-label="Scoreboard pages">
+				<button type="button" disabled={current === 1} onclick={() => go(current - 1)}>← Previous</button>
+				<span class="small">
+					Page <b>{current}</b> of {pages}<span class="muted">&nbsp;· {first + 1}–{first + pageRows.length} of {rows.length}</span>
+				</span>
+				<button type="button" disabled={current === pages} onclick={() => go(current + 1)}>Next →</button>
+			</nav>
+		{/if}
 		<p class="muted xs">Points add up every catch, sighting, badge and achievement, with no cap; the grade is the separate 0–1000 Trainer rating. Link: battles won–lost, the share won, and Pokémon received in trades.</p>
 	{:else if board.rows.length}
 		<p class="muted">Nobody plays {version} yet.</p>
@@ -142,6 +175,27 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 10px;
+	}
+	.pager {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: 12px;
+	}
+	.pager button {
+		padding: 8px 14px;
+		border-radius: 8px;
+		border: 1px solid var(--border);
+		background: var(--panel);
+		color: var(--text);
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.pager button:disabled {
+		opacity: 0.4;
+		cursor: default;
 	}
 	.seg {
 		display: flex;
