@@ -2,6 +2,8 @@ package dev.pppp.realtime;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.pppp.model.LinkState.SessionEvent;
+import dev.pppp.model.LiveEvent;
 import dev.pppp.model.UserRevokedEvent;
 import dev.pppp.security.CurrentUser;
 import dev.pppp.service.PlayerConsoles;
@@ -99,7 +101,19 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         Viewer v = viewers.get(userId);
         if (v == null || v.sockets().remove(session) == null || !v.sockets().isEmpty()) return;
         viewers.remove(userId);
-        consoles.idle(userId);
+        // A linked player who went to another tab keeps their console running and the cable in: the partner's
+        // game runs in step with it. It goes idle when the session ends (below).
+        // ponytail: a closed browser keeps a linked console running until unplug or the session cap (15 min).
+        if (consoles.linkedWith(userId) == null) consoles.idle(userId);
+    }
+
+    /** A link session ended: whoever of the pair is not watching their screen goes idle now. Takes no lock of ours. */
+    @EventListener
+    public void onLinkEnded(LiveEvent event) {
+        if (!(event.payload() instanceof SessionEvent s) || !"ENDED".equals(s.status())) return;
+        for (String id : List.of(s.a(), s.b())) {
+            if (!viewers.containsKey(id)) consoles.idle(id);
+        }
     }
 
     @EventListener

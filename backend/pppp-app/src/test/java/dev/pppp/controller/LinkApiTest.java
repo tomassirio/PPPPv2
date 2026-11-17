@@ -160,8 +160,9 @@ class LinkApiTest {
         as(SAM, get("/api/v1/link"), null).andExpect(jsonPath("$.session").doesNotExist());
         assertThat(DATA.resolve("saves/" + ASH + "/test.state")).isNotEmptyFile();
         assertThat(DATA.resolve("saves/" + SAM + "/test.state")).isNotEmptyFile();
-        assertThat(consoles.isAwake(ASH)).isTrue(); // both play on alone
-        assertThat(consoles.isAwake(SAM)).isTrue();
+        // Nobody has a screen socket open here: once the cable is out, both consoles go to sleep (ScreenWebSocketHandler).
+        assertThat(consoles.isAwake(ASH)).isFalse();
+        assertThat(consoles.isAwake(SAM)).isFalse();
     }
 
     @Test
@@ -186,10 +187,10 @@ class LinkApiTest {
         consoles.idle(ASH); // Ash's last screen socket closed
         assertThat(consoles.linkedWith(SAM)).isNull();
         assertThat(consoles.isAwake(ASH)).isFalse();
-        assertThat(consoles.isAwake(SAM)).isTrue();
         as(SAM, get("/api/v1/link"), null).andExpect(jsonPath("$.session").doesNotExist());
 
         consoles.open(ASH);
+        consoles.open(SAM); // no screen socket of Sam's kept it awake
         ReflectionTestUtils.setField(link, "sessionCap", Duration.ZERO);
         ready(SAM, "TRADE"); // not linkAshAndSam(): the scheduled sweep may end this session at any moment
         challenge(ASH, SAM).andExpect(status().isOk());

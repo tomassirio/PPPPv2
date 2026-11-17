@@ -122,4 +122,41 @@ class ScreenWebSocketTest {
             consoles.idle("friend@x.y");
         }
     }
+
+    @Autowired dev.pppp.service.LinkService link;
+
+    /** Leaving /play for another tab closes the screen socket; a linked player keeps the cable in until it ends. */
+    @Test
+    void linkedPlayerLeavingThePageStaysLinked() throws Exception {
+        String friend = "friend@x.y", pal = "pal@x.y";
+        consoles.pick(friend, "test");
+        consoles.pick(pal, "test");
+        try {
+            CompletableFuture<Void> closed = new CompletableFuture<>();
+            WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+            headers.setBasicAuth("Friend@x.y", "pw");
+            WebSocketSession ws = new StandardWebSocketClient().execute(new AbstractWebSocketHandler() {
+                @Override
+                public void afterConnectionClosed(WebSocketSession s, CloseStatus status) {
+                    closed.complete(null);
+                }
+            }, headers, URI.create("ws://localhost:" + port + "/ws/screen")).get(5, TimeUnit.SECONDS);
+            link.challenge(pal, friend, "TRADE");
+            link.accept(friend);
+            assertThat(consoles.linkedWith(friend)).isEqualTo(pal);
+
+            ws.close();
+            closed.get(5, TimeUnit.SECONDS);
+            Thread.sleep(300); // the server's close callback
+            assertThat(consoles.linkedWith(friend)).isEqualTo(pal);
+            assertThat(consoles.isAwake(friend)).isTrue();
+
+            link.unplug(pal);
+            assertThat(consoles.linkedWith(friend)).isNull();
+            assertThat(consoles.isAwake(friend)).as("nobody watching: asleep").isFalse();
+        } finally {
+            consoles.idle(friend);
+            consoles.idle(pal);
+        }
+    }
 }
