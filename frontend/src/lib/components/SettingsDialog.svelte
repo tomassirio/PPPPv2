@@ -1,5 +1,6 @@
-<!-- Settings (account menu): the player's key bindings. Two ready-made layouts, then any key per pad button: click a
-     button's key, press the new one. A key already in use swaps over. Escape cancels a change, then closes. -->
+<!-- Settings (account menu): the player's key bindings. Three choices: Arrows, WASD or Custom (any key per pad button:
+     click a button's key, press the new one; a key already in use swaps over). A little keyboard shows which keys do
+     what. Escape cancels a change, then closes. -->
 <script lang="ts">
 	import { BUTTONS, keyName, PRESETS, rebind, RESERVED_KEYS, type Bindings, type Button } from '#lib/play.ts';
 	import { keys, loadKeys, setBindings } from '#lib/keys.svelte.ts';
@@ -8,9 +9,31 @@
 
 	const LABELS: Record<Button, string> = { up: 'Up', down: 'Down', left: 'Left', right: 'Right', a: 'A', b: 'B', start: 'Start', select: 'Select' };
 	const LAYOUTS: { id: keyof typeof PRESETS; label: string }[] = [
-		{ id: 'arrows', label: 'Arrows + Z / X' },
-		{ id: 'wasd', label: 'WASD + K / J' }
+		{ id: 'arrows', label: 'Arrows' },
+		{ id: 'wasd', label: 'WASD' }
 	];
+	/** What each pad button is called on its key in the drawing. */
+	const TAGS: Record<Button, string> = { up: '▲', down: '▼', left: '◀', right: '▶', a: 'A', b: 'B', start: 'START', select: 'SEL' };
+	/** The keyboard drawn: rows of [key as stored, label, width in key units]. */
+	type Cap = [string, string, number];
+	const k = (keys: string): Cap[] => [...keys].map((c) => [c, c.toUpperCase(), 1]);
+	const ROWS: Cap[][] = [
+		k('1234567890'),
+		[['Tab', 'Tab', 1.5], ...k('qwertyuiop')],
+		[['CapsLock', 'Caps', 1.75], ...k('asdfghjkl'), ['Enter', 'Enter', 1.75]],
+		[['Shift', 'Shift', 2.25], ...k('zxcvbnm,.'), ['/', '/', 1]],
+		[['Control', 'Ctrl', 1.5], ['Alt', 'Alt', 1.25], [' ', 'Space', 5.5], ['Backspace', '⌫', 1.75]]
+	];
+	const ARROWS: [string, string, number, number][] = [
+		['ArrowUp', '↑', 2, 1],
+		['ArrowLeft', '←', 1, 2],
+		['ArrowDown', '↓', 2, 2],
+		['ArrowRight', '→', 3, 2]
+	];
+	const byKey = $derived(Object.fromEntries(BUTTONS.map((b) => [keys.bindings[b], b])) as Record<string, Button>);
+	const drawn = new Set([...ROWS.flat().map((c) => c[0]), ...ARROWS.map((a) => a[0])]);
+	const offKeyboard = $derived(BUTTONS.filter((b) => !drawn.has(keys.bindings[b])));
+	let custom = $state(false);
 
 	let dialog = $state<HTMLDialogElement>();
 	let listening = $state<Button | null>(null);
@@ -23,9 +46,11 @@
 	});
 
 	const same = (a: Bindings, b: Bindings) => BUTTONS.every((k) => a[k] === b[k]);
-	const layout = $derived(LAYOUTS.find((l) => same(keys.bindings, PRESETS[l.id]))?.id ?? null);
+	const preset = $derived(LAYOUTS.find((l) => same(keys.bindings, PRESETS[l.id]))?.id ?? null);
+	const layout = $derived(custom || !preset ? 'custom' : preset);
 
 	function usePreset(id: keyof typeof PRESETS) {
+		custom = false;
 		setBindings({ ...PRESETS[id] });
 		listening = null;
 		note = '';
@@ -53,6 +78,7 @@
 		const b = listening;
 		const { bindings, swapped } = rebind(keys.bindings, b, e.key);
 		void setBindings(bindings);
+		custom = true;
 		listening = null;
 		note = swapped
 			? `${LABELS[b]} is now ${keyName(bindings[b])}; ${LABELS[swapped]} took ${keyName(bindings[swapped])}.`
@@ -62,20 +88,21 @@
 
 <dialog
 	bind:this={dialog}
-	class="panel"
-	aria-labelledby="settings-h"
+	class="settings"
+	aria-labelledby="settings-dialog-h"
 	{onkeydown}
 	oncancel={(e) => listening && e.preventDefault()}
 	onclose={() => {
 		open = false;
 		listening = null;
 		note = '';
+		custom = false;
 	}}
 	onclick={(e) => e.target === dialog && dialog.close()}
 >
 	<div class="body">
 		<header>
-			<h2 id="settings-h">Settings</h2>
+			<h2 id="settings-dialog-h">Settings</h2>
 			<button type="button" class="close" aria-label="Close settings" onclick={() => dialog?.close()}>
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"
 					><path d="M6 6l12 12M18 6L6 18" /></svg
@@ -85,33 +112,72 @@
 
 		<section aria-labelledby="keys-h">
 			<h3 id="keys-h">Keyboard</h3>
-			<div class="layouts" role="group" aria-label="Ready-made layouts">
+			<div class="layouts" role="group" aria-label="Layout">
 				{#each LAYOUTS as l (l.id)}
 					<button type="button" aria-pressed={layout === l.id} onclick={() => usePreset(l.id)}>{l.label}</button>
 				{/each}
+				<button type="button" aria-pressed={layout === 'custom'} onclick={() => (custom = true)}>Custom</button>
 			</div>
-			<ul class="binds">
-				{#each BUTTONS as b (b)}
-					<li>
-						<span>{LABELS[b]}</span>
-						<button
-							type="button"
-							class="key"
-							class:listening={listening === b}
-							aria-label="{LABELS[b]}: {keyName(keys.bindings[b])}. Change"
-							onclick={() => listen(b)}>{listening === b ? 'Press a key…' : keyName(keys.bindings[b])}</button
+
+			<!-- The keyboard, the keys in use lit and tagged with their pad button. -->
+			<div class="kb" aria-hidden="true">
+				<div class="main">
+					{#each ROWS as row, r (r)}
+						<div class="row">
+							{#each row as [key, label, w] (key)}
+								{@const b = byKey[key]}
+								<span class="cap" class:on={b} class:wait={b && listening === b} style:flex-grow={w}
+									>{#if b}<i>{TAGS[b]}</i>{/if}<span>{label}</span></span
+								>
+							{/each}
+						</div>
+					{/each}
+				</div>
+				<div class="arrows">
+					{#each ARROWS as [key, label, x, y] (key)}
+						{@const b = byKey[key]}
+						<span class="cap" class:on={b} class:wait={b && listening === b} style:grid-column={x} style:grid-row={y}
+							>{#if b}<i>{TAGS[b]}</i>{/if}<span>{label}</span></span
 						>
-					</li>
-				{/each}
-			</ul>
-			<p class="note" role="status" aria-live="polite">{keys.error || note || 'Click a key to change it. Saved to your account.'}</p>
+					{/each}
+				</div>
+			</div>
+			{#if offKeyboard.length}
+				<p class="off">Also: {offKeyboard.map((b) => `${TAGS[b]} ${keyName(keys.bindings[b])}`).join(' · ')}</p>
+			{/if}
+
+			{#if layout === 'custom'}
+				<ul class="binds">
+					{#each BUTTONS as b (b)}
+						<li>
+							<span>{LABELS[b]}</span>
+							<button
+								type="button"
+								class="key"
+								class:listening={listening === b}
+								aria-label="{LABELS[b]}: {keyName(keys.bindings[b])}. Change"
+								onclick={() => listen(b)}>{listening === b ? 'Press a key…' : keyName(keys.bindings[b])}</button
+							>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="sr">
+					{BUTTONS.map((b) => `${LABELS[b]}: ${keyName(keys.bindings[b])}`).join(', ')}
+				</p>
+			{/if}
+			<p class="note" role="status" aria-live="polite">{keys.error || note || layout === 'custom' ? 'Click a key to change it. Saved to your account.' : 'Saved to your account.'}</p>
 		</section>
 	</div>
 </dialog>
 
 <style>
+	/* Modal, so in the top layer and centred whatever page opens it. */
 	dialog {
-		width: min(420px, calc(100vw - 32px));
+		position: fixed;
+		inset: 0;
+		margin: auto;
+		width: min(560px, calc(100vw - 32px));
 		max-height: calc(100dvh - 32px);
 		padding: 0;
 		border: 1px solid var(--border-strong);
@@ -134,9 +200,21 @@
 		align-items: center;
 		justify-content: space-between;
 	}
-	h2 {
+	/* .settings in front of each: the admin page's own h2/svg rules must not shrink these. */
+	.settings h2 {
 		margin: 0;
-		font-size: 18px;
+		font: 700 18px/1.3 var(--font, system-ui, sans-serif);
+	}
+	.settings .close {
+		padding: 0;
+		min-width: 0;
+		height: 32px;
+		border: none;
+	}
+	.settings .close svg {
+		flex: none;
+		width: 18px;
+		height: 18px;
 	}
 	h3 {
 		margin: 0 0 10px;
@@ -170,9 +248,12 @@
 		background: var(--sunk);
 		color: var(--text);
 	}
+	dialog:not([open]) {
+		display: none;
+	}
 	.layouts {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: 1fr 1fr 1fr;
 		gap: 8px;
 	}
 	.layouts button {
@@ -187,6 +268,81 @@
 		border-color: var(--accent-text);
 		color: var(--accent-text);
 		background: var(--accent-tint, var(--sunk));
+	}
+	/* The keyboard drawing. */
+	.kb {
+		margin-top: 14px;
+		display: flex;
+		gap: 10px;
+		align-items: flex-end;
+		padding: 10px;
+		border-radius: 10px;
+		background: var(--sunk);
+		border: 1px solid var(--border);
+	}
+	.main {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		min-width: 0;
+	}
+	.row {
+		display: flex;
+		gap: 3px;
+	}
+	.arrows {
+		display: grid;
+		grid-template-columns: repeat(3, 26px);
+		grid-template-rows: repeat(2, 26px);
+		gap: 3px;
+	}
+	.cap {
+		position: relative;
+		flex: 1 1 0;
+		min-width: 0;
+		height: 26px;
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		padding-bottom: 3px;
+		box-sizing: border-box;
+		border-radius: 4px;
+		background: var(--panel);
+		border: 1px solid var(--border);
+		border-bottom-width: 2px;
+		font-size: 9px;
+		color: var(--muted);
+		overflow: hidden;
+	}
+	.cap.on {
+		background: color-mix(in oklab, var(--accent), transparent 25%);
+		border-color: var(--accent-text);
+		color: #1d1f1c;
+		font-weight: 700;
+	}
+	.cap.wait {
+		outline: 2px solid var(--accent-text);
+		outline-offset: 1px;
+	}
+	.cap i {
+		position: absolute;
+		top: 1px;
+		left: 2px;
+		font: 700 7px/1 var(--pixel-font);
+		font-style: normal;
+	}
+	.off {
+		margin: 8px 0 0;
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
 	}
 	.binds {
 		margin: 14px 0 0;
@@ -226,9 +382,19 @@
 		font-size: 12px;
 		color: var(--muted);
 	}
-	@media (max-width: 400px) {
+	@media (max-width: 480px) {
 		.binds {
 			grid-template-columns: 1fr;
+		}
+		.kb {
+			flex-direction: column;
+			align-items: stretch;
+		}
+		.arrows {
+			align-self: center;
+		}
+		.cap {
+			font-size: 7px;
 		}
 	}
 	@media (prefers-reduced-motion: no-preference) {
