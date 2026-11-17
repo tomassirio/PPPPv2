@@ -18,11 +18,15 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Done: lobby and link sessions. `LinkService` (core): ready to TRADE/BATTLE in Redis hash `pibs:lobby`, challenges
   (60 s) and sessions (15 min cap) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events
   `LOBBY_CHANGED`, `LINK_CHALLENGE`, `LINK_SESSION` (to everyone, with user ids). Panel: `LinkPanel.svelte`.
-- Done: accepting a link Digs both players to their last Pokémon Center (`PokecenterDig`, core `service/game`).
-  `accept` refuses (409, challenge kept) while either Gold/Silver/Crystal player is in a battle, a menu, a dialog or
-  event, mid-step, in the Bug-Catching Contest, or indoors where neither Fly nor Dig works; already in a Center, they
-  stay. It queues the ROM's own Dig script tail through wMapReentryScriptQueueFlag with wNextWarp = the Center door
-  of wLastSpawnMap; writes go through `EmulatorHost.withBus` / `PlayerConsoles.withBus`. `PokecenterDigTest` runs
+- Done: accepting a link Digs both players up to the Cable Club, onto the tile below the receptionist for the
+  kind (trade left, battle middle), facing her (`PokecenterDig`, core `service/game`). `accept` refuses (409,
+  challenge kept) while either Gold/Silver/Crystal player is in a battle, a menu, a dialog or event, mid-step, in the
+  Bug-Catching Contest, or indoors where neither Fly nor Dig works (a Pokémon Center is fine). `PokecenterDig.patch`
+  writes two scripts into the free tail of ROM bank 3 at insert (from the Dig script's bytes + loadmem of map/tile +
+  newloadmap MAPSETUP_TELEPORT); `queue` arms one through wMapReentryScriptQueueFlag and sets wBackupWarp* so the 2F
+  stairs lead into that Center (the current one, or wLastSpawnMap's). The link sweep reads each linked player's room;
+  a link room that does not fit the kind sends LINK_SESSION status ROOM and `Session.wrongRoom/peerWrongRoom`.
+  A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs
   the real ROMs and parked states in `data/` (skipped without them).
 - Done: progress + scoreboard. `ProgressTracker` (core, `service/game`) samples every running console once a second
   and scores badges, Pokédex, level milestones. Redis: `pibs:events` stream, `pibs:scoreboard` sorted set (also the
