@@ -1,12 +1,13 @@
 <!-- The player's own live screen: PNG frames from /ws/screen drawn on a 160x144 canvas, scaled with pixelated rendering.
-     Other players' ghosts (drawn into the frames by the server) get a name label here, and their chat lines float above
-     them for a few seconds. Text only, never HTML. -->
+     Other players' ghosts (drawn into the frames by the server) get their name under them, and everyone on screen (the
+     player too) gets their chat line above their head for a few seconds, fading out. Text only, never HTML. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { backoff } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
 	import { nameOf, needPicture } from '#lib/pictures.svelte.ts';
 	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
+	import { session } from '#lib/session.svelte.ts';
 
 	type Ghost = { user: string; x: number; y: number };
 	const BUBBLE_MS = 5000;
@@ -18,7 +19,7 @@
 	let connected = $state(false);
 
 	const overlay = $derived(connected ? null : 'Reconnecting…');
-	// Where the server drew other players this frame (sprite top left, screen pixels), and their latest chat line.
+	// Who is on screen this frame (sprite top left, screen pixels; the player first, then ghosts), and their latest chat line.
 	let ghosts = $state<Ghost[]>([]);
 	let said = $state<Record<string, { id: string; text: string }>>({});
 
@@ -99,10 +100,19 @@
 			<canvas bind:this={canvas} width="160" height="144" aria-label="Live game screen"></canvas>
 			{#if !overlay}
 				{#each ghosts as g (g.user)}
-					<div class="ghost" style:left="{((g.x + 8) / 160) * 100}%" style:top="{(g.y / 144) * 100}%" aria-hidden="true">
-						{#if said[g.user]}<p class="said">{said[g.user].text}</p>{/if}
-						<span class="who" style:color={nameColor(g.user)}>{nameOf(g.user)}</span>
-					</div>
+					{@const left = `${((g.x + 8) / 160) * 100}%`}
+					{#if said[g.user]}
+						{#key said[g.user].id}
+							<div class="tag above" style:left style:top="{(g.y / 144) * 100}%" aria-hidden="true">
+								<p class="said">{said[g.user].text}</p>
+							</div>
+						{/key}
+					{/if}
+					{#if g.user !== session.me?.id}
+						<div class="tag below" style:left style:top="{((g.y + 16) / 144) * 100}%" aria-hidden="true">
+							<span class="who" style:color={nameColor(g.user)}>{nameOf(g.user)}</span>
+						</div>
+					{/if}
 				{/each}
 			{/if}
 			{#if overlay}
@@ -166,17 +176,22 @@
 		font-size: 14px;
 		line-height: 1.6;
 	}
-	/* Anchored at the ghost's head, centred; grows upwards: chat bubble, then the name. Sizes follow the screen width. */
-	.ghost {
+	/* Centred on a player: the chat bubble grows up from their head, the name hangs under their feet. Sizes follow
+	   the screen width. */
+	.tag {
 		position: absolute;
-		transform: translate(-50%, -100%);
 		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.6cqw;
+		justify-content: center;
 		pointer-events: none;
 		max-width: 45%;
+	}
+	.above {
+		transform: translate(-50%, -100%);
 		padding-bottom: 0.4cqw;
+	}
+	.below {
+		transform: translateX(-50%);
+		padding-top: 0.2cqw;
 	}
 	.who {
 		font-size: max(10px, 2.4cqw);
@@ -208,6 +223,25 @@
 		overflow: hidden;
 		width: max-content;
 		max-width: 100%;
+		animation: said 5s linear forwards; /* BUBBLE_MS */
+	}
+	/* Pops in, stays, fades out over the last second. */
+	@keyframes said {
+		0% {
+			opacity: 0;
+		}
+		4%,
+		80% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.said {
+			animation: none;
+		}
 	}
 	.sr-only {
 		position: absolute;

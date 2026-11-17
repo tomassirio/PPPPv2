@@ -59,7 +59,7 @@ public class Ghosts {
     /** A player on a map: world pixels of their sprite's top left, and the 16x16 frame to draw (0 = see-through). */
     record Spot(String map, int x, int y, int[] sprite) {}
 
-    /** A ghost drawn on a player's screen: whose, and the screen pixel of its sprite's top left (may be off the edge). */
+    /** A player on someone's screen (a ghost, or themselves): whose, and the screen pixel of the sprite's top left (may be off the edge). */
     public record OnScreen(String user, int x, int y) {}
 
     private record Game(Layout at, byte[] rom, String[][] maps, Map<Integer, int[][]> sprites) {}
@@ -115,7 +115,7 @@ public class Ghosts {
         }
         int x = world(tileX, scrollX, camera.anchorX), y = world(tileY, scrollY, camera.anchorY);
         spots.put(userId, new Spot(here, x, y, sprite(game, player[0] & 0xFF, player[OBJECT_DIRECTION] >> 2 & 3, x, y)));
-        List<OnScreen> seen = new ArrayList<>();
+        List<OnScreen> seen = new ArrayList<>(List.of(new OnScreen(userId, SCREEN_X, SCREEN_Y))); // the player, first
         spots.forEach((other, s) -> {
             int sx = SCREEN_X + s.x - x, sy = SCREEN_Y + s.y - y;
             if (other.equals(userId) || !here.equals(s.map) || sx <= -SIZE || sx >= SCREEN_W || sy <= -SIZE || sy >= SCREEN_H) return;
@@ -125,7 +125,10 @@ public class Ghosts {
         onScreen.put(userId, List.copyOf(seen));
     }
 
-    /** The ghosts on the player's screen in the frame just drawn; empty in a menu, a battle or when nobody is near. */
+    /**
+     * Who is on the player's screen in the frame just drawn: the player themselves first, then the ghosts. Empty in a
+     * menu, a text box, a battle, a link room or while a new map loads.
+     */
     public List<OnScreen> onScreen(String userId) {
         return onScreen.getOrDefault(userId, List.of());
     }

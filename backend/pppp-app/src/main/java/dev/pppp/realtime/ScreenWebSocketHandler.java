@@ -23,8 +23,9 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
  * /ws/screen: the signed-in player's own console, every second emulated frame as a PNG binary message.
  * Connecting wakes the console; closing the player's last socket pauses it. Each socket has a one-frame
  * handoff, so a slow client just skips frames; nothing here blocks an emulator thread.
- * Before a frame with other players' ghosts on it (and once after the last one leaves) goes a text message,
- * {"ghosts": [{"user", "x", "y"}]}: each ghost's sprite top left in screen pixels, for the browser's name labels.
+ * Before a frame whose players changed (and to a socket that just connected) goes a text message,
+ * {"ghosts": [{"user", "x", "y"}]}: the player (first) and each ghost's sprite top left in screen pixels, for the
+ * browser's name labels and chat bubbles (Ghosts.onScreen).
  * The handshake goes through the normal security chain (ROLE_PLAYER), so the principal is the Authentication.
  */
 @Component
@@ -34,8 +35,8 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
 
     private record Frame(int[] pixels, List<Ghosts.OnScreen> ghosts) {}
 
-    /** ghosts: the text message to send before the PNG, or null. */
-    private record Out(String ghosts, byte[] png) {}
+    /** players: the frame's players as the text message; a socket sends it only when it differs from its last. */
+    private record Out(String players, byte[] png) {}
 
     private record Viewer(Handoff<Frame> encoder, Map<WebSocketSession, Handoff<Out>> sockets) {}
 
@@ -57,15 +58,13 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         String userId = userId(session);
         Viewer v = viewers.computeIfAbsent(userId, id -> {
             Map<WebSocketSession, Handoff<Out>> sockets = new ConcurrentHashMap<>();
-            boolean[] hadGhosts = {false}; // only the encoder's thread touches it
             return new Viewer(new Handoff<>(1, frame -> {
-                boolean has = !frame.ghosts().isEmpty();
-                Out out = new Out(has || hadGhosts[0] ? ghostsJson(frame.ghosts()) : null, FrameEncoder.png(frame.pixels()));
-                hadGhosts[0] = has;
+                Out out = new Out(ghostsJson(frame.ghosts()), FrameEncoder.png(frame.pixels()));
                 sockets.values().forEach(slot -> slot.offer(out));
             }), sockets);
         });
-        v.sockets().put(session, new Handoff<>(1, out -> send(session, out)));
+        String[] sent = {null}; // the players this socket last got; only its handoff's thread touches it
+        v.sockets().put(session, new Handoff<>(1, out -> send(session, out, sent)));
         try {
             consoles.open(userId);
         } catch (RuntimeException e) { // no game picked, or its ROM is gone
@@ -81,10 +80,13 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         }
     }
 
-    private void send(WebSocketSession session, Out out) {
+    private void send(WebSocketSession session, Out out, String[] sent) {
         if (!session.isOpen()) return;
         try {
-            if (out.ghosts() != null) session.sendMessage(new TextMessage(out.ghosts()));
+            if (!out.players().equals(sent[0])) {
+                session.sendMessage(new TextMessage(out.players()));
+                sent[0] = out.players();
+            }
             session.sendMessage(new BinaryMessage(out.png()));
         } catch (IOException | IllegalStateException e) {
             close(session, CloseStatus.SESSION_NOT_RELIABLE);
