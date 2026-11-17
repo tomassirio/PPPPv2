@@ -196,7 +196,7 @@
 						<img class="title-loop {showing.id}" src={showing.src} alt="" transition:fade={{ duration: 250 }} />
 					{/key}
 				{/if}
-				{#if showing.src}<span class="strip" aria-hidden="true"></span>{/if}
+				{#if showing.src}<span class="strip {showing.id}" aria-hidden="true"></span>{/if}
 				<span class="sr">Now showing: {showing.name}</span>
 				<p class="press" aria-hidden="true">PRESS START TO SIGN IN</p>
 				{#if glitch}
@@ -896,10 +896,10 @@
 	.cart h1 {
 		visibility: hidden;
 	}
-	/* Crystal's Suicune runs along the bottom (rows 94-128 of 144): lift the screen by its empty top rows (0-5) so
-	   Suicune clears the strip and only the copyright line sits under it. */
+	/* Crystal's Suicune runs along the bottom (rows 94-128 of 144): lift the screen past its empty top rows (0-5)
+	   and shorten the strip to the copyright line (rows 136-142), so Suicune runs clear above it. */
 	.title-loop.crystal {
-		top: -4%;
+		top: -5%;
 	}
 	/* A steady strip (the prompt blinks, the strip does not) over the game's copyright line. */
 	.strip {
@@ -909,6 +909,9 @@
 		bottom: 0;
 		height: 12%;
 		background: #100e18;
+	}
+	.strip.crystal {
+		height: 10.8%;
 	}
 	.cart .press {
 		top: auto;
