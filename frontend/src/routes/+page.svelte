@@ -1,4 +1,4 @@
-<!-- Sign-in page: an original colour handheld that boots into the banner, then cycles the three cartridges a Pib can
+<!-- Sign-in page: an original colour handheld that boots into, and cycles, the three cartridges a Pib can
      pick (each game's title screen, recorded from the ROM) while its plastic turns that version's colour. START (or A,
      Enter, Space) signs in. -->
 <script lang="ts">
@@ -72,7 +72,7 @@
 
 	let teaser = $state<Teaser | null>(null);
 
-	// The cartridge carousel: our banner, then each version's title screen, the shell in that cartridge's plastic.
+	// The cartridge carousel: each version's title screen, the shell in that cartridge's plastic.
 	const SCREENS = [
 		{ id: 'gold', shell: '#c99a2e', src: goldTitle, name: 'Pokémon Gold' },
 		{ id: 'crystal', shell: '#3f9fc6', src: crystalTitle, name: 'Pokémon Crystal' },
@@ -80,9 +80,7 @@
 	] as const;
 	const SCREEN_MS = 6000;
 	let screen = $state(0);
-	// The banner only boots the device (and frames the Konami egg and the sign-in messages); then the cartridges.
-	const BANNER = { id: 'pibs', shell: '#7a5cc2', src: null, name: 'Pibs & Pibettes' } as const;
-	const showing = $derived(glitch || denied || booting ? BANNER : SCREENS[screen]);
+	const showing = $derived(SCREENS[screen]);
 
 	// Sound is only allowed after a gesture: the first key or tap plays the power-on chime.
 	let chimed = false;
@@ -165,7 +163,7 @@
 		const refresh = () => loadTeaser().then((v) => (teaser = v), () => {});
 		refresh();
 		const poll = setInterval(refresh, 30000);
-		// Reduced motion: the banner stays; the title screens are animations.
+		// Reduced motion: the first cartridge stays.
 		const carousel = matchMedia('(prefers-reduced-motion: reduce)').matches
 			? undefined
 			: setInterval(() => !booting && (screen = (screen + 1) % SCREENS.length), SCREEN_MS);
@@ -536,14 +534,9 @@
 			appear 0s var(--on, 0s) both,
 			blink 1.1s steps(1) var(--on, 0s) infinite;
 	}
-	.denied h1 {
-		top: 23%;
-	}
-	.denied h1 img {
-		width: 36cqw;
-	}
+	/* Turned away or waiting: the textbox takes the prompt's place. */
 	.denied .press {
-		top: 45%;
+		visibility: hidden;
 	}
 	.textbox {
 		position: absolute;
@@ -903,11 +896,10 @@
 	.cart h1 {
 		visibility: hidden;
 	}
-	/* Crystal's Suicune runs along the bottom: lift the screen so the strip below doesn't cut it. */
+	/* Crystal's Suicune runs along the bottom (rows 94-128 of 144): lift the screen by its empty top rows (0-5) so
+	   Suicune clears the strip and only the copyright line sits under it. */
 	.title-loop.crystal {
-		object-position: 50% 0;
-		height: 114%;
-		top: -14%;
+		top: -4%;
 	}
 	/* A steady strip (the prompt blinks, the strip does not) over the game's copyright line. */
 	.strip {
