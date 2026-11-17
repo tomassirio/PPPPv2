@@ -123,13 +123,22 @@
 	const px = (x: number) => (MARGIN * BLOCK + x * 16 + 8) * scale;
 	const shift = $derived({ x: focus.x - px(cam.x), y: focus.y - px(cam.y) });
 
-	// Players on the shown map and on the neighbours in its picture, in the shown map's steps.
+	// Players on the shown map and on the neighbours in its picture, in the shown map's steps. Several on one step
+	// (two in the same building stand at its door) line up beside the first, left, right, further left...; names
+	// on odd steps from the first sit higher, so side-by-side tags don't overlap.
+	const SIDE = [0, -1, 1, -2, 2, -3, 3];
 	const here = $derived.by(() => {
 		const off: Record<string, { x: number; y: number }> = { [shown]: { x: 0, y: 0 } };
 		for (const n of info?.neighbours ?? []) off[n.map] = { x: n.x * 2, y: n.y * 2 };
+		const taken: Record<string, number> = {};
 		return placed
 			.filter((p) => p.at.map in off)
-			.map((p) => ({ ...p, sx: p.at.x + off[p.at.map].x, sy: p.at.y + off[p.at.map].y }));
+			.map((p) => {
+				const x = p.at.x + off[p.at.map].x, y = p.at.y + off[p.at.map].y;
+				const k = (taken[`${x},${y}`] = (taken[`${x},${y}`] ?? -1) + 1);
+				const dx = SIDE[k] ?? k;
+				return { ...p, sx: x + dx, sy: y, raised: Math.abs(dx) % 2 === 1 };
+			});
 	});
 
 	// The party trails behind: opposite to where the trainer faces.
@@ -271,6 +280,7 @@
 				class="trainer"
 				class:offline={!t.online}
 				class:me={current !== null && t.i === current.i}
+				class:raised={t.raised}
 				style:left="{px(t.sx)}px"
 				style:top="{px(t.sy)}px"
 				style:--c={t.color}
@@ -508,6 +518,16 @@
 	.name:focus-visible {
 		outline: 2px solid #fff;
 		outline-offset: 2px;
+	}
+	/* A second player on the same spot: their tag (and bubble, card) one tag higher. */
+	.raised .name {
+		bottom: calc(100% + 32px);
+	}
+	.raised .bubble {
+		bottom: calc(100% + 66px);
+	}
+	.raised .card {
+		bottom: calc(100% + 64px);
 	}
 	.me .name {
 		font-size: 12px;
