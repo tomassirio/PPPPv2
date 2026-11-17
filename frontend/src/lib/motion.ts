@@ -1,6 +1,6 @@
 // Small live-update motions for lists (the scoreboard, the activity feed). Svelte's transitions ignore the
 // reduced-motion setting, so each one takes no time when the viewer asked for less motion.
-import { cubicOut } from 'svelte/easing';
+import { backOut, cubicInOut, cubicOut } from 'svelte/easing';
 import type { Rarity } from './play';
 
 const calm = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -31,38 +31,46 @@ const TIER_MS: Record<Rarity, number> = { common: 700, uncommon: 1000, rare: 140
 const tint = (colour: string, pct: number) => `color-mix(in oklab, ${colour} ${Math.round(pct)}%, transparent)`;
 
 /**
- * A new feed entry, louder the higher its tier (tierOf): common drops in with a faint red wash; uncommon adds a blue
- * edge; rare slides in from the left in a teal ring; epic pops with a purple glow; legendary shakes, pops and
- * sweeps a gold shine across. Everything fades back to the plain row. Not played on first render.
+ * A new feed entry, louder the higher its tier (tierOf). Every tier drops in from just above in its colour, which
+ * holds for the first third and then fades back to the plain row. On top: common, a faint red wash; uncommon, a blue
+ * edge growing in on the left; rare, a teal ring closing in tight around the row; epic, a springy pop in a purple
+ * glow; legendary, a bigger pop in a gold ring whose glow breathes while a shine sweeps across. Not played on first
+ * render.
  */
 export function arriveTier(_node: Element, { tier }: { tier: Rarity }) {
 	const c = TIER_COLOUR[tier];
 	return {
 		duration: ms(TIER_MS[tier]),
 		css: (t: number) => {
-			const e = cubicOut(t); // the motion settles fast
-			const k = t < 0.3 ? 1 : 1 - (t - 0.3) / 0.7; // the colour holds, then fades
+			const settle = cubicOut(Math.min(1, t / 0.5)); // the drop
+			const k = t < 0.33 ? 1 : 1 - cubicInOut((t - 0.33) / 0.67); // the colour holds, then eases out
 			const halo = (pct: number) => `0 0 0 6px ${tint(c, pct * k)}`; // the wash reaches past the text
-			let css = `opacity: ${Math.min(1, t * 3)}; background-color: `;
-			if (tier === 'common') {
-				css += `${tint(c, 22 * k)}; box-shadow: ${halo(22)}; transform: translateY(${-8 * (1 - e)}px);`;
-			} else if (tier === 'uncommon') {
-				css += `${tint(c, 32 * k)}; box-shadow: ${halo(32)}, -6px 0 0 3px ${tint(c, 100 * k)};`;
-				css += `transform: translateY(${-10 * (1 - e)}px);`;
+			const pop = (from: number, until: number) => from + (1 - from) * backOut(Math.min(1, t / until));
+			let transform = `translateY(${-8 * (1 - settle)}px)`;
+			let wash = 20,
+				shadow: string[] = [];
+			if (tier === 'uncommon') {
+				wash = 28;
+				shadow = [`-${6 + 4 * settle}px 0 0 0 ${tint(c, 100 * k)}`]; // the edge grows out of the halo
 			} else if (tier === 'rare') {
-				css += `${tint(c, 34 * k)}; box-shadow: ${halo(34)}, 0 0 0 8px ${tint(c, 100 * k)};`;
-				css += `transform: translateX(${-28 * (1 - e)}px);`;
+				wash = 30;
+				const close = cubicOut(Math.min(1, t / 0.4));
+				shadow = [`0 0 0 ${8 + 10 * (1 - close)}px ${tint(c, 100 * k * close)}`];
 			} else if (tier === 'epic') {
-				const scale = 0.92 + 0.08 * e + 0.05 * Math.sin(Math.PI * Math.min(1, t * 1.6));
-				css += `${tint(c, 42 * k)}; box-shadow: ${halo(42)}, 0 0 ${26 * k}px 8px ${tint(c, 70 * k)};`;
-				css += `transform: scale(${scale});`;
-			} else {
-				const shake = t < 0.25 ? Math.sin(t * 90) * 4 * (1 - t / 0.25) : 0;
-				const scale = 0.9 + 0.1 * e + 0.07 * Math.sin(Math.PI * Math.min(1, t * 1.4));
-				const at = -50 + 200 * Math.min(1, t / 0.6); // the shine's centre, % across the row
-				css += `${tint(c, 45 * k)}; box-shadow: ${halo(45)}, 0 0 0 8px ${tint(c, 100 * k)}, 0 0 ${34 * k}px 10px ${tint(c, 70 * k)};`;
+				wash = 38;
+				transform += ` scale(${pop(0.9, 0.45)})`;
+				shadow = [`0 0 ${24 * k}px 8px ${tint(c, 65 * k)}`];
+			} else if (tier === 'legendary') {
+				wash = 42;
+				transform += ` scale(${pop(0.86, 0.5)})`;
+				const breath = 0.75 + 0.25 * Math.sin(Math.PI * 4 * t);
+				shadow = [`0 0 0 8px ${tint(c, 100 * k)}`, `0 0 ${36 * breath * k}px 10px ${tint(c, 70 * k)}`];
+			}
+			let css = `opacity: ${Math.min(1, t * 4)}; transform: ${transform};`;
+			css += `background-color: ${tint(c, wash * k)}; box-shadow: ${[halo(wash), ...shadow].join(', ')};`;
+			if (tier === 'legendary') {
+				const at = -40 + 180 * cubicInOut(Math.min(1, t / 0.7)); // the shine's centre, % across the row
 				css += `background-image: linear-gradient(105deg, transparent ${at - 22}%, ${tint('#fff', 70 * k)} ${at}%, transparent ${at + 22}%);`;
-				css += `transform: translateX(${shake}px) scale(${scale});`;
 			}
 			return css;
 		}
