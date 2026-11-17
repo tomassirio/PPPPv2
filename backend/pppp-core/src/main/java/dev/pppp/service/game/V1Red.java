@@ -12,9 +12,10 @@ import java.util.Arrays;
  * AAAA's into the zero-filled tail of the same bank, and RedGroup's entry in TrainerGroups is pointed at it. Only in
  * memory: the file and its header (save states check the header) are untouched.
  * <p>
- * Nicknames: Gen 2 trainer data has none, so ReadTrainerParty fills wOTPartyMonNicknames with species names. While a
- * battle against class RED runs, they are overwritten every frame; LoadEnemyMon (engine/battle/core.asm) copies the
- * sent-out mon's name from there into wEnemyMonNickname. CleanUpBattleRAM clears wBattleMode after the battle.
+ * Nicknames: Gen 2 trainer data has none, and LoadEnemyMon (engine/battle/core.asm) puts the species name into
+ * wEnemyMonNickname at each send-out (wOTPartyMonNicknames is only read in link and Battle Tower battles). So while a
+ * battle against class RED runs, wEnemyMonNickname is set every frame to the nickname of party slot wCurOTMon.
+ * CleanUpBattleRAM clears wBattleMode after the battle.
  */
 public final class V1Red {
 
@@ -43,8 +44,8 @@ public final class V1Red {
             bytes(0xEF, 0xE6, 0xF5, 0xE6, 0x7F, 0xE1, 0xE2, 0xE7),        // ♂?♀? PkMn!
             bytes(0x82, 0x80, 0x92, 0x82, 0x8E, 0x93, 0x84));             // CASCOTE
 
-    /** wBattleMode, wOtherTrainerClass, wOTPartyMonNicknames (pret pokecrystal11.sym / pokegold.sym). */
-    private int battleMode, trainerClass, nicknames;
+    /** wBattleMode, wOtherTrainerClass, wCurOTMon, wEnemyMonNickname (pret pokecrystal11.sym / pokegold.sym). */
+    private int battleMode, trainerClass, curOTMon, enemyNickname;
 
     /** The ROM with Red replaced, or the same array when it is not a Gen 2 Pokémon ROM laid out as expected. */
     public byte[] patch(byte[] rom) {
@@ -65,18 +66,22 @@ public final class V1Red {
         out[groupPointer + 1] = (byte) ((BANK + slot % BANK) >> 8);
         battleMode = crystal ? 0xD22D : 0xD116;
         trainerClass = battleMode + 2;
-        nicknames = crystal ? 0xD3EA : 0xDEBF;
+        curOTMon = crystal ? 0xC663 : 0xCB41;
+        enemyNickname = crystal ? 0xC616 : 0xCAF6;
         return out;
     }
 
     /** Frame hook: AAAA's nicknames while Red's battle runs. No-op unless {@link #patch} changed the ROM. */
     public void nicknames(AddressSpace bus) {
-        if (nicknames == 0) return;
+        if (enemyNickname == 0) return;
         int svbk = bus.getByte(0xFF70);
         if (svbk != 0xFF && (svbk & 7) > 1) return; // another WRAM bank is in
         if (bus.getByte(battleMode) != 2 || bus.getByte(trainerClass) != RED_CLASS) return;
-        for (int i = 0; i < NICKNAMES.length; i++) {
-            if (bus.getByte(nicknames + i) != (NICKNAMES[i] & 0xFF)) bus.setByte(nicknames + i, NICKNAMES[i] & 0xFF);
+        int slot = bus.getByte(curOTMon);
+        if (slot >= NICKNAMES.length / 11) return;
+        for (int i = 0; i < 11; i++) {
+            int b = NICKNAMES[slot * 11 + i] & 0xFF;
+            if (bus.getByte(enemyNickname + i) != b) bus.setByte(enemyNickname + i, b);
         }
     }
 
