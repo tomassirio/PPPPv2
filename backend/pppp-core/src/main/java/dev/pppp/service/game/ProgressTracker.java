@@ -395,11 +395,11 @@ public class ProgressTracker {
         return profile == null ? null : profile.playerSprite();
     }
 
-    /** How many species at least one player has caught: the group's Pokédex. */
-    public int caughtTogether() {
-        Set<String> all = new java.util.HashSet<>();
-        for (String userId : repo.ranking()) all.addAll(awarded.computeIfAbsent(userId, repo::progress).caught());
-        return all.size();
+    /** Pokémon caught by every player, added up (each player's caught species). */
+    public int caughtByAll() {
+        int n = 0;
+        for (String userId : repo.ranking()) n += awarded.computeIfAbsent(userId, repo::progress).caught().size();
+        return n;
     }
 
     /** Every player who picked a game, best Trainer Score first (then achievement points). */

@@ -41,12 +41,12 @@ class PublicController {
 
     /**
      * players: everyone who picked a game; versions: how many play each, by ROM header title ("POKEMON_GLD");
-     * caughtTogether: species caught by at least one Pib; achievements: unlocked, all Pibs together; trades: link
+     * caught: Pokémon caught, every Pib's added up; achievements: unlocked, all Pibs together; trades: link
      * trades (each one is a Pokémon received on both ends, so half the received); battles: link battles played (each
      * is a win on one end and a loss on the other, so half of all wins and losses); trainers: everyone on the town
      * map, in map order.
      */
-    record Teaser(int online, int players, Map<String, Integer> versions, int caughtTogether, int achievements,
+    record Teaser(int online, int players, Map<String, Integer> versions, int caught, int achievements,
                   int trades, int battles, java.util.List<Trainer> trainers) {}
 
     /**
@@ -64,7 +64,7 @@ class PublicController {
                 .collect(Collectors.toMap(Cartridge::id, Cartridge::title, (a, b) -> a));
         Map<String, Integer> versions = new TreeMap<>();
         rows.forEach(r -> versions.merge(titles.getOrDefault(r.game(), "OTHER"), 1, Integer::sum));
-        return new Teaser(events.viewers().size(), rows.size(), versions, tracker.caughtTogether(),
+        return new Teaser(events.viewers().size(), rows.size(), versions, tracker.caughtByAll(),
                 rows.stream().mapToInt(ScoreRow::achievementsUnlocked).sum(),
                 rows.stream().mapToInt(r -> r.link().trades()).sum() / 2,
                 rows.stream().mapToInt(r -> r.link().wins() + r.link().losses()).sum() / 2,

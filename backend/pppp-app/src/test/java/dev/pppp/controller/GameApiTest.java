@@ -75,7 +75,7 @@ class GameApiTest {
                 .andExpect(jsonPath("$.online").isNumber())
                 .andExpect(jsonPath("$.players").isNumber())
                 .andExpect(jsonPath("$.versions").isMap())
-                .andExpect(jsonPath("$.caughtTogether").isNumber())
+                .andExpect(jsonPath("$.caught").isNumber())
                 .andExpect(jsonPath("$.achievements").isNumber())
                 .andExpect(jsonPath("$.trades").isNumber())
                 .andExpect(jsonPath("$.battles").isNumber())

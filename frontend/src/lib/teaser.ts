@@ -3,13 +3,13 @@ import { api } from './api.js';
 
 /**
  * Totals about the group, never who: players (everyone who picked a game), online, versions (players per ROM title,
- * "POKEMON_GLD"), caughtTogether (species at least one Pib caught), achievements unlocked, link trades and link battles played.
+ * "POKEMON_GLD"), caught (Pokémon caught, every player's added up), achievements unlocked, link trades and link battles played.
  */
 export type Teaser = {
 	online: number;
 	players: number;
 	versions?: Record<string, number>;
-	caughtTogether?: number;
+	caught?: number;
 	achievements?: number;
 	trades?: number;
 	battles?: number;
