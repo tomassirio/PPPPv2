@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, winRate, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, shownAchievements, versionOf, type ScoreRow } from './play';
+import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, winRate, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, tierOf, shownAchievements, versionOf, type ScoreRow } from './play';
 
 describe('play helpers', () => {
 	it('maps keys, but not while typing or for held keys', () => {
@@ -145,6 +145,8 @@ describe('profile helpers', () => {
 
 	it('rates achievements by points when the backend sends no rarity', () => {
 		expect([1, 3, 5, 10, 25, 50].map(rarityOf)).toEqual(['common', 'common', 'uncommon', 'rare', 'epic', 'legendary']);
+		const tiers = [['SEEN', 2], ['LEVEL', 5], ['CAUGHT', 10], ['BADGE', 100], ['HALL_OF_FAME', 500], ['ACHIEVEMENT', 25], ['TITLE', 0]] as const;
+		expect(tiers.map(([type, points]) => tierOf({ type, points }))).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary', 'epic', 'common']);
 	});
 
 	it('sorts achievements by rarity and masks hidden ones until unlocked', () => {

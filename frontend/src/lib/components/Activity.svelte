@@ -1,13 +1,14 @@
-<!-- The activity feed, newest first: badges, catches, levels (pictures: FeedIcon). limit: how many (the scoreboard's "Latest" shows a few);
+<!-- The activity feed, newest first: badges, catches, levels (pictures: FeedIcon). A new entry arrives with its tier's
+     animation (tierOf, arriveTier). limit: how many (the scoreboard's "Latest" shows a few);
      events: show these instead of everyone's (a profile's recent feed). -->
 <script lang="ts">
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import FeedIcon from '#lib/components/FeedIcon.svelte';
 	import { watchGame } from '#lib/game.svelte.ts';
-	import { activityText, ago, type ScoreEvent } from '#lib/play.ts';
+	import { activityText, ago, tierOf, type ScoreEvent } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
-	import { arrive } from '#lib/motion.ts';
+	import { arriveTier } from '#lib/motion.ts';
 
 	let { limit = Infinity, label, events }: { limit?: number; label?: string; events?: ScoreEvent[] } = $props();
 	$effect(() => watchBoard());
@@ -34,7 +35,7 @@
 	<ul class="feed" aria-label={label}>
 		{#each shown as { e, key } (key)}
 			{@const you = e.user === session.me?.id}
-			<li in:arrive>
+			<li in:arriveTier={{ tier: tierOf(e) }}>
 				<FeedIcon {e} />
 				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '').trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
 			</li>

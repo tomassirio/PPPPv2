@@ -294,6 +294,17 @@ export function progressPct(a: Pick<ProfileAchievement, 'unlocked' | 'progress' 
 	return Math.min(99, Math.floor((a.progress * 100) / a.goal));
 }
 
+/**
+ * A feed entry's tier, for how loudly it arrives: an achievement by its points (as rarityOf), the rest by what they
+ * are worth: sightings (2) common, level milestones (5) uncommon, catches (10) rare, badges epic, the Hall of Fame
+ * legendary. Title changes (0 points) are common.
+ */
+export function tierOf(e: Pick<ScoreEvent, 'type' | 'points'>): Rarity {
+	if (e.type === 'HALL_OF_FAME') return 'legendary';
+	if (e.type === 'BADGE') return 'epic';
+	return rarityOf(e.points);
+}
+
 /** An older backend has no rarity: 1-3 points common, 5 uncommon, 10 rare, 25 epic, 50 legendary. */
 export const rarityOf = (points: number): Rarity =>
 	points <= 3 ? 'common' : points <= 5 ? 'uncommon' : points <= 10 ? 'rare' : points <= 25 ? 'epic' : 'legendary';
