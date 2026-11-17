@@ -82,6 +82,8 @@ public class ProgressTracker {
     private final Map<String, TrainerLog> logs = new ConcurrentHashMap<>(); // pibs:history, read once
     private final Map<String, Gen2Save.Sram> srams = new ConcurrentHashMap<>(); // the last confirmed battery save read
     private final Map<String, Gen2Save.Sram> sramSamples = new ConcurrentHashMap<>(); // the previous one per player
+    private final Map<String, String> lastPartner = new ConcurrentHashMap<>(); // who was last on their link cable
+    long sramEvery = SRAM_EVERY; // tests read the battery save on every poll
     private final Map<String, Long> sramReadAt = new ConcurrentHashMap<>(); // poll thread only
     private Set<String> online = Set.of(); // poll thread only
 
@@ -112,8 +114,10 @@ public class ProgressTracker {
                 if (!now.summary().equals(summaries.put(userId, now.summary()))) {
                     events.publishEvent(new LiveEvent("GAME_STATE", Map.of("user", userId, "state", now.summary())));
                 }
-                // A paused console's cartridge RAM cannot change: no need to write its .sav again.
-                if (now.save() != null && profile instanceof PokemonGen2 && consoles.isAwake(userId)) {
+                // A paused console's cartridge RAM cannot change: no need to write its .sav again, once its last
+                // change is confirmed (a player who leaves /play right after a link battle still gets it counted).
+                if (now.save() != null && profile instanceof PokemonGen2 && (consoles.isAwake(userId)
+                        || srams.get(userId) == null || !srams.get(userId).equals(sramSamples.get(userId)))) {
                     readSram(userId, now.save());
                 }
                 record(userId, now.progress(), now.save());
@@ -130,7 +134,7 @@ public class ProgressTracker {
     /** Flushes and reads the player's battery save when it is due; it counts once two reads in a row agree. */
     private void readSram(String userId, Gen2Save save) {
         long now = System.currentTimeMillis(), due = save.map() != null && save.map().startsWith("BATTLE_TOWER")
-                ? SRAM_EVERY_IN_TOWER : SRAM_EVERY;
+                ? SRAM_EVERY_IN_TOWER : sramEvery;
         if (now - sramReadAt.getOrDefault(userId, 0L) < due) return;
         sramReadAt.put(userId, now);
         Gen2Save.Sram read = PokemonGen2.sram(save.crystal(), consoles.batterySave(userId), save.curBox());
@@ -188,17 +192,19 @@ public class ProgressTracker {
 
     /** Unlocks what the save earns for the first time and stores its Trainer Score; true when either changed. */
     private boolean rate(String userId, Gen2Save before, Gen2Save save) {
+        TrainerLog logBefore = logs.computeIfAbsent(userId, repo::log);
         TrainerLog log = log(userId, before, save);
+        long at = System.currentTimeMillis();
+        List<ScoreEvent> battles = battles(userId, logBefore == null ? TrainerLog.EMPTY : logBefore, log, at);
         Map<String, Long> had = unlocked.computeIfAbsent(userId, repo::achievements);
         TrainerScore was = trainers.computeIfAbsent(userId, repo::trainer), score = TrainerScoring.score(save);
-        long at = System.currentTimeMillis();
         Map<String, Long> fresh = new LinkedHashMap<>();
         Achievements.earned(new Achievements.Moment(before, save, log, srams.get(userId))).stream()
                 .filter(id -> !had.containsKey(id)).forEach(id -> fresh.put(id, at));
-        if (fresh.isEmpty() && score.equals(was)) return false;
+        if (fresh.isEmpty() && score.equals(was) && battles.isEmpty()) return false;
         Map<String, Long> all = new HashMap<>(had);
         all.putAll(fresh);
-        List<ScoreEvent> feed = new ArrayList<>();
+        List<ScoreEvent> feed = new ArrayList<>(battles);
         fresh.keySet().forEach(id -> feed.add(new ScoreEvent(userId, "ACHIEVEMENT", name(id), Achievements.points(id), at)));
         if (!score.title().equals(was.title())) {
             feed.add(new ScoreEvent(userId, "TITLE", score.title() + " (" + score.grade() + ")", 0, at));
@@ -270,10 +276,30 @@ public class ProgressTracker {
         feed.forEach(e -> events.publishEvent(new LiveEvent("PROGRESS", e)));
     }
 
+    /**
+     * A LINK_WIN or LINK_LOSS feed entry (0 points) per link battle the save's record gained since the last read;
+     * detail: the opponent's user id (on the cable now, else the last one there, else their only partner ever), or
+     * "" when unknown. At most a few per read, so an old save's first read does not flood the feed.
+     */
+    private List<ScoreEvent> battles(String userId, TrainerLog was, TrainerLog now, long at) {
+        String partner = consoles.linkedWith(userId);
+        if (partner == null) partner = lastPartner.get(userId);
+        if (partner == null) partner = now.partners().size() == 1 ? now.partners().iterator().next() : "";
+        List<ScoreEvent> out = new ArrayList<>();
+        for (int i = was.linkWins(); i < Math.min(now.linkWins(), was.linkWins() + 3); i++) {
+            out.add(new ScoreEvent(userId, "LINK_WIN", partner, 0, at));
+        }
+        for (int i = was.linkLosses(); i < Math.min(now.linkLosses(), was.linkLosses() + 3); i++) {
+            out.add(new ScoreEvent(userId, "LINK_LOSS", partner, 0, at));
+        }
+        return out;
+    }
+
     /** Updates and stores the player's {@link TrainerLog} with this reading. */
     private TrainerLog log(String userId, Gen2Save before, Gen2Save save) {
         TrainerLog was = logs.computeIfAbsent(userId, repo::log);
         String partner = consoles.linkedWith(userId);
+        if (partner != null) lastPartner.put(userId, partner);
         boolean otherVersion = partner != null && !Objects.equals(version(userId), version(partner));
         TrainerLog now = Achievements.log(was, before, save, partner, otherVersion, srams.get(userId));
         if (!now.equals(was)) {

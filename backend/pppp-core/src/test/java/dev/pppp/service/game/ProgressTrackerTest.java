@@ -311,6 +311,36 @@ class ProgressTrackerTest {
     }
 
     @Test
+    void aLinkBattleGoesToTheFeedEvenWhenThePlayerLeavesPlayRightAfter() throws Exception {
+        var tracker = goldTracker();
+        tracker.sramEvery = 0;
+        byte[] sav = new byte[0x8000 + 44];
+        sav[0x2008] = 99; // saved once (sCheckValue1)
+        int wins = 0x31BA; // sLinkBattleWins, big-endian; losses next
+        when(consoles.batterySave(ASH)).thenAnswer(i -> sav.clone());
+        when(consoles.isAwake(ASH)).thenReturn(true);
+        when(consoles.linkedWith(ASH)).thenReturn("misty@x.y");
+        twice(tracker);
+        twice(tracker); // the record so far: none
+        assertThat(scored()).noneMatch(s -> s.startsWith("LINK"));
+
+        sav[wins + 1] = 1; // won the battle
+        when(consoles.linkedWith(ASH)).thenReturn(null); // and unplugged
+        tracker.poll(); // read once: could be mid-write
+        assertThat(scored()).noneMatch(s -> s.startsWith("LINK"));
+        when(consoles.isAwake(ASH)).thenReturn(false); // then left /play: the console paused
+        tracker.poll(); // still read again, so it counts
+        assertThat(scored()).containsOnlyOnce("LINK_WIN misty@x.y +0");
+
+        sav[wins + 3] = 1; // a loss can only come from a running console
+        twice(tracker);
+        assertThat(scored()).noneMatch(s -> s.startsWith("LINK_LOSS"));
+        when(consoles.isAwake(ASH)).thenReturn(true);
+        twice(tracker);
+        assertThat(scored()).containsSubsequence("LINK_WIN misty@x.y +0", "LINK_LOSS misty@x.y +0");
+    }
+
+    @Test
     void thePokedexShowsOnlyWhatThePlayerHasSeenOrCaught() throws Exception {
         var tracker = goldTracker();
         gold.mon(0, 155, 5, Gen2Ram.PLAYER_ID);

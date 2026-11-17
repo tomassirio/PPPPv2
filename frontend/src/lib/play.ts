@@ -111,8 +111,12 @@ export type MonStatus = 'PSN' | 'PAR' | 'SLP' | 'BRN' | 'FRZ' | 'FNT';
 export type PartyMon = { species: number; level: number; hpPercent?: number; status?: MonStatus | null; shiny?: boolean; egg?: boolean };
 export type ScoreEvent = { user: string; type: string; detail: string; points: number; at: number };
 
-/** "jordan earned the Boulder Badge"; who: another subject ("You"). */
-export function activityText(e: ScoreEvent, who = shortUser(e.user)): string {
+/**
+ * "jordan earned the Boulder Badge"; who: another subject ("You"). name: how to call another Pib (a link battle's
+ * opponent, whose user id is the detail; "" when unknown).
+ */
+export function activityText(e: ScoreEvent, who = shortUser(e.user), name: (user: string) => string = shortUser): string {
+	const against = e.detail ? ` against ${name(e.detail)}` : '';
 	const did: Record<string, string> = {
 		BADGE: `earned the ${e.detail} Badge`,
 		CAUGHT: `caught ${e.detail}`,
@@ -120,7 +124,9 @@ export function activityText(e: ScoreEvent, who = shortUser(e.user)): string {
 		LEVEL: `reached Lv. ${e.detail}`,
 		HALL_OF_FAME: 'entered the Hall of Fame',
 		ACHIEVEMENT: `unlocked ${e.detail}`,
-		TITLE: `is now ${e.detail}`
+		TITLE: `is now ${e.detail}`,
+		LINK_WIN: `won a link battle${against}`,
+		LINK_LOSS: `lost a link battle${against}`
 	};
 	return `${who} ${did[e.type] ?? e.type.toLowerCase()}`;
 }
@@ -297,10 +303,11 @@ export function progressPct(a: Pick<ProfileAchievement, 'unlocked' | 'progress' 
 /**
  * A feed entry's tier, for how loudly it arrives: an achievement by its points (as rarityOf), the rest by what they
  * are worth: sightings (2) common, level milestones (5) uncommon, catches (10) rare, badges epic, the Hall of Fame
- * legendary. Title changes (0 points) are common.
+ * legendary. A link battle won is rare; lost, and title changes (0 points), common.
  */
 export function tierOf(e: Pick<ScoreEvent, 'type' | 'points'>): Rarity {
 	if (e.type === 'HALL_OF_FAME') return 'legendary';
+	if (e.type === 'LINK_WIN') return 'rare';
 	if (e.type === 'BADGE') return 'epic';
 	return rarityOf(e.points);
 }

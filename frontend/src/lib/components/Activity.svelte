@@ -37,7 +37,7 @@
 			{@const you = e.user === session.me?.id}
 			<li in:arriveTier={{ tier: tierOf(e) }}>
 				<FeedIcon {e} />
-				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '').trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
+				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '', (u) => (u === session.me?.id ? 'you' : nameOf(u))).trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
 			</li>
 		{/each}
 	</ul>

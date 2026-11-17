@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { on } from '#lib/events.ts';
 	import { activityText, type ScoreEvent } from '#lib/play.ts';
+	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
 	const SHOW_MS = 3500;
@@ -23,7 +24,7 @@
 
 	const tone = (type: string) => (type === 'SEEN' || type === 'LEVEL' ? 'info' : 'great');
 	// "You is now Gym Leader (C)" reads wrong; titles get their own sentence, and 0-point lines no "+0".
-	const text = (e: ScoreEvent) => (e.type === 'TITLE' ? `New title: ${e.detail}` : activityText(e, 'You'));
+	const text = (e: ScoreEvent) => (e.type === 'TITLE' ? `New title: ${e.detail}` : activityText(e, 'You', nameOf));
 </script>
 
 <div class="toasts" role="status" aria-live="polite">

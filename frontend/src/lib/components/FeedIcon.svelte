@@ -44,6 +44,8 @@
 				<circle cx="12" cy="12" r="8" /><path d="M4 12h16" /><circle cx="12" cy="12" r="2.5" />
 			{:else if e.type === 'SEEN'}
 				<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" /><circle cx="12" cy="12" r="2.5" />
+			{:else if e.type === 'LINK_WIN' || e.type === 'LINK_LOSS'}
+				<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2" /><path d="M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2" />
 			{:else if e.type === 'BADGE'}
 				<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z" />
 			{:else}
@@ -90,6 +92,7 @@
 		color: var(--grass, #3fae4a);
 	}
 	.t-hall_of_fame,
+	.t-link_win,
 	.t-badge,
 	.t-title {
 		color: var(--accent-text);

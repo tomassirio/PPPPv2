@@ -67,6 +67,8 @@ describe('scoreboard activity', () => {
 		expect(activityText({ ...e, type: 'LEVEL', detail: '20' })).toBe('jordan reached Lv. 20');
 		expect(activityText({ ...e, type: 'HALL_OF_FAME', detail: '' })).toBe('jordan entered the Hall of Fame');
 		expect(activityText({ ...e, type: 'CAUGHT', detail: 'Pidgey' }, 'You')).toBe('You caught Pidgey');
+		expect(activityText({ ...e, type: 'LINK_WIN', detail: 'misty@x.y' }, 'You', () => 'Misty')).toBe('You won a link battle against Misty');
+		expect(activityText({ ...e, type: 'LINK_LOSS', detail: '' })).toBe('jordan lost a link battle');
 		expect([0, 59_000, 120_000, 3 * 3_600_000, 49 * 3_600_000].map(ago)).toEqual(['now', 'now', '2 min', '3 h', '2 d']);
 	});
 });
@@ -145,8 +147,8 @@ describe('profile helpers', () => {
 
 	it('rates achievements by points when the backend sends no rarity', () => {
 		expect([1, 3, 5, 10, 25, 50].map(rarityOf)).toEqual(['common', 'common', 'uncommon', 'rare', 'epic', 'legendary']);
-		const tiers = [['SEEN', 2], ['LEVEL', 5], ['CAUGHT', 10], ['BADGE', 100], ['HALL_OF_FAME', 500], ['ACHIEVEMENT', 25], ['TITLE', 0]] as const;
-		expect(tiers.map(([type, points]) => tierOf({ type, points }))).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary', 'epic', 'common']);
+		const tiers = [['SEEN', 2], ['LEVEL', 5], ['CAUGHT', 10], ['BADGE', 100], ['HALL_OF_FAME', 500], ['ACHIEVEMENT', 25], ['TITLE', 0], ['LINK_WIN', 0], ['LINK_LOSS', 0]] as const;
+		expect(tiers.map(([type, points]) => tierOf({ type, points }))).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary', 'epic', 'common', 'rare', 'common']);
 	});
 
 	it('sorts achievements by rarity and masks hidden ones until unlocked', () => {
