@@ -33,14 +33,16 @@
 				<li>
 					<a class="standing" class:you href="/pib/{encodeURIComponent(r.userId)}">
 						<span class="rank pixel" aria-hidden="true">{i + 1}</span>
-						<Avatar user={r.userId} size={36} />
+						<Avatar user={r.userId} size={32} />
 						<span class="mid">
 							<span class="line">
 								<b class="name"><span class="sr-only">{i + 1}. </span>{nameOf(r.userId)}</b>
 								{#if you}<span class="you-tag">You</span>{/if}
 							</span>
-							<span class="status status-{st.kind}">{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted"> · {where}</span>{/if}</span>
-							{#if r.party?.length}<PartyIcons party={r.party} size={22} hp={false} />{/if}
+							<span class="sub">
+								<span class="status status-{st.kind}">{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted">&nbsp;· {where}</span>{/if}</span>
+								{#if r.party?.length}<PartyIcons party={r.party} size={18} hp={false} />{/if}
+							</span>
 						</span>
 						<span class="score">
 							<span class="pts">{score(r)}<span class="sr-only"> points, grade</span></span>
@@ -94,10 +96,10 @@
 	}
 	.standing {
 		display: grid;
-		grid-template-columns: 18px 36px minmax(0, 1fr) auto;
+		grid-template-columns: 18px 32px minmax(0, 1fr) auto;
 		align-items: center;
 		gap: 6px 10px;
-		padding: 8px 10px;
+		padding: 6px 10px;
 		margin: 0 -10px;
 		border-radius: 8px;
 		color: inherit;
@@ -119,11 +121,24 @@
 		font-size: 10px;
 		color: var(--muted);
 	}
+	/* Two lines a row, so ten fit: the name, then status and the party side by side. */
 	.mid {
 		min-width: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 3px;
+	}
+	.sub {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+	}
+	.sub .status {
+		min-width: 0;
+	}
+	.sub :global(.party) {
+		flex: none;
 	}
 	.line {
 		display: flex;
