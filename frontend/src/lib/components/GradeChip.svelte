@@ -10,6 +10,18 @@
 	const SPARKS: Record<string, number> = { a: 6, s: 10, splus: 14 };
 	const tier = $derived(TIERS[grade] ?? 'f');
 
+	/**
+	 * The effects layer leaves the row for the page, fixed over the chip: rows higher up the board paint over lower
+	 * ones and the lists clip what spills out, which hid "RANK UP!". Gone after 3 s (every effect has ended by then).
+	 */
+	function lift(node: HTMLElement) {
+		const at = node.parentElement!.getBoundingClientRect();
+		Object.assign(node.style, { position: 'fixed', left: `${at.left}px`, top: `${at.top}px`, width: `${at.width}px`, height: `${at.height}px`, zIndex: '1000' });
+		document.body.append(node);
+		const gone = setTimeout(() => node.remove(), 3000);
+		return { destroy: () => (clearTimeout(gone), node.remove()) };
+	}
+
 	let ups = $state(0); // how many upgrades this chip has seen; keys the celebration so each one replays
 	let before: string | undefined;
 	$effect(() => {
@@ -27,7 +39,7 @@
 			title="Grade {grade}{rating != null ? ` · Trainer rating ${rating} of 1000` : ''}">{grade}</span
 		>
 		{#if ups > 0}
-			<span class="fx g-{tier}" aria-hidden="true">
+			<span class="fx g-{tier}" aria-hidden="true" use:lift>
 				{#each { length: RINGS[tier] ?? 0 } as _, i (i)}<span class="ring" style:--i={i}></span>{/each}
 				{#each { length: SPARKS[tier] ?? 0 } as _, i (i)}<i class="spark" style:--i={i} style:--a="{(360 / SPARKS[tier]) * i}deg"></i>{/each}
 				{#if tier === 's' || tier === 'splus'}<b class="cheer pixel">RANK UP!</b>{/if}
@@ -265,10 +277,12 @@
 				transform: rotate(var(--a)) translateY(calc(-1 * var(--r))) scale(0.3);
 			}
 		}
+		/* Right-aligned with the chip, which sits at the right of every row: the text grows leftwards, over the points. */
 		.cheer {
 			position: absolute;
-			left: 50%;
+			right: 0;
 			bottom: 100%;
+			transform-origin: right bottom;
 			font-size: 9px;
 			font-weight: normal;
 			white-space: nowrap;
@@ -283,19 +297,19 @@
 		@keyframes cheer {
 			0% {
 				opacity: 0;
-				transform: translate(-50%, 6px) scale(0.6);
+				transform: translate(0, 6px) scale(0.6);
 			}
 			20% {
 				opacity: 1;
-				transform: translate(-50%, -2px) scale(1.15);
+				transform: translate(0, -2px) scale(1.15);
 			}
 			70% {
 				opacity: 1;
-				transform: translate(-50%, -8px) scale(1);
+				transform: translate(0, -8px) scale(1);
 			}
 			100% {
 				opacity: 0;
-				transform: translate(-50%, -14px);
+				transform: translate(0, -14px);
 			}
 		}
 		@keyframes rainbow {
