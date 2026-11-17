@@ -206,16 +206,17 @@
 	}
 	.pillars b {
 		font: 8px/1.3 var(--pixel-font);
-		color: var(--c);
+		color: color-mix(in oklab, var(--c), var(--text) 45%); /* Silver alone is too faint on the light theme */
 	}
+	/* The three cartridges' plastic, in picker order (VERSIONS). */
 	.p-own {
 		--c: #d4a72c;
 	}
 	.p-link {
-		--c: #6ea3ff;
+		--c: #5aaed6;
 	}
 	.p-ach {
-		--c: #b07ce8;
+		--c: #a3adb7;
 	}
 	.split {
 		display: flex;
