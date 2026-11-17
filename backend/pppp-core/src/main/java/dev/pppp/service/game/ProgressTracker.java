@@ -57,7 +57,6 @@ import org.springframework.stereotype.Service;
 public class ProgressTracker {
     /** Points per event; placeholders. */
     static final int BADGE = 100, CAUGHT = 10, SEEN = 2, LEVEL_MILESTONE = 5, HALL_OF_FAME = 500;
-    // ponytail: no cap, two Pibs could farm link battles; cap per opponent per day if the scoreboard sees it.
     static final int LINK_WIN = 25; // per link battle won (the save's record), added to the activity points
     /** The party's highest level scores each time it passes a multiple of this. */
     static final int LEVEL_STEP = 10;
