@@ -906,8 +906,8 @@
 	/* Crystal's Suicune runs along the bottom: lift the screen so the strip below doesn't cut it. */
 	.title-loop.crystal {
 		object-position: 50% 0;
-		height: 112%;
-		top: -10%;
+		height: 114%;
+		top: -14%;
 	}
 	/* A steady strip (the prompt blinks, the strip does not) over the game's copyright line. */
 	.strip {
