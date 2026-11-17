@@ -124,6 +124,23 @@ class PlayerApiTest {
     }
 
     @Test
+    void removingSomeoneFromTheAllowlistWipesTheirRunToo() throws Exception {
+        String who = "leaving@x.y";
+        mvc.perform(post("/api/v1/admin/allowlist").with(ADMIN).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + who + "\",\"role\":\"PLAYER\"}")).andExpect(status().isCreated());
+        RequestPostProcessor player = user(who).roles("PLAYER");
+        mvc.perform(put("/api/v1/me/game").with(player).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cartridgeId\":\"test\"}")).andExpect(status().isOk());
+        tracker.record(who, Progress.EMPTY, ScoreboardApiTest.save(0b1));
+        assertThat(redis.opsForZSet().score("pibs:scoreboard", who)).isNotNull();
+
+        mvc.perform(delete("/api/v1/admin/allowlist/" + who).with(ADMIN).with(csrf())).andExpect(status().isNoContent());
+
+        assertThat(redis.opsForZSet().score("pibs:scoreboard", who)).isNull();
+        assertThat(redis.keys("pibs:*" + who + "*")).isEmpty();
+    }
+
+    @Test
     void keyBindingsArePerPlayerAndValidated() throws Exception {
         mvc.perform(get("/api/v1/me/keys").with(PIB))
                 .andExpect(jsonPath("$.up").value("ArrowUp")).andExpect(jsonPath("$.a").value("z"));

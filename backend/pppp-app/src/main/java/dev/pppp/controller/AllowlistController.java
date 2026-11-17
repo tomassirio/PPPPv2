@@ -4,7 +4,9 @@ import dev.pppp.model.AccessRequest;
 import dev.pppp.model.Role;
 import dev.pppp.model.User;
 import dev.pppp.security.CurrentUser;
+import dev.pppp.exception.NotFoundException;
 import dev.pppp.service.AllowlistService;
+import dev.pppp.service.PlayerResetService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -33,9 +35,11 @@ public class AllowlistController {
     public record Me(String id, String name, String picture, List<String> roles) {}
 
     private final AllowlistService allowlist;
+    private final PlayerResetService resets;
 
-    public AllowlistController(AllowlistService allowlist) {
+    public AllowlistController(AllowlistService allowlist, PlayerResetService resets) {
         this.allowlist = allowlist;
+        this.resets = resets;
     }
 
     @GetMapping("/me")
@@ -82,8 +86,14 @@ public class AllowlistController {
 
     @DeleteMapping("/admin/allowlist/{email}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void remove(@PathVariable String email) {
+    public void remove(@PathVariable String email, Authentication auth) {
         allowlist.remove(email);
+        // Removed means gone: their run goes too (a ban keeps it, since a ban can be lifted).
+        try {
+            resets.reset(CurrentUser.id(auth), AllowlistService.normalize(email));
+        } catch (NotFoundException noRun) {
+            // never picked a game
+        }
     }
 
     @GetMapping("/admin/access-requests")
