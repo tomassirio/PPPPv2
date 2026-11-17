@@ -14,27 +14,53 @@
 		{ title: 'POKEMON_SLV', name: 'Silver', color: '#a3adb7' }
 	];
 	const split = $derived(VERSIONS.map((v) => ({ ...v, n: teaser?.versions?.[v.title] ?? 0 })));
-	const total = $derived(Math.max(1, split.reduce((a, v) => a + v.n, 0)));
 	const n = (v: number | undefined) => (v == null ? '–' : v.toLocaleString());
 </script>
 
 <section class="about" aria-labelledby="about-title">
 	<h2 id="about-title"><img class="logo" src={logo} alt="Pibs&amp;Pibettes Play Pokémon V2" /></h2>
 	<p class="pitch">
-		Each player runs their own game on the server. Progress is scored on a shared board.<span class="more" aria-hidden="true">▼</span>
+		Your own Game Boy, linked to everyone else's.<span class="more" aria-hidden="true">▼</span>
 	</p>
 
 	<ul class="pillars">
+		<!-- 16x16 pixel icons, drawn in the tile's plastic: a floppy disk, a link cable, a trophy. -->
 		<li class="p-own">
-			<b>OWN SAVE</b>
+			<p class="head">
+				<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+					<path d="M1 1h11l3 3v11H1z" fill="currentColor" />
+					<path d="M4 1h7v5H4z" fill="var(--panel)" />
+					<path d="M8 2h2v3H8z" fill="currentColor" />
+					<path d="M3 9h10v6H3z" fill="var(--panel)" />
+					<path d="M4 10h8v1H4zM4 12h6v1H4z" fill="currentColor" opacity="0.6" />
+				</svg>
+				<b>OWN SAVE</b>
+			</p>
 			<span>One Game Boy per player, saved on the server.</span>
 		</li>
 		<li class="p-link">
-			<b>LINK CABLE</b>
+			<p class="head">
+				<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+					<path d="M2 1h1v2H2zM4 1h1v2H4zM11 13h1v2h-1zM13 13h1v2h-1z" fill="currentColor" />
+					<path d="M1 3h5v5H1zM10 8h5v5h-5z" fill="currentColor" />
+					<path d="M2 4h3v1H2zM11 11h3v1h-3z" fill="var(--panel)" />
+					<path d="M3 8h1v4h4V5h4v3h-1V6H9v7H3z" fill="currentColor" />
+				</svg>
+				<b>LINK CABLE</b>
+			</p>
 			<span>Trades and battles between players.</span>
 		</li>
 		<li class="p-ach">
-			<b>SCOREBOARD</b>
+			<p class="head">
+				<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">
+					<path d="M4 1h8v6h-1v1h-1v1H6V8H5V7H4z" fill="currentColor" />
+					<path d="M1 2h3v1H2v2h1v1h1v1H2V6H1zM12 2h3v5h-2V6h1V5h1V3h-2z" fill="currentColor" />
+					<path d="M7 9h2v3H7zM4 12h8v3H4z" fill="currentColor" />
+					<path d="M6 2h1v4H6z" fill="var(--panel)" opacity="0.5" />
+					<path d="M5 13h6v1H5z" fill="var(--panel)" />
+				</svg>
+				<b>SCOREBOARD</b>
+			</p>
 			<span>Points, ranks and achievements.</span>
 		</li>
 	</ul>
@@ -42,23 +68,36 @@
 	<!-- Placeholders until the teaser loads (or if the server is down), so the card keeps its shape. -->
 	<div class="card" aria-label="Totals so far" role="group">
 		<p class="card-title">SO FAR</p>
-		<div class="split" role="img" aria-label={split.map((v) => `${v.n} on ${v.name}`).join(', ')}>
+		<!-- Who plays which: a little cartridge per version, in its plastic. -->
+		<ul class="carts">
 			{#each split as v (v.title)}
-				<i style:flex-grow={teaser ? v.n / total : 1} style:background={v.color}></i>
+				<li style:--c={v.color} class:none={teaser && !v.n}>
+					<svg viewBox="0 0 12 14" shape-rendering="crispEdges" aria-hidden="true">
+						<path d="M0 0h10l2 2v12H0z" fill="var(--c)" />
+						<path d="M2 3h8v7H2z" fill="color-mix(in oklab, var(--c), white 45%)" />
+						<path d="M1 1h7v1H1z" fill="color-mix(in oklab, var(--c), black 25%)" />
+					</svg>
+					<b>{teaser ? v.n : '–'}</b><span>{v.name}</span>
+				</li>
 			{/each}
-		</div>
-		<p class="legend" aria-hidden="true">
-			{#each split as v (v.title)}<span><i style:background={v.color}></i>{teaser ? v.n : '–'} {v.name}</span>{/each}
-		</p>
-		<dl>
-			<dt>PLAYERS</dt>
-			<dd>{n(teaser?.players)}<span class="soft">&ensp;·&ensp;<span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online</span></dd>
-			<dt>CAUGHT</dt>
-			<dd>{n(teaser?.caught)}<span class="soft">&nbsp;Pokémon, all players</span></dd>
-			<dt>UNLOCKED</dt>
-			<dd>{n(teaser?.achievements)}<span class="soft">&nbsp;achievements</span></dd>
-			<dt>LINK</dt>
-			<dd>{n(teaser?.trades)}<span class="soft">&nbsp;trades&ensp;·&ensp;</span>{n(teaser?.battles)}<span class="soft">&nbsp;battles</span></dd>
+		</ul>
+		<dl class="stats">
+			<div>
+				<dt>PLAYERS</dt>
+				<dd><b>{n(teaser?.players)}</b><span class="soft"><span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online</span></dd>
+			</div>
+			<div>
+				<dt>CAUGHT</dt>
+				<dd><b>{n(teaser?.caught)}</b><span class="soft">Pokémon, all players</span></dd>
+			</div>
+			<div>
+				<dt>UNLOCKED</dt>
+				<dd><b>{n(teaser?.achievements)}</b><span class="soft">achievements</span></dd>
+			</div>
+			<div>
+				<dt>LINK</dt>
+				<dd><b>{n(teaser?.trades)}<small>/</small>{n(teaser?.battles)}</b><span class="soft">trades / battles</span></dd>
+			</div>
 		</dl>
 		<p class="phone-line">{n(teaser?.players)} players · <span class="dot" class:live={teaser} aria-hidden="true"></span>{n(teaser?.online)} online · {n(teaser?.caught)} caught</p>
 	</div>
@@ -159,21 +198,39 @@
 		font: 9px/1 var(--pixel-font);
 		color: var(--accent-text);
 	}
-	dl {
-		margin: 0;
+	/* Four big numbers, two by two, like a stats screen. */
+	.stats {
+		margin: 12px 0 0;
 		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: 8px 14px;
-		align-items: center;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
+	}
+	.stats > div {
+		padding: 10px 12px;
+		border-radius: 6px;
+		background: color-mix(in oklab, var(--text), transparent 95%);
 	}
 	dt {
 		font: 8px/1 var(--pixel-font);
 		color: var(--muted);
 	}
 	dd {
-		margin: 0;
+		margin: 6px 0 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+	dd b {
+		font: 20px/1 var(--pixel-font);
+		color: var(--text);
+	}
+	dd small {
+		margin: 0 4px;
 		font-size: 14px;
-		font-weight: 600;
+		color: var(--muted);
+	}
+	dd .soft {
+		font-size: 12px;
 	}
 	.phone-line {
 		display: none;
@@ -190,7 +247,7 @@
 		padding: 0;
 		list-style: none;
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 8px;
 	}
 	.pillars li {
@@ -204,8 +261,23 @@
 		font-size: 12px;
 		line-height: 1.4;
 	}
+	/* The icon over the title: side by side, SCOREBOARD would not fit a third of the card. */
+	.head {
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 6px;
+	}
+	.head svg {
+		width: 24px;
+		height: 24px;
+		flex: none;
+		color: var(--c);
+	}
 	.pillars b {
 		font: 8px/1.3 var(--pixel-font);
+		white-space: nowrap;
 		color: color-mix(in oklab, var(--c), var(--text) 45%); /* Silver alone is too faint on the light theme */
 	}
 	/* The three cartridges' plastic, in picker order (VERSIONS). */
@@ -218,35 +290,32 @@
 	.p-ach {
 		--c: #a3adb7;
 	}
-	.split {
-		display: flex;
-		gap: 2px;
-		height: 8px;
-		border-radius: 4px;
-		overflow: hidden;
+	.carts {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 8px;
 	}
-	.split i {
-		flex: 1 1 0;
-		min-width: 4px;
-		transition: flex-grow 0.6s ease;
-	}
-	.legend {
-		margin: 6px 0 12px;
+	.carts li {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 4px 12px;
+		align-items: center;
+		gap: 8px;
 		font-size: 12px;
 		color: var(--muted);
 	}
-	.legend span {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
+	.carts li.none {
+		opacity: 0.55;
 	}
-	.legend i {
-		width: 8px;
-		height: 8px;
-		border-radius: 2px;
+	.carts svg {
+		width: 18px;
+		height: 21px;
+		flex: none;
+	}
+	.carts b {
+		font: 14px/1 var(--pixel-font);
+		color: var(--text);
 	}
 	.dot {
 		display: inline-block;
@@ -372,9 +441,8 @@
 		.pitch,
 		.card-title,
 		.pillars,
-		.legend,
-		.split,
-		dl {
+		.carts,
+		.stats {
 			display: none;
 		}
 		.phone-line {
