@@ -6,8 +6,14 @@
      card; the top on phones). -->
 <script lang="ts">
 	import type { Teaser } from '#lib/teaser.js';
+	import hoOh from '#lib/assets/legends/ho-oh.webp';
+	import lugia from '#lib/assets/legends/lugia.webp';
+	import suicune from '#lib/assets/legends/suicune.webp';
 
-	let { teaser }: { teaser: Teaser | null } = $props();
+	/** legend: the cartridge on the device's screen; its legendary's shadow passes over the map once per turn. */
+	let { teaser, legend = null }: { teaser: Teaser | null; legend?: 'gold' | 'silver' | 'crystal' | null } = $props();
+	// Silhouettes cut from each game's title screen; all face left, so they cross right to left.
+	const LEGENDS = { gold: hoOh, silver: lugia, crystal: suicune };
 
 	const MARGIN = 14; // border blocks round each map image (PublicController.MAP_MARGIN)
 	const BLOCK = 32; // px per block; a step is half a block
@@ -90,9 +96,62 @@
 			{/each}
 		</div>
 	{/key}
+	{#if legend && !still}
+		{#key legend}
+			<img class="legend {legend}" src={LEGENDS[legend]} alt="" />
+		{/key}
+	{/if}
 </div>
 
 <style>
+	/* A legendary's shadow: black, soft-edged, cast on the ground as it passes. Ho-Oh climbs across the sky, Lugia
+	   glides low and straight, Suicune dashes along the ground. */
+	.legend {
+		position: absolute;
+		left: 0;
+		top: 0;
+		image-rendering: pixelated;
+		filter: brightness(0) blur(3px);
+		opacity: 0.6;
+	}
+	.legend.gold {
+		width: 360px;
+		animation: soar 6.5s cubic-bezier(0.35, 0, 0.6, 1) both;
+	}
+	.legend.silver {
+		width: 560px;
+		animation: glide 7s linear both;
+	}
+	.legend.crystal {
+		width: 220px;
+		top: 64vh;
+		filter: brightness(0) blur(2px);
+		animation: dash 3.4s cubic-bezier(0.2, 0, 0.8, 1) both;
+	}
+	@keyframes soar {
+		from {
+			translate: 100vw 70vh;
+		}
+		to {
+			translate: -60vw -10vh;
+		}
+	}
+	@keyframes glide {
+		from {
+			translate: 100vw 18vh;
+		}
+		to {
+			translate: -80vw 26vh;
+		}
+	}
+	@keyframes dash {
+		from {
+			translate: 100vw 0;
+		}
+		to {
+			translate: -60vw 0;
+		}
+	}
 	.scene {
 		position: fixed;
 		inset: 0;

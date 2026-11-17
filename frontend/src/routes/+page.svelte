@@ -177,7 +177,7 @@
 
 <svelte:window {onkeydown} {onkeyup} onpointerdown={() => (skip(), activity())} onpointerup={release} onblur={release} />
 
-<SignInScene {teaser} />
+<SignInScene {teaser} legend={showing.id} />
 
 <main>
 	<div class="device" class:booting class:glitch class:asked={requested} style:--shell={showing.shell}>
