@@ -59,7 +59,7 @@
 		const key = `${map}:${time}`;
 		if (key in infos) return;
 		infos[key] = null;
-		api<MapInfo>('GET', `/public/maps/${map}.json?time=${time}`).then(
+		api<MapInfo>('GET', `/public/maps/${map}.json?time=${time}&m=${MARGIN}`).then(
 			(v) => (infos[key] = v),
 			() => {}
 		);
@@ -135,7 +135,8 @@
 	// The party trails behind: opposite to where the trainer faces.
 	const BEHIND: Record<string, [number, number]> = { down: [0, -1], up: [0, 1], left: [1, 0], right: [-1, 0] };
 	const ROW: Record<string, number> = { down: 0, up: 1, left: 2, right: 2 };
-	const url = (map: string) => `/api/v1/public/maps/${map}.png?time=${time}`;
+	// m: the margin, so a cached picture drawn with another one is never reused.
+	const url = (map: string) => `/api/v1/public/maps/${map}.png?time=${time}&m=${MARGIN}`;
 
 	// The town's people: where they stand now, which way they look, whether they are mid-step.
 	type Walker = { sprite: number; palette: number; frames: number; x: number; y: number; facing: Facing; step: boolean };
@@ -256,8 +257,8 @@
 					style:left="{px(n.x)}px"
 					style:top="{px(n.y)}px"
 					style:background-image="url(/api/v1/public/npcs/{n.sprite}/{n.palette}.png?time={time})"
-					style:--frames={n.frames}
-					style:--f={frameOf(n)}
+					style:background-size="{16 * scale}px {16 * scale * n.frames}px"
+					style:background-position="0 {-16 * scale * frameOf(n)}px"
 				></span>
 			{/each}
 		</div>
@@ -406,15 +407,14 @@
 		background-size: 100% 600%; /* six frames; frame r sits at r x 20% */
 		background-position: 0 calc(var(--row) * 20%);
 	}
-	/* The town's people: their sheet of --frames frames, frame --f showing; a step glides over a quarter second. */
+	/* The town's people: their sheet sized and shifted to one frame (inline); a step glides over a quarter second. */
 	.npc {
 		position: absolute;
 		width: calc(16px * var(--s));
 		height: calc(16px * var(--s));
 		translate: -50% -50%;
 		image-rendering: pixelated;
-		background-size: 100% calc(var(--frames) * 100%);
-		background-position: 0 calc(var(--f) * 100% / max(var(--frames) - 1, 1));
+		background-repeat: no-repeat;
 		filter: drop-shadow(0 calc(1px * var(--s)) 0 rgb(0 0 0 / 0.25));
 		transition:
 			left 0.28s linear,
