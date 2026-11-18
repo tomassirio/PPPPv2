@@ -25,29 +25,31 @@
 	const pixels = EGG.flatMap((row, y) => [...row].map((c, x) => ({ x, y, c })).filter((p) => p.c !== '.'));
 
 	const steps = [
-		{ text: 'Get your first Pokémon from Prof. Elm', where: 'New Bark Town' },
-		{ text: "Pick up the Mystery Egg from Mr. Pokémon's house", where: 'Route 30' },
-		{ text: 'Bring the egg back to Prof. Elm', where: 'New Bark Town' }
+		{ text: 'Get a Pokémon from Prof. Elm', where: 'New Bark Town' },
+		{ text: "Get Mr. Pokémon's Mystery Egg", where: 'Route 30' },
+		{ text: 'Bring the egg back to Elm', where: 'New Bark Town' }
 	];
 </script>
 
 <div class="locked">
-	<div class="art" aria-hidden="true">
-		<svg class="egg" viewBox="0 0 14 14" width="84" height="84" shape-rendering="crispEdges">
-			{#each pixels as p, i (i)}<rect x={p.x} y={p.y} width="1" height="1" fill={COLOR[p.c]} />{/each}
-		</svg>
-		<span class="q pixel">?</span>
-	</div>
-	<div class="text">
-		<h3>The Cable Club is closed</h3>
-		<p class="muted">Every Pokémon Center's link receptionists turn you away until Prof. Elm has Mr. Pokémon's Mystery Egg.</p>
+	<div class="top">
+		<div class="art" aria-hidden="true">
+			<svg class="egg" viewBox="0 0 14 14" width="52" height="52" shape-rendering="crispEdges">
+				{#each pixels as p, i (i)}<rect x={p.x} y={p.y} width="1" height="1" fill={COLOR[p.c]} />{/each}
+			</svg>
+			<span class="q pixel">?</span>
+		</div>
+		<div class="text">
+			<h3>The Cable Club is closed</h3>
+			<p class="muted">It opens once Prof. Elm has Mr. Pokémon's Mystery Egg.</p>
+		</div>
 	</div>
 	<ol class="steps">
 		{#each steps as s, i (i)}
 			{@const done = step > i}
 			<li class:done class:next={step === i}>
 				<span class="mark" aria-hidden="true">{done ? '✓' : i + 1}</span>
-				<span><b>{s.text}</b><span class="muted xs">{s.where}</span></span>
+				<span class="what" title={s.where}>{s.text}</span>
 				<span class="sr">{done ? ' (done)' : step === i ? ' (next)' : ''}</span>
 			</li>
 		{/each}
@@ -58,20 +60,24 @@
 	.locked {
 		display: flex;
 		flex-direction: column;
+		gap: 10px;
+	}
+	.top {
+		display: flex;
 		align-items: center;
-		gap: 12px;
-		text-align: center;
+		gap: 14px;
 	}
 	.art {
 		position: relative;
-		padding: 10px 0 4px;
+		flex: none;
+		padding-right: 8px;
 	}
 	.egg {
 		display: block;
 		image-rendering: pixelated;
 		transform-origin: 50% 90%;
 		animation: wobble 4s ease-in-out infinite;
-		filter: drop-shadow(0 6px 0 color-mix(in srgb, var(--text) 10%, transparent));
+		filter: drop-shadow(0 4px 0 color-mix(in srgb, var(--text) 10%, transparent));
 	}
 	@keyframes wobble {
 		0%,
@@ -94,9 +100,9 @@
 	}
 	.q {
 		position: absolute;
-		top: 0;
-		right: -18px;
-		font-size: 16px;
+		top: -4px;
+		right: -4px;
+		font-size: 11px;
 		color: var(--accent-text);
 	}
 	@media (prefers-reduced-motion: reduce) {
@@ -106,18 +112,14 @@
 	}
 	h3 {
 		margin: 0;
-		font-size: 16px;
+		font-size: 15px;
 	}
 	.text p {
-		margin: 4px 0 0;
+		margin: 2px 0 0;
 		font-size: 13px;
-		max-width: 320px;
 	}
 	.muted {
 		color: var(--muted);
-	}
-	.xs {
-		font-size: 12px;
 	}
 	.steps {
 		list-style: none;
@@ -125,23 +127,19 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		width: 100%;
-		text-align: left;
+		gap: 4px;
 	}
 	.steps li {
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		padding: 8px 10px;
-		border-radius: 10px;
-		border: 1px solid var(--border);
-		background: var(--sunk);
-		font-size: 13px;
+		gap: 8px;
+		padding: 5px 8px;
+		border-radius: 8px;
+		border: 1px solid transparent;
+		font-size: 12.5px;
 	}
-	.steps li > span:nth-child(2) {
-		display: flex;
-		flex-direction: column;
+	.what {
+		min-width: 0;
 	}
 	.steps li.next {
 		border-color: var(--accent-text);
@@ -152,13 +150,13 @@
 	}
 	.mark {
 		flex: none;
-		width: 22px;
-		height: 22px;
+		width: 18px;
+		height: 18px;
 		border-radius: 50%;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 12px;
+		font-size: 11px;
 		font-weight: 700;
 		border: 1px solid var(--border-strong);
 		color: var(--muted);
