@@ -8,7 +8,7 @@
 	import RunSummary from '#lib/components/RunSummary.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
-	import { hpColor } from '#lib/play.ts';
+	import { hpColor, winRate } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 
@@ -146,6 +146,17 @@
 	{:else}
 		<p class="muted">Badges and your Pokédex show up here once your game is past the title screen.</p>
 	{/if}
+	{#if mine}
+		{@const l = mine.link}
+		{@const rate = winRate(l)}
+		<div class="line">
+			<span class="muted">Link cable</span>
+			<span class="link-rec" title="Link battles won and lost, Pokémon traded"
+				><b class="win">{l?.wins ?? 0}</b> W · <b class="loss">{l?.losses ?? 0}</b> L{#if rate !== null}<span class="muted"> ({rate}%)</span>{/if}
+				· <b>{l?.trades ?? 0}</b> {l?.trades === 1 ? 'trade' : 'trades'}</span
+			>
+		</div>
+	{/if}
 	{#if mine && session.me}
 		<div class="line">
 			<span class="muted">Achievements</span>
@@ -170,6 +181,16 @@
 		justify-content: space-between;
 		gap: 12px;
 		min-width: 0;
+	}
+	.link-rec {
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	.link-rec .win {
+		color: var(--grass, #3fae4a);
+	}
+	.link-rec .loss {
+		color: var(--danger);
 	}
 	.wrap {
 		flex-wrap: wrap;

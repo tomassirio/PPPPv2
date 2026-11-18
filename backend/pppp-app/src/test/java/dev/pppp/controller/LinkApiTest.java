@@ -226,4 +226,33 @@ class LinkApiTest {
         offer(SAM, GARY, "TRADE").andExpect(status().isConflict()); // already linked
         as(GARY, delete("/api/v1/link/session"), null).andExpect(status().isOk());
     }
+
+    /** Back upstairs after the trade: the cable comes out. A wrong room walked out of again does not count. */
+    @Test
+    void leavingTheLinkRoomAfterwardsUnplugs() throws Exception {
+        var real = ReflectionTestUtils.getField(link, "dig");
+        var dig = org.mockito.Mockito.mock(dev.pppp.service.game.PokecenterDig.class);
+        ReflectionTestUtils.setField(link, "dig", dig);
+        try {
+            linkAshAndSam(); // a trade
+            org.mockito.Mockito.when(dig.map(SAM)).thenReturn("COLOSSEUM");
+            link.sweep();
+            org.mockito.Mockito.when(dig.map(SAM)).thenReturn("POKECENTER_2F");
+            link.sweep();
+            assertThat(consoles.linkedWith(SAM)).as("a wrong room left again").isEqualTo(ASH);
+
+            org.mockito.Mockito.when(dig.map(SAM)).thenReturn("TRADE_CENTER");
+            link.sweep();
+            assertThat(consoles.linkedWith(SAM)).isEqualTo(ASH);
+            org.mockito.Mockito.when(dig.map(SAM)).thenReturn(null); // cannot tell: nothing happens
+            link.sweep();
+            assertThat(consoles.linkedWith(SAM)).isEqualTo(ASH);
+            org.mockito.Mockito.when(dig.map(SAM)).thenReturn("POKECENTER_2F");
+            link.sweep();
+            assertThat(consoles.linkedWith(SAM)).isNull();
+            assertThat(consoles.linkedWith(ASH)).isNull();
+        } finally {
+            ReflectionTestUtils.setField(link, "dig", real);
+        }
+    }
 }

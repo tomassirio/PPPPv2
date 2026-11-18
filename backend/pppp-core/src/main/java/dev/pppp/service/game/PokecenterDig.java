@@ -76,7 +76,7 @@ public class PokecenterDig {
     /** Pokecenter2F: the receptionists stand at (5, 2) trade and (9, 2) battle; the player one step below. */
     private static final int TRADE_X = 5, BATTLE_X = 9, RECEPTIONIST_Y = 3;
     /** The link rooms behind the receptionists. */
-    static final Set<String> LINK_ROOMS = Set.of("TRADE_CENTER", "COLOSSEUM", "TIME_CAPSULE");
+    public static final Set<String> LINK_ROOMS = Set.of("TRADE_CENTER", "COLOSSEUM", "TIME_CAPSULE");
 
     /** tail: the Dig script past its text; pc2f: {group, number} of POKECENTER_2F. */
     record Game(Layout at, PokemonGen2 maps, int tail, int[] pc2f) {}
@@ -112,12 +112,14 @@ public class PokecenterDig {
         });
     }
 
-    /** The link room the player stands in (TRADE_CENTER, COLOSSEUM, TIME_CAPSULE), or null. */
-    public String linkRoom(String userId) {
+    /**
+     * The pret map constant the player stands on ("COLOSSEUM", "POKECENTER_2F"), or null when that cannot be told now
+     * (no Gold/Silver/Crystal console, or another WRAM bank switched in).
+     */
+    public String map(String userId) {
         Game game = game(userId);
         byte[] map = game == null ? null : consoles.readBytes(userId, game.at.mapGroup, 2);
-        String id = map == null ? null : game.maps.mapId(map[0] & 0xFF, map[1] & 0xFF);
-        return id != null && LINK_ROOMS.contains(id) ? id : null;
+        return map == null ? null : game.maps.mapId(map[0] & 0xFF, map[1] & 0xFF);
     }
 
     private Game game(String userId) {

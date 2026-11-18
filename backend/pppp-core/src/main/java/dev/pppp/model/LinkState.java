@@ -25,7 +25,8 @@ public record LinkState(List<Ready> lobby, String ready, Challenge incoming, Cha
 
     /**
      * LINK_SESSION payload. status: STARTED, ENDED, or ROOM (a player of the pair walked into a link room that does
-     * not fit kind, or out of it: fetch the state again); reason (ENDED only): UNPLUGGED or LEFT.
+     * not fit kind, or out of it: fetch the state again); reason (ENDED only): UNPLUGGED, LEFT or FINISHED (back
+     * out of the link room after the battle or trade).
      */
     public record SessionEvent(String a, String b, String kind, long since, String status, String reason) {}
 }

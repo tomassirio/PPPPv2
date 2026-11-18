@@ -61,7 +61,9 @@ public class ProgressTracker {
     /** The party's highest level scores each time it passes a multiple of this. */
     static final int LEVEL_STEP = 10;
     /** How often the battery save is flushed and read (ms); in the Battle Tower, whose win lasts a short while. */
-    static final long SRAM_EVERY = 60_000, SRAM_EVERY_IN_TOWER = 5_000;
+    static final long SRAM_EVERY = 60_000, SRAM_EVERY_IN_TOWER = 5_000, LINK_AFTERGLOW = 120_000;
+    /** Linked players, and the ones whose cable came out less than LINK_AFTERGLOW ago: userId -> until when (MAX_VALUE while linked). */
+    private final Map<String, Long> linkFast = new ConcurrentHashMap<>();
     private static final Logger log = LoggerFactory.getLogger(ProgressTracker.class);
 
     private final PlayerConsoles consoles;
@@ -132,10 +134,15 @@ public class ProgressTracker {
         }
     }
 
-    /** Flushes and reads the player's battery save when it is due; it counts once two reads in a row agree. */
+    /**
+     * Flushes and reads the player's battery save when it is due; it counts once two reads in a row agree. Every 5 s in
+     * the Battle Tower, while linked and for two minutes after (the link battle record lives only there), else every
+     * minute.
+     */
     private void readSram(String userId, Gen2Save save) {
-        long now = System.currentTimeMillis(), due = save.map() != null && save.map().startsWith("BATTLE_TOWER")
-                ? SRAM_EVERY_IN_TOWER : sramEvery;
+        long now = System.currentTimeMillis();
+        boolean fast = save.map() != null && save.map().startsWith("BATTLE_TOWER") || linkFast.getOrDefault(userId, 0L) > now;
+        long due = fast ? Math.min(SRAM_EVERY_IN_TOWER, sramEvery) : sramEvery;
         if (now - sramReadAt.getOrDefault(userId, 0L) < due) return;
         sramReadAt.put(userId, now);
         Gen2Save.Sram read = PokemonGen2.sram(save.crystal(), consoles.batterySave(userId), save.curBox());
@@ -220,14 +227,22 @@ public class ProgressTracker {
     }
 
     /**
-     * A link cable went in: each Pib is the other's partner from this moment, whether or not a reading of their game
+     * A link cable went in (their battery saves are read every 5 s from now until two minutes after it comes out): each
+     * Pib is the other's partner from this moment, whether or not a reading of their game
      * gets confirmed during the session (sessions can be a few seconds), and the link achievements that need only
      * that (Plugged In, Social Butterfly) unlock for both at once.
      */
     @EventListener
     public void onLink(LiveEvent event) {
-        if (!"LINK_SESSION".equals(event.type()) || !(event.payload() instanceof LinkState.SessionEvent s)
-                || !"STARTED".equals(s.status())) return;
+        if (!"LINK_SESSION".equals(event.type()) || !(event.payload() instanceof LinkState.SessionEvent s)) return;
+        if ("ENDED".equals(s.status())) {
+            long until = System.currentTimeMillis() + LINK_AFTERGLOW;
+            linkFast.put(s.a(), until);
+            linkFast.put(s.b(), until);
+        }
+        if (!"STARTED".equals(s.status())) return;
+        linkFast.put(s.a(), Long.MAX_VALUE);
+        linkFast.put(s.b(), Long.MAX_VALUE);
         linked(s.a(), s.b());
         linked(s.b(), s.a());
     }
@@ -364,6 +379,7 @@ public class ProgressTracker {
         cards.remove(userId);
         logs.remove(userId);
         srams.remove(userId);
+        linkFast.remove(userId);
         sramSamples.remove(userId);
         sramReadAt.remove(userId);
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));

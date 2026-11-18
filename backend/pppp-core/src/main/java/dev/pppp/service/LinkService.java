@@ -42,6 +42,8 @@ public class LinkService {
     private final Map<String, SessionEvent> sessions = new HashMap<>();
     /** Linked players standing in a link room that does not fit their session's kind: userId -> room. */
     private final Map<String, String> wrongRoom = new HashMap<>();
+    /** Linked players who have been in the link room that fits their session: leaving it ends the session. */
+    private final Set<String> visited = new java.util.HashSet<>();
     /** Linked players with no page open: userId -> since when. */
     private final Map<String, Long> away = new HashMap<>();
 
@@ -178,7 +180,9 @@ public class LinkService {
     /**
      * Drops challenges nobody answered in time, ends the session of a player who has had no page open for awayLimit
      * (sessions have no time cap: a battle must not be cut off), and tells a pair when one of them walks into the
-     * wrong link room (LINK_SESSION status ROOM): the trade room for a battle, the Colosseum for a trade.
+     * wrong link room (LINK_SESSION status ROOM): the trade room for a battle, the Colosseum for a trade. A player who
+     * was in the right room and is back upstairs is done: the cable comes out (ENDED, FINISHED). A wrong room, left
+     * as the warning says, does not count.
      */
     @Scheduled(fixedDelay = 1000)
     public synchronized void sweep() {
@@ -189,15 +193,21 @@ public class LinkService {
             else if (now - away.computeIfAbsent(id, k -> now) >= awayLimit.toMillis()) end(id, "LEFT");
         }
         for (SessionEvent s : sessions.values().stream().distinct().toList()) {
-            boolean changed = false;
+            boolean changed = false, finished = false;
             for (String id : List.of(s.a(), s.b())) {
-                String room = dig.linkRoom(id);
+                String map = dig.map(id);
+                if (map == null) continue; // cannot tell this second
+                String room = PokecenterDig.LINK_ROOMS.contains(map) ? map : null;
+                if (room != null && fits(s.kind(), room)) visited.add(id);
+                else if (room == null && visited.contains(id)) finished = true;
                 String wrong = room == null || fits(s.kind(), room) ? null : room;
                 if (java.util.Objects.equals(wrong, wrongRoom.get(id))) continue;
                 if (wrong == null) wrongRoom.remove(id); else wrongRoom.put(id, wrong);
                 changed = true;
             }
-            if (changed) {
+            if (finished) {
+                end(s.a(), "FINISHED");
+            } else if (changed) {
                 events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.since(), "ROOM", null)));
             }
         }
@@ -225,6 +235,8 @@ public class LinkService {
         wrongRoom.remove(s.b());
         away.remove(s.a());
         away.remove(s.b());
+        visited.remove(s.a());
+        visited.remove(s.b());
         consoles.unlink(userId); // parks both consoles
         events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.since(), "ENDED", reason)));
     }
