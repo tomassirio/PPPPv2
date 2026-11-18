@@ -40,8 +40,8 @@
 			<li in:arriveTier={{ tier: tierOf(e) }}>
 				<FeedIcon {e} />
 				<span
-					><b><Name user={e.user} link label={you ? 'You' : undefined} /></b>
-					{#if e.type === 'LINK_WIN' && e.detail}beat <b><Name user={e.detail} link /></b> in a link battle{:else}{activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()}{/if}
+					><b><Name user={e.user} link colored label={you ? 'You' : undefined} /></b>
+					{#if e.type === 'LINK_WIN' && e.detail}beat <b><Name user={e.detail} link colored /></b> in a link battle{:else}{activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()}{/if}
 					<span class="muted">· {ago(now - e.at)} · +{e.points}</span></span
 				>
 			</li>

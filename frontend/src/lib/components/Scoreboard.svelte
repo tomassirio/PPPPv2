@@ -42,7 +42,7 @@
 						<Avatar user={r.userId} size={32} />
 						<span class="mid">
 							<span class="line">
-								<b class="name"><span class="sr-only">{i + 1}. </span><Name user={r.userId} /></b>
+								<b class="name"><span class="sr-only">{i + 1}. </span><Name user={r.userId} colored /></b>
 								{#if you}<span class="you-tag">You</span>{/if}
 							</span>
 							<span class="sub">

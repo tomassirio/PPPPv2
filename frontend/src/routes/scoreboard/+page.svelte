@@ -92,7 +92,7 @@
 						<span class="row">
 							<Avatar user={r.userId} size={44} />
 							<span class="grow">
-								<b class="name">{#if r.userId === session.me?.id}You{:else}<Name user={r.userId} />{/if}</b>
+								<b class="name"><Name user={r.userId} colored label={r.userId === session.me?.id ? 'You' : undefined} /></b>
 								<span class="row xs">
 									{#if v}<span class="chip g-{v}"><span class="cart-dot"></span>{v}</span>{/if}
 									<span class="muted">{r.badges} badges · {r.caught} caught</span>
@@ -121,7 +121,7 @@
 						<span class="row">
 							<Avatar user={r.userId} />
 							<span class="grow">
-								<b class="name"><Name user={r.userId} /></b>
+								<b class="name"><Name user={r.userId} colored /></b>
 								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}</span>
 							</span>
 						</span>
