@@ -294,4 +294,23 @@ class LinkApiTest {
             ReflectionTestUtils.setField(link, "strandedLimit", Duration.ofSeconds(60));
         }
     }
+
+    /** Before the Mystery Egg is back with Elm the receptionists turn a player away: no ready, no offers either way. */
+    @Test
+    void noLinkUntilTheCableClubIsOpen() throws Exception {
+        var real = ReflectionTestUtils.getField(link, "tracker");
+        var club = org.mockito.Mockito.mock(dev.pppp.service.game.ProgressTracker.class);
+        org.mockito.Mockito.when(club.cableClubOpen(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+        org.mockito.Mockito.when(club.cableClubOpen(SAM)).thenReturn(false);
+        ReflectionTestUtils.setField(link, "tracker", club);
+        try {
+            ready(SAM, "TRADE").andExpect(status().isConflict());
+            as(ASH, post("/api/v1/link/challenges"), "{\"userId\":\"" + SAM + "\",\"kind\":\"BATTLE\"}")
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.detail").value("sam's Cable Club isn't open yet"));
+            ready(ASH, "BATTLE").andExpect(status().isOk());
+        } finally {
+            ReflectionTestUtils.setField(link, "tracker", real);
+        }
+    }
 }

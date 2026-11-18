@@ -6,7 +6,7 @@
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { on, onOpen } from '#lib/events.ts';
 	import { act, left, link, verb, watchLink } from '#lib/link.svelte.ts';
-	import { playerStatus, versionOf, winRate } from '#lib/play.ts';
+	import { clubClosed, playerStatus, versionOf, winRate } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -38,6 +38,7 @@
 	const busy = $derived(!!(link.state?.session || link.state?.outgoing));
 	const outgoing = $derived(link.state?.outgoing ?? null);
 	const rowOf = (id: string) => board.rows.find((r) => r.userId === id);
+	const meClosed = $derived(clubClosed(rowOf(session.me?.id ?? '')));
 </script>
 
 <dialog
@@ -83,10 +84,12 @@
 								{#if row}<span class="muted xs">{row.link?.wins ?? 0}–{row.link?.losses ?? 0}{rate != null ? ` · ${rate}% won` : ''} · {row.link?.trades ?? 0} trades</span>{/if}
 							</span>
 						</a>
-						{#if row}
+						{#if row && clubClosed(row)}
+							<span class="muted xs closed">Cable Club not open yet</span>
+						{:else if row}
 							<div class="offers">
-								<button type="button" class="btn primary" disabled={busy || linked} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'TRADE' })}>Offer trade</button>
-								<button type="button" class="btn" disabled={busy || linked} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'BATTLE' })}>Offer battle</button>
+								<button type="button" class="btn primary" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'TRADE' })}>Offer trade</button>
+								<button type="button" class="btn" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'BATTLE' })}>Offer battle</button>
 							</div>
 						{:else}
 							<span class="muted xs">Hasn't picked a game yet</span>

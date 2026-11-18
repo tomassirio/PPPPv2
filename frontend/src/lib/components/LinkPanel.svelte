@@ -4,12 +4,14 @@
      State lives in link.svelte.ts. -->
 <script lang="ts">
 	import Avatar from '#lib/components/Avatar.svelte';
+	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
 	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, clock, desk, left, link, roomName, since, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
+	import { clubClosed } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 
 	$effect(() => watchLink());
@@ -22,6 +24,8 @@
 	const live = $derived(s?.links.filter((p) => p.a !== me && p.b !== me) ?? []);
 	const rowOf = (user: string) => board.rows.find((r) => r.userId === user);
 	const mine = $derived(me ? rowOf(me)?.link : undefined);
+	// Gold/Silver/Crystal before the Mystery Egg is back with Elm: nothing to link yet.
+	const closed = $derived(me ? clubClosed(rowOf(me)) : false);
 	let finding = $state(false);
 	// Linked up: the finder is done. Left open, it would pop back up the moment the cable is unplugged.
 	$effect(() => {
@@ -80,6 +84,20 @@
 		{/if}
 		<p class="muted">Both consoles run in step until someone unplugs, with no time limit. Closing the browser for a minute unplugs too.</p>
 		<button class="ghost stop" onclick={() => act('DELETE', '/link/session')}>Unplug cable</button>
+	{:else if closed}
+		<div class="head">
+			<h2 id="link-h" class="blue title">
+				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"
+					><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8" /></svg
+				>Link cable
+			</h2>
+			<span class="lock muted xs"
+				><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"
+					><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg
+				>Locked</span
+			>
+		</div>
+		<CableClubLocked step={rowOf(me!)?.cableClub ?? 0} />
 	{:else}
 		<div class="head">
 			<h2 id="link-h" class="blue title">
@@ -423,6 +441,14 @@
 	.watch:focus-visible {
 		outline: 2px solid var(--link);
 		outline-offset: 2px;
+	}
+	.lock {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px 8px;
+		border-radius: 999px;
+		border: 1px solid var(--border);
 	}
 	.error {
 		font-size: 13px;

@@ -11,11 +11,22 @@ import java.util.List;
  * from their last confirmed Gen 2 reading.
  * link: their link-cable record (TrainerLog): battles won/lost (the save's link record), Pokémon received in trades,
  * and how many different Pibs they have linked with.
+ * cableClub: how far a Gold/Silver/Crystal player is towards the Cable Club opening (TrainerCard.cableClub: 3 is
+ * open), -1 for another game (nothing to wait for).
  */
 public record ScoreRow(String userId, int points, int badges, int caught, int seen, String game, boolean online,
                        int trainerScore, String title, String grade, int achievementPoints, int achievementsUnlocked,
                        List<Member> party, String location, String playTime, int johtoBadges, int kantoBadges,
-                       String trainerName, Link link) {
+                       String trainerName, Link link, int cableClub) {
+    /** Without the Cable Club step (unknown: -1). */
+    public ScoreRow(String userId, int points, int badges, int caught, int seen, String game, boolean online,
+                    int trainerScore, String title, String grade, int achievementPoints, int achievementsUnlocked,
+                    List<Member> party, String location, String playTime, int johtoBadges, int kantoBadges,
+                    String trainerName, Link link) {
+        this(userId, points, badges, caught, seen, game, online, trainerScore, title, grade, achievementPoints,
+                achievementsUnlocked, party, location, playTime, johtoBadges, kantoBadges, trainerName, link, -1);
+    }
+
     public record Link(int wins, int losses, int trades, int partners) {
         public static final Link NONE = new Link(0, 0, 0, 0);
 

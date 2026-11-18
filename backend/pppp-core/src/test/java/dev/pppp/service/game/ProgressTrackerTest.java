@@ -415,4 +415,27 @@ class ProgressTrackerTest {
         assertThat(unlockedEvents()).contains("the-silent-summit", "rattata-rules", "low-level");
         assertThat(trainers.get(ASH).story()).isEqualTo(80);
     }
+
+    /** The Cable Club steps from a reading: a starter, then Mr. Pokémon's Mystery Egg, then the egg given to Elm. */
+    @Test
+    void theCableClubOpensOnceElmHasTheMysteryEgg() {
+        assertThat(ProgressTracker.cableClub(club(false))).isZero();
+        assertThat(ProgressTracker.cableClub(club(true))).isEqualTo(1);
+        assertThat(ProgressTracker.cableClub(club(true, Gen2Save.EVENT_GOT_MYSTERY_EGG_FROM_MR_POKEMON))).isEqualTo(2);
+        assertThat(ProgressTracker.cableClub(club(true, Gen2Save.EVENT_GOT_MYSTERY_EGG_FROM_MR_POKEMON,
+                Gen2Save.EVENT_GAVE_MYSTERY_EGG_TO_ELM))).isEqualTo(dev.pppp.model.TrainerCard.CABLE_CLUB_OPEN);
+        // A card saved before the step existed reads 0: a badge or a link record shows the club is open.
+        var old = new dev.pppp.model.TrainerCard(List.of(), null, null, 0, 0, null, null, null, 0);
+        var badge = new dev.pppp.model.TrainerCard(List.of(), null, null, 1, 0, null, null, null, 0);
+        var linked = new dev.pppp.model.TrainerLog(Set.of(), 0, Set.of("misty@x.y"), 1, false, null, 0, 0);
+        assertThat(ProgressTracker.cableClub(old, dev.pppp.model.TrainerLog.EMPTY)).isZero();
+        assertThat(ProgressTracker.cableClub(badge, dev.pppp.model.TrainerLog.EMPTY)).isEqualTo(3);
+        assertThat(ProgressTracker.cableClub(old, linked)).isEqualTo(3);
+    }
+
+    private static Gen2Save club(boolean starter, Integer... flags) {
+        return new Gen2Save(1, 0, 0, 0, false, starter, false, false, new java.util.BitSet(), new java.util.BitSet(), 0,
+                List.of(), Set.of(), 0, 0, 0, 0, 0, 0, null, List.of(), null, true, null, 0, Set.of(), List.of(), 0, 0, 0, 0,
+                Set.of(flags), null, null);
+    }
 }

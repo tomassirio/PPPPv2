@@ -7,6 +7,7 @@ import dev.pppp.model.LinkState.SessionEvent;
 import dev.pppp.model.LiveEvent;
 import dev.pppp.repository.LobbyRepository;
 import dev.pppp.service.game.PokecenterDig;
+import dev.pppp.service.game.ProgressTracker;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -58,14 +59,16 @@ public class LinkService {
     private final LobbyRepository lobby;
     private final PlayerConsoles consoles;
     private final PokecenterDig dig;
+    private final ProgressTracker tracker;
     private final ChatService chat;
     private final ApplicationEventPublisher events;
 
-    public LinkService(LobbyRepository lobby, PlayerConsoles consoles, PokecenterDig dig, ChatService chat,
-                       ApplicationEventPublisher events) {
+    public LinkService(LobbyRepository lobby, PlayerConsoles consoles, PokecenterDig dig, ProgressTracker tracker,
+                       ChatService chat, ApplicationEventPublisher events) {
         this.lobby = lobby;
         this.consoles = consoles;
         this.dig = dig;
+        this.tracker = tracker;
         this.chat = chat;
         this.events = events;
         lobby.clear(); // no console survives a restart, so nobody is ready
@@ -103,6 +106,7 @@ public class LinkService {
         } else {
             if (!KINDS.contains(kind)) throw new IllegalArgumentException("kind must be TRADE or BATTLE");
             if (sessions.containsKey(userId)) throw new IllegalStateException("You are already linked");
+            requireCableClub(userId, userId);
             if (!consoles.isAwake(userId)) throw new IllegalStateException("Open your Game Boy first");
             lobby.put(userId, kind);
             lobbyChanged();
@@ -123,6 +127,8 @@ public class LinkService {
         if (kind == null) throw new IllegalArgumentException("Pick a trade or a battle");
         if (!KINDS.contains(kind)) throw new IllegalArgumentException("kind must be TRADE or BATTLE");
         if (consoles.game(to) == null) throw new IllegalStateException(name(to) + " has not picked a game yet");
+        requireCableClub(from, from);
+        requireCableClub(from, to);
         if (sessions.containsKey(from)) throw new IllegalStateException("You are already linked");
         if (sessions.containsKey(to)) throw new IllegalStateException(name(to) + " is linked with someone else");
         if (challenges.containsKey(to)) throw new IllegalStateException(name(to) + " already has a challenge waiting");
@@ -143,6 +149,8 @@ public class LinkService {
         sweep();
         Challenge c = challenges.get(userId);
         if (c == null) throw new IllegalStateException("No challenge waiting");
+        requireCableClub(userId, userId);
+        requireCableClub(userId, c.from());
         // Either side may have been on another page: both consoles wake up and both browsers go to /play.
         // ponytail: a console woken here with nobody watching only parks when a screen socket closes; add an idle
         // timeout if Pibs accept and never open /play.
@@ -294,6 +302,17 @@ public class LinkService {
 
     private List<Ready> lobbyList() {
         return lobby.all().entrySet().stream().map(e -> new Ready(e.getKey(), e.getValue())).toList();
+    }
+
+    /**
+     * The Cable Club opens once the player gave Elm the Mystery Egg (ProgressTracker.cableClubOpen); before that the
+     * receptionists turn them away, so no link. asking: who is told.
+     */
+    private void requireCableClub(String asking, String userId) {
+        if (tracker.cableClubOpen(userId)) return;
+        throw new IllegalStateException(asking.equals(userId)
+                ? "Your Cable Club isn't open yet: bring Mr. Pokémon's Mystery Egg back to Prof. Elm first"
+                : name(userId) + "'s Cable Club isn't open yet");
     }
 
     private static String name(String userId) {

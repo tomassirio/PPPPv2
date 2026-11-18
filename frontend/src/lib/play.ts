@@ -74,6 +74,9 @@ export const score = (r: Pick<ScoreRow, 'points' | 'achievementPoints'>) => (r.p
 
 export type LinkRecord = { wins: number; losses: number; trades: number; partners: number };
 
+/** True while a player's Cable Club is still closed (no linking until Prof. Elm has the Mystery Egg). */
+export const clubClosed = (r: Pick<ScoreRow, 'cableClub'> | undefined) => r?.cableClub !== undefined && r.cableClub >= 0 && r.cableClub < 3;
+
 /** Percentage of link battles won (0–100), or null before the first battle. */
 export const winRate = (l: LinkRecord | undefined) => {
 	const n = (l?.wins ?? 0) + (l?.losses ?? 0);
@@ -106,6 +109,8 @@ export type ScoreRow = {
 	kantoBadges?: number;
 	/** The name the player typed in the game ("TOMAS"). */
 	trainerName?: string | null;
+	/** Gold/Silver/Crystal: 0-2 the steps towards the Cable Club opening, 3 open; -1 or absent: another game. */
+	cableClub?: number;
 };
 export type MonStatus = 'PSN' | 'PAR' | 'SLP' | 'BRN' | 'FRZ' | 'FNT';
 export type PartyMon = { species: number; level: number; hpPercent?: number; status?: MonStatus | null; shiny?: boolean; egg?: boolean };

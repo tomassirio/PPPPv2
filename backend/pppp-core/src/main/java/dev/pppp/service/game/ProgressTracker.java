@@ -184,14 +184,41 @@ public class ProgressTracker {
      */
     private boolean card(String userId, Gen2Save save) {
         TrainerCard now = new TrainerCard(save.members(), save.location(), PokemonGen2.playTime(save),
-                save.johtoBadges(), save.kantoBadges(), save.trainerName(), save.pin(), save.spot());
+                save.johtoBadges(), save.kantoBadges(), save.trainerName(), save.pin(), save.spot(), cableClub(save));
         TrainerCard was = cards.computeIfAbsent(userId, repo::card);
         if (now.equals(was)) return false;
         repo.saveCard(userId, now);
         cards.put(userId, now);
         return !members(now).equals(members(was)) || !Objects.equals(now.location(), was.location())
                 || now.johtoBadges() != was.johtoBadges() || now.kantoBadges() != was.kantoBadges()
-                || !Objects.equals(now.trainerName(), was.trainerName());
+                || !Objects.equals(now.trainerName(), was.trainerName()) || now.cableClub() != was.cableClub();
+    }
+
+    /** TrainerCard.cableClub of a reading: the story flags that open the Cable Club, furthest first. */
+    static int cableClub(Gen2Save save) {
+        if (save.flags().contains(Gen2Save.EVENT_GAVE_MYSTERY_EGG_TO_ELM)) return TrainerCard.CABLE_CLUB_OPEN;
+        if (save.flags().contains(Gen2Save.EVENT_GOT_MYSTERY_EGG_FROM_MR_POKEMON)) return 2;
+        return save.gotStarter() ? 1 : 0;
+    }
+
+    /**
+     * Whether the player can use a Cable Club: always for games without one to wait for, and for Gold, Silver and
+     * Crystal once they gave Elm the Mystery Egg (their last confirmed reading, kept while they are away).
+     */
+    public boolean cableClubOpen(String userId) {
+        if (!(profile(userId) instanceof PokemonGen2)) return true;
+        return cableClub(cards.computeIfAbsent(userId, repo::card), logs.computeIfAbsent(userId, repo::log))
+                >= TrainerCard.CABLE_CLUB_OPEN;
+    }
+
+    /**
+     * The card's Cable Club step, or open for a card saved before the step existed (it reads 0) when the player has
+     * a badge (Elm gets the egg before Violet's gym) or ever linked.
+     */
+    static int cableClub(TrainerCard card, TrainerLog log) {
+        boolean shows = card.johtoBadges() != 0 || card.kantoBadges() != 0
+                || log != null && (log.trades() + log.linkWins() + log.linkLosses() > 0);
+        return shows ? TrainerCard.CABLE_CLUB_OPEN : card.cableClub();
     }
 
     private static List<ScoreRow.Member> members(TrainerCard card) {
@@ -489,7 +516,7 @@ public class ProgressTracker {
             rows.add(new ScoreRow(userId, points(p) + linkPoints, p.badges().size(), p.caught().size(), p.seen().size(),
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
                     a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges(), c.trainerName(),
-                    ScoreRow.Link.of(log)));
+                    ScoreRow.Link.of(log), profile(userId) instanceof PokemonGen2 ? cableClub(c, log) : -1));
         }
         // Ranked by the uncapped total (activity points + achievement points); the capped Trainer Score order of
         // pibs:scoreboard breaks ties (the sort is stable).

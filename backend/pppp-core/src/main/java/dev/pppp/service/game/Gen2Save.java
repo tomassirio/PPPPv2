@@ -134,14 +134,17 @@ public record Gen2Save(int playerId, int johtoBadges, int kantoBadges, int hallO
     /**
      * Event flags the achievements read (constants/event_flags.asm, the same numbers in pokegold and pokecrystal):
      * the egg from Elm's aide, the Route 36 tree and Vermilion's Snorlax fought, Kanto's power back, Kiyo's
-     * Tyrogue, and the seven weekday siblings' gifts (Monica to Sunny).
+     * Tyrogue, the seven weekday siblings' gifts (Monica to Sunny), and the Mystery Egg (got from Mr. Pokémon, given
+     * to Elm: the Cable Club opens).
      */
     static final int EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE = 45, EVENT_FOUGHT_SUDOWOODO = 42,
-            EVENT_FOUGHT_SNORLAX = 1872, EVENT_RESTORED_POWER_TO_KANTO = 205, EVENT_GOT_TYROGUE_FROM_KIYO = 97;
+            EVENT_FOUGHT_SNORLAX = 1872, EVENT_RESTORED_POWER_TO_KANTO = 205, EVENT_GOT_TYROGUE_FROM_KIYO = 97,
+            EVENT_GOT_MYSTERY_EGG_FROM_MR_POKEMON = 30, EVENT_GAVE_MYSTERY_EGG_TO_ELM = 31;
     static final int[] SIBLING_GIFTS = {111, 107, 101, 103, 99, 109, 105}; // Monica, Wesley, Tuscany, Arthur, Frieda, Santos, Sunny
     static final Set<Integer> WATCHED_EVENTS = java.util.stream.IntStream.concat(
             java.util.stream.IntStream.of(EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE, EVENT_FOUGHT_SUDOWOODO,
-                    EVENT_FOUGHT_SNORLAX, EVENT_RESTORED_POWER_TO_KANTO, EVENT_GOT_TYROGUE_FROM_KIYO),
+                    EVENT_FOUGHT_SNORLAX, EVENT_RESTORED_POWER_TO_KANTO, EVENT_GOT_TYROGUE_FROM_KIYO,
+                    EVENT_GOT_MYSTERY_EGG_FROM_MR_POKEMON, EVENT_GAVE_MYSTERY_EGG_TO_ELM),
             java.util.Arrays.stream(SIBLING_GIFTS)).boxed().collect(java.util.stream.Collectors.toUnmodifiableSet());
     static final int[] STONES = {FIRE_STONE, WATER_STONE, THUNDERSTONE, LEAF_STONE, MOON_STONE, SUN_STONE};
 
