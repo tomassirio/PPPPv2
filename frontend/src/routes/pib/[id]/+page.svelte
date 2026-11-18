@@ -87,14 +87,25 @@
 	const masks = $derived(row ? badgeMasks(row) : { johto: 0, kanto: 0 });
 	const johto = $derived(bitCount(masks.johto));
 	const achievements = $derived(shownAchievements(profile?.achievements ?? []));
-	// ?ach=<name> (from an activity entry): that achievement is scrolled to and ringed for a moment.
+	// Achievements in pages of two rows: the grid's width says how many fit in a row (180px cards, 10px gaps).
+	let achWidth = $state(0);
+	let achPage = $state(0);
+	const perPage = $derived(Math.max(4, Math.floor((achWidth + 10) / 190) * 2));
+	const achPages = $derived(Math.max(1, Math.ceil(achievements.length / perPage)));
+	const pageAch = $derived(achievements.slice(achPage * perPage, achPage * perPage + perPage));
+	$effect(() => {
+		if (achPage >= achPages) achPage = achPages - 1;
+	});
+	// ?ach=<name> (from an activity entry): that achievement's page, scrolled to and ringed for a moment.
 	const spotlight = $derived(page.url.searchParams.get('ach'));
 	let spotted = $state<string | null>(null);
 	$effect(() => {
 		const want = spotlight;
-		if (!want || !achievements.length) return;
-		const a = achievements.find((x) => x.name === want);
-		if (!a) return;
+		if (!want || !achievements.length || !achWidth) return;
+		const at = achievements.findIndex((x) => x.name === want);
+		if (at < 0) return;
+		const a = achievements[at];
+		achPage = Math.floor(at / perPage);
 		requestAnimationFrame(() => {
 			const el = document.getElementById(`ach-${a.id}`);
 			if (!el) return;
@@ -182,7 +193,7 @@
 		<div class="grid">
 			<div class="col">
 				<section class="card" aria-labelledby="party-h">
-					<div class="between"><h2 id="party-h">Party · {profile.party.length} of 6</h2><span class="muted xs">From {you ? 'your' : `${nameOf(id)}’s`} game</span></div>
+					<div class="between"><h2 id="party-h">Party · {profile.party.length} of 6</h2></div>
 						<ul class="mons">
 							{#each profile.party as m, i (i)}
 								{@const pct = m.maxHp ? Math.round(((m.hp ?? 0) * 100) / m.maxHp) : (row.party?.[i]?.hpPercent ?? null)}
@@ -234,15 +245,25 @@
 				</section>
 
 				<section class="card" aria-labelledby="ach-h">
-					<div class="between"><h2 id="ach-h">Achievements</h2><span class="muted small">{got} of {achievements.length}</span></div>
+					<div class="between">
+						<h2 id="ach-h">Achievements</h2>
+						<span class="pager">
+							<span class="muted small">{got} of {achievements.length}</span>
+							{#if achPages > 1}
+								<button type="button" class="pg" onclick={() => (achPage = Math.max(0, achPage - 1))} disabled={achPage === 0} aria-label="Previous achievements">‹</button>
+								<span class="muted xs" aria-live="polite">{achPage + 1} / {achPages}</span>
+								<button type="button" class="pg" onclick={() => (achPage = Math.min(achPages - 1, achPage + 1))} disabled={achPage >= achPages - 1} aria-label="Next achievements">›</button>
+							{/if}
+						</span>
+					</div>
 					{#if achievements.length}
 						<ul class="legend" aria-label="Rarity tiers">
 							{#each tiers as t (t.rarity)}
 								<li class="r-{t.rarity}"><RarityBall rarity={t.rarity} size={18} /><span class="tier">{t.rarity}</span><span class="muted">{t.got} of {t.of}</span></li>
 							{/each}
 						</ul>
-						<ul class="ach">
-							{#each achievements as a (a.id)}
+						<ul class="ach" bind:clientWidth={achWidth}>
+							{#each pageAch as a (a.id)}
 								{@const pct = progressPct(a)}
 								<li class="ac r-{a.rarity}" class:locked={!a.unlocked} class:spot={spotted === a.id} id="ach-{a.id}">
 									<span title={BALL[a.rarity]}><RarityBall rarity={a.rarity} locked={!a.unlocked} /></span>
@@ -865,6 +886,30 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.pager {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.pg {
+		width: 28px;
+		height: 28px;
+		border-radius: 8px;
+		border: 1px solid var(--border-strong);
+		background: var(--panel);
+		color: var(--text);
+		font-size: 16px;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.pg:disabled {
+		opacity: 0.35;
+		cursor: default;
+	}
+	.pg:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
 	}
 	.ach {
 		display: grid;
