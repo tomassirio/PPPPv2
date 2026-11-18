@@ -259,6 +259,7 @@
 <svelte:window onpointerdowncapture={closeSheetOnOutsideTap} onclickcapture={swallowClosingClick} />
 
 {#if me && myGame && !myGame.game}
+	<AppHeader {me} ownTabs={false} />
 	<GamePicker available={myGame.available} onpicked={(g) => (myGame = { ...myGame!, game: g })} />
 {:else if me && myGame}
 	<div class="page play-root" class:big={bigScreen} style:zoom={uiZoom === 1 ? null : uiZoom} style:--page-h={uiZoom === 1 ? null : `${pageH}px`} style:--plate={currentShell.value.shell} style:--plate-ink={inkFor(currentShell.value.shell)}>

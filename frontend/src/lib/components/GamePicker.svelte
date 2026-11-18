@@ -3,7 +3,6 @@
 	import { api, ApiError } from '#lib/api.ts';
 	import { byPickerOrder, color, cover, cry, titleScreen, type Cartridge } from '#lib/cartridges.ts';
 	import { reveal } from '#lib/theme.svelte.ts';
-	import { logout } from '#lib/session.svelte.ts';
 	import { flushSync } from 'svelte';
 
 	let { available, onpicked }: { available: Cartridge[]; onpicked: (game: string) => void } = $props();
@@ -50,8 +49,6 @@
 			<img class="screen" src={loop} alt="" />
 		</div>
 	{/if}
-	<!-- Signed in already, so the way back to the sign-in screen is signing out. -->
-	<button type="button" class="back" onclick={logout}><span aria-hidden="true">←</span> Sign-in screen</button>
 	<h1 id="pick-title" class="pixel">Pick your game</h1>
 	{#if available.length}
 		<p class="lead">Pokémon Gold, Silver and Crystal trade and battle with each other. Each has Pokémon the others don't, so pick yours and trade for the rest.</p>
@@ -103,39 +100,13 @@
 	.pick {
 		max-width: 1000px;
 		margin: 0 auto;
-		padding: 56px 16px;
+		padding: 32px 16px 56px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 32px;
 		text-align: center;
 		overflow-x: clip;
-	}
-	.back {
-		position: fixed;
-		top: max(16px, env(safe-area-inset-top, 0px));
-		left: max(16px, env(safe-area-inset-left, 0px));
-		z-index: 2;
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 14px;
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		background: color-mix(in srgb, var(--panel) 80%, transparent);
-		backdrop-filter: blur(6px);
-		color: var(--text);
-		font: inherit;
-		font-size: 13px;
-		font-weight: 600;
-		cursor: pointer;
-	}
-	.back span {
-		font-size: 16px;
-		transition: translate 0.15s;
-	}
-	.back:hover span {
-		translate: -3px 0;
 	}
 	h1 {
 		margin: 0;
@@ -196,7 +167,7 @@
 		inset: 0;
 		background: radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--bg) 70%, transparent), color-mix(in srgb, var(--bg) 85%, transparent));
 	}
-	.pick > :not(.backdrop, .back) {
+	.pick > :not(.backdrop) {
 		position: relative;
 		z-index: 1;
 	}

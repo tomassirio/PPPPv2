@@ -11,7 +11,8 @@
 	import banner from '#lib/assets/banner-v2.png';
 	import ppppLogo from '#lib/assets/ppppv2-logo.png';
 
-	let { me }: { me: Me } = $props();
+	// ownTabs: the page has its own tabs on phones, so the nav hides there (/play once a game is picked).
+	let { me, ownTabs }: { me: Me; ownTabs?: boolean } = $props();
 	$effect(() => watchLink());
 
 	const mine = $derived(`/pib/${encodeURIComponent(me.id)}`);
@@ -23,7 +24,7 @@
 	const peer = $derived(link.state?.session?.peer);
 </script>
 
-<header class="app-header" class:on-play={path === '/play'}>
+<header class="app-header" class:on-play={ownTabs ?? path === '/play'}>
 	<div class="brand">
 		<a href="/play" class="home">
 			<img class="logo" src={banner} alt="Pibs&amp;PibettesPlayPokemon V2" width="940" height="113" />
@@ -46,6 +47,10 @@
 
 <style>
 	header {
+		position: relative;
+		z-index: 2; /* above a page's fixed backdrop (the game picker's title screen) */
+		background: color-mix(in srgb, var(--bg) 88%, transparent); /* the page colour: readable over that backdrop */
+		backdrop-filter: blur(6px);
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
