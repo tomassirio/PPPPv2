@@ -8,7 +8,7 @@
 	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
-	import PartyIcons from '#lib/components/PartyIcons.svelte';
+	import PartyIcons, { monLabel } from '#lib/components/PartyIcons.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
 	import { goto } from '$app/navigation';
 	import { flip } from 'svelte/animate';
@@ -93,14 +93,29 @@
 							{#if i === 0}<Crown />{/if}
 							<RankNumber rank={i + 1} total={board.rows.length} medal size={i === 0 ? 52 : 44} />
 						</span>
-						<span class="ring"><Avatar user={r.userId} size={i === 0 ? 76 : 60} /></span>
-						<b class="name"><Name user={r.userId} colored label={r.userId === session.me?.id ? 'You' : undefined} /></b>
-						<span class="row xs meta">
-							{#if v}<span class="chip g-{v}"><span class="cart-dot"></span>{v}</span>{/if}
-							<span class="muted">{r.badges} badges · {r.caught} caught</span>
+						<span class="head">
+							<span class="ring"><Avatar user={r.userId} size={i === 0 ? 68 : 56} /></span>
+							<span class="info">
+								<b class="name"><Name user={r.userId} colored label={r.userId === session.me?.id ? 'You' : undefined} /></b>
+								<span class="row xs meta">
+									{#if v}<span class="chip g-{v}"><span class="cart-dot"></span>{v}</span>{/if}
+									<span class="muted">{r.badges} badges · {r.caught} caught</span>
+								</span>
+								<span class="pts-line"><span class="pts big">{score(r).toLocaleString('en')}</span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
+							</span>
 						</span>
-						<span class="pts-line"><span class="pts big">{score(r).toLocaleString('en')}</span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
-						<PartyIcons party={r.party} size={i === 0 ? 30 : 26} levels hp={false} />
+						<!-- The party on a shelf: six tiles, each member big in hard pixels, hopping now and then. -->
+						<span class="shelf" role="img" aria-label="Party: {r.party?.length ? r.party.map(monLabel).join(', ') : 'empty'}">
+							{#each Array.from({ length: 6 }, (_, k) => r.party?.[k] ?? null) as m, k (k)}
+								<span class="tile" class:empty={!m} class:fnt={m?.status === 'FNT'} style:--d="{k * 0.35}s" title={m ? monLabel(m) : undefined}>
+									{#if m}
+										{#if m.egg}<span class="egg"></span>{:else}<img src="/api/v1/game/icons/{m.species}.png" alt="" loading="lazy" />{/if}
+										{#if m.shiny}<span class="spark">✦</span>{/if}
+										{#if !m.egg}<small class="lv">Lv {m.level}</small>{/if}
+									{/if}
+								</span>
+							{/each}
+						</span>
 					</a>
 				</li>
 			{/each}
@@ -339,9 +354,9 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		gap: 8px;
-		padding: 46px 16px 18px;
+		align-items: stretch;
+		gap: 14px;
+		padding: 40px 16px 16px;
 		margin-top: 34px; /* the medal hangs above the card */
 		text-align: center;
 		color: inherit;
@@ -349,7 +364,7 @@
 		border-radius: 16px;
 	}
 	.p1 .pod {
-		padding: 64px 18px 24px;
+		padding: 52px 18px 20px;
 		margin-top: 52px;
 	}
 	.p2 .pod {
@@ -378,9 +393,111 @@
 		box-shadow: 0 0 18px var(--m-glow);
 		transition: transform 0.2s;
 	}
-	.meta {
+	.head {
+		display: flex;
+		align-items: center;
 		justify-content: center;
+		gap: 14px;
+		min-width: 0;
+	}
+	.info {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+		min-width: 0;
+		text-align: left;
+	}
+	.meta {
 		flex-wrap: wrap;
+	}
+	.shelf {
+		display: grid;
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		gap: 6px;
+		padding: 8px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--m-lo) 10%, var(--sunk));
+		box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.18);
+	}
+	.tile {
+		position: relative;
+		aspect-ratio: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 10px;
+		background: radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--m-hi) 22%, transparent), transparent 70%), var(--panel);
+		border: 1px solid color-mix(in srgb, var(--m-hi) 35%, var(--border));
+	}
+	.tile.empty {
+		background: none;
+		border: 1px dashed var(--border-strong);
+		opacity: 0.6;
+	}
+	.tile img {
+		width: 72%;
+		height: 72%;
+		image-rendering: pixelated;
+		filter: drop-shadow(0 3px 0 rgb(0 0 0 / 0.25));
+		animation: hop 3.2s ease-in-out var(--d) infinite;
+	}
+	.tile.fnt img {
+		filter: grayscale(1);
+		opacity: 0.5;
+		animation: none;
+	}
+	.tile .egg {
+		width: 40%;
+		height: 50%;
+		border-radius: 50% 50% 46% 46% / 58% 58% 42% 42%;
+		background: #f3ead2;
+		border: 2px solid #2b2b2b;
+	}
+	@keyframes hop {
+		0%,
+		70%,
+		100% {
+			transform: none;
+		}
+		78% {
+			transform: translateY(-14%);
+		}
+		86% {
+			transform: none;
+		}
+		92% {
+			transform: translateY(-5%);
+		}
+	}
+	.spark {
+		position: absolute;
+		top: 2px;
+		right: 4px;
+		font-size: 11px;
+		color: #ffd84a;
+		text-shadow: 0 0 6px rgb(255 216 74 / 0.8);
+	}
+	.lv {
+		position: absolute;
+		bottom: -6px;
+		left: 50%;
+		translate: -50% 0;
+		padding: 0 5px;
+		border-radius: 999px;
+		font-size: 9.5px;
+		font-weight: 700;
+		line-height: 14px;
+		white-space: nowrap;
+		color: var(--text);
+		background: var(--panel);
+		border: 1px solid color-mix(in srgb, var(--m-hi) 45%, var(--border));
+		font-variant-numeric: tabular-nums;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tile img {
+			animation: none;
+		}
 	}
 	.pts-line {
 		display: inline-flex;

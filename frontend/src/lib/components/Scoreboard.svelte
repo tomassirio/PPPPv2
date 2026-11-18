@@ -81,8 +81,11 @@
 		min-height: 0;
 		overflow: hidden;
 	}
+	/* Room for the rows' -10px sides (and the podium frames) inside the clipping box. */
 	.fit.rows {
 		flex: 0 1 auto;
+		margin: -4px -10px 0;
+		padding: 4px 10px 0;
 	}
 	.fit.latest {
 		flex: 1 1 0;
@@ -136,6 +139,21 @@
 	/* The podium: framed in its metal (.metal-frame, as everywhere the top three show). */
 	.standing.p1 :global(.pib-name) {
 		font-size: 1.06em;
+	}
+	/* In a list the frame stays still apart from its gleam: no glow, no breathing (it would pulse over the row below). */
+	.standing.metal-frame,
+	.standing.metal-frame.metal-gold {
+		box-shadow: none;
+		animation: frame-gleam 5s ease-in-out infinite;
+	}
+	.standing.metal-frame.you {
+		box-shadow: inset 3px 0 0 var(--accent);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.standing.metal-frame,
+		.standing.metal-frame.metal-gold {
+			animation: none;
+		}
 	}
 	.standing.podium:hover {
 		filter: brightness(1.06);
