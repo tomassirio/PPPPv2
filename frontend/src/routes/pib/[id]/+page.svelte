@@ -34,6 +34,7 @@
 		shownAchievements,
 		topLevel,
 		TYPE_COLORS,
+		TIER_NAMES,
 		versionOf,
 		type CatalogueEntry,
 		type Profile,
@@ -229,10 +230,11 @@
 									{#each profile.party as m, i (i)}
 										{@const pct = m.maxHp ? Math.round(((m.hp ?? 0) * 100) / m.maxHp) : (row.party?.[i]?.hpPercent ?? null)}
 										<li
-											class="mcard"
+											class="mcard {m.tier ? `tier-card tier-${m.tier}` : ''}"
 											onpointerenter={m.egg ? undefined : (e) => dexHover.show(m.species, e.currentTarget, { side: 'above', note: monNote(m) })}
 											onpointerleave={() => dexHover.hide()}
 										>
+											{#if m.tier}<span class="tier-tag tier-{m.tier}" title="{TIER_NAMES[m.tier]} tier">{m.tier}</span>{/if}
 											<div class="row">
 												<span class="mon" class:fnt={m.status === 'FNT'}>
 													{#if m.egg}<span class="egg"></span>{:else}<img src="/api/v1/game/icons/{m.species}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
@@ -917,6 +919,7 @@
 		width: min(340px, 100%);
 	}
 	.mcard {
+		--frame-bg: var(--sunk);
 		border: 1px solid var(--border);
 		border-radius: 10px;
 		padding: 12px;

@@ -8,7 +8,7 @@
 	import RunSummary from '#lib/components/RunSummary.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
-	import { hpColor } from '#lib/play.ts';
+	import { hpColor, TIER_NAMES } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 	import DexCard from '#lib/components/DexCard.svelte';
@@ -84,11 +84,13 @@
 		<ul class="cards" aria-label="Your party">
 			{#each party as m, i (i)}
 				{@const n = dexOf(i)}
+				{@const tier = mine?.party?.[i]?.tier}
 				<li
-					class="pslot"
+					class="pslot {tier ? `tier-card tier-${tier}` : ''}"
 					onpointerenter={n ? (e) => hover.show(n, e.currentTarget, { side: 'left', state: 'caught', name: m.name, note: [`Lv ${m.level}`, m.status, m.shiny && 'shiny'].filter(Boolean).join(' · ') }) : undefined}
 					onpointerleave={() => hover.hide()}
 				>
+					{#if tier}<span class="tier-tag tier-{tier}" title="{TIER_NAMES[tier]} tier">{tier}</span>{/if}
 					<span class="mon" class:fnt={m.status === 'FNT'}>
 						{#if !m.egg}<img src="/api/v1/game/icons/{m.icon}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
 						{#if m.shiny}<span class="shiny" title="Shiny">✦</span>{/if}
@@ -246,6 +248,7 @@
 		}
 	}
 	.pslot {
+		--frame-bg: var(--sunk);
 		display: flex;
 		gap: 10px;
 		align-items: center;

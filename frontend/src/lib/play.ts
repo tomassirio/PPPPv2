@@ -113,7 +113,10 @@ export type ScoreRow = {
 	cableClub?: number;
 };
 export type MonStatus = 'PSN' | 'PAR' | 'SLP' | 'BRN' | 'FRZ' | 'FNT';
-export type PartyMon = { species: number; level: number; hpPercent?: number; status?: MonStatus | null; shiny?: boolean; egg?: boolean };
+export type PartyMon = { species: number; level: number; hpPercent?: number; status?: MonStatus | null; shiny?: boolean; egg?: boolean; tier?: Tier | null };
+/** A species' Power Rating tier (PowerRating.java): S box legends, M Mew and Celebi, then A (70) down to F (5). */
+export type Tier = 'S' | 'M' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+export const TIER_NAMES: Record<Tier, string> = { S: 'Legendary', M: 'Mythical', A: 'Elite', B: 'Strong', C: 'Solid', D: 'Fair', E: 'Common', F: 'Weak' };
 export type ScoreEvent = { user: string; type: string; detail: string; points: number; at: number };
 
 /**
@@ -247,6 +250,7 @@ export type ProfileMon = {
 	types: string[];
 	/** Each move's type, lower case, in the order of moves (missing from older data). */
 	moveTypes?: string[] | null;
+	tier?: Tier | null;
 };
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export const RARITIES: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];

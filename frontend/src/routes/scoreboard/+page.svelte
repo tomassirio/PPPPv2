@@ -19,7 +19,7 @@
 	import { page } from '$app/state';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { link, watchLink } from '#lib/link.svelte.ts';
-	import { boardRows, place, playerStatus, versionOf, winRate, type BoardSort, type Version, score } from '#lib/play.ts';
+	import { boardRows, place, playerStatus, versionOf, winRate, TIER_NAMES, type BoardSort, type Version, score } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
@@ -119,7 +119,7 @@
 							{#each Array.from({ length: 6 }, (_, k) => r.party?.[k] ?? null) as m, k (k)}
 								<span
 									role="presentation"
-									class="tile"
+									class="tile {m?.tier ? `tier-card tier-${m.tier}` : ''}"
 									class:empty={!m}
 									class:fnt={m?.status === 'FNT'}
 									style:--d="{k * 0.35}s"
@@ -129,6 +129,7 @@
 									{#if m}
 										{#if m.egg}<span class="egg"></span>{:else}<img src="/api/v1/game/icons/{m.species}.png" alt="" loading="lazy" />{/if}
 										{#if m.shiny}<span class="spark">✦</span>{/if}
+										{#if m.tier}<span class="tier-tag tier-{m.tier}" title="{TIER_NAMES[m.tier]} tier">{m.tier}</span>{/if}
 										{#if !m.egg}<small class="lv">Lv {m.level}</small>{/if}
 									{/if}
 								</span>

@@ -63,25 +63,35 @@
 		display: inline-block;
 		font-variant-numeric: tabular-nums;
 	}
-	/* The podium: metal gradients with a gleam passing every few seconds. */
+	/* The podium: the metal stays put and a band of light passes over it every few seconds. The band is off the
+	   number at both ends of the loop, so the loop has no seam (moving the metal itself jumped at the end). */
+	.gold,
+	.silver,
+	.bronze,
+	.coin {
+		--shine: linear-gradient(100deg, transparent 38%, rgb(255 255 255 / 0.75) 50%, transparent 62%);
+		background-image: var(--shine), var(--metal);
+		background-size: 250% 100%, 100% 100%;
+		background-repeat: no-repeat;
+		background-position: 100% 0, 0 0;
+		animation: gleam 5s ease-in-out infinite;
+	}
 	.gold,
 	.silver,
 	.bronze {
-		background-size: 250% 100%;
 		-webkit-background-clip: text;
 		background-clip: text;
 		color: transparent;
-		animation: gleam 5s ease-in-out infinite;
 		filter: drop-shadow(0 1px 0 rgb(0 0 0 / 0.25));
 	}
 	.gold {
-		background-image: linear-gradient(100deg, #b8860b 0%, #f7d774 35%, #fff6c9 45%, #f7d774 55%, #b8860b 100%);
+		--metal: linear-gradient(100deg, #b8860b, #f7d774 40%, #f7d774 60%, #b8860b);
 	}
 	.silver {
-		background-image: linear-gradient(100deg, #7d8790 0%, #d9dfe5 35%, #ffffff 45%, #d9dfe5 55%, #7d8790 100%);
+		--metal: linear-gradient(100deg, #7d8790, #d9dfe5 40%, #d9dfe5 60%, #7d8790);
 	}
 	.bronze {
-		background-image: linear-gradient(100deg, #8a4b22 0%, #d8935a 35%, #f6c79a 45%, #d8935a 55%, #8a4b22 100%);
+		--metal: linear-gradient(100deg, #8a4b22, #d8935a 40%, #d8935a 60%, #8a4b22);
 	}
 	/* Medals: a struck coin of the metal (rim, face, the number pressed in), the gleam passing over it; big ones hang
 	   from a ribbon (red for gold, blue for silver, green for bronze). */
@@ -125,8 +135,6 @@
 		font-size: calc(var(--s) * 0.48);
 		color: rgb(40 28 6 / 0.85);
 		text-shadow: 0 1px 0 rgb(255 255 255 / 0.45);
-		background-size: 250% 100%;
-		animation: gleam 5s ease-in-out infinite;
 		box-shadow:
 			inset 0 0 0 calc(var(--s) * 0.08) rgb(0 0 0 / 0.12),
 			inset 0 calc(var(--s) * -0.08) 0 rgb(0 0 0 / 0.2),
@@ -134,14 +142,14 @@
 			0 calc(var(--s) * 0.08) calc(var(--s) * 0.22) rgb(0 0 0 / 0.35);
 	}
 	.coin.c-gold {
-		background-image: linear-gradient(100deg, #b8860b 0%, #f7d774 35%, #fff6c9 45%, #f7d774 55%, #b8860b 100%);
+		--metal: radial-gradient(circle at 35% 30%, #fff6c9, #f7d774 35%, #d9a520 70%, #b8860b);
 	}
 	.coin.c-silver {
-		background-image: linear-gradient(100deg, #7d8790 0%, #e1e6eb 35%, #ffffff 45%, #e1e6eb 55%, #7d8790 100%);
+		--metal: radial-gradient(circle at 35% 30%, #ffffff, #e1e6eb 35%, #b3bcc4 70%, #7d8790);
 		color: rgb(30 36 42 / 0.85);
 	}
 	.coin.c-bronze {
-		background-image: linear-gradient(100deg, #8a4b22 0%, #dc9a62 35%, #f6c79a 45%, #dc9a62 55%, #8a4b22 100%);
+		--metal: radial-gradient(circle at 35% 30%, #f6c79a, #dc9a62 35%, #b06a35 70%, #8a4b22);
 		color: rgb(46 23 8 / 0.85);
 	}
 	.coin span {
@@ -157,11 +165,11 @@
 	}
 	@keyframes gleam {
 		0%,
-		60% {
-			background-position: 100% 0;
+		55% {
+			background-position: 100% 0, 0 0;
 		}
 		100% {
-			background-position: 0% 0;
+			background-position: 0% 0, 0 0;
 		}
 	}
 

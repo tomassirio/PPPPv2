@@ -36,7 +36,16 @@ public record ScoreRow(String userId, int points, int badges, int caught, int se
     }
 
     /** species: national Pokédex number; hpPercent 0-100 (above 0 while any HP is left); status as PartyMon's. */
-    public record Member(int species, int level, int hpPercent, String status, boolean shiny, boolean egg) {
+    /** tier: the species' Power Rating tier (PowerRating#tier), always from the species; null for an egg. */
+    public record Member(int species, int level, int hpPercent, String status, boolean shiny, boolean egg, String tier) {
+        public Member {
+            tier = egg ? null : dev.pppp.service.game.PowerRating.tier(species);
+        }
+
+        public Member(int species, int level, int hpPercent, String status, boolean shiny, boolean egg) {
+            this(species, level, hpPercent, status, shiny, egg, null);
+        }
+
         public static Member of(PartyMon m) {
             int pct = m.maxHp() <= 0 ? 0 : Math.min(100, (m.hp() * 100 + m.maxHp() - 1) / m.maxHp());
             return new Member(m.species(), m.level(), pct, m.status(), m.shiny(), m.egg());

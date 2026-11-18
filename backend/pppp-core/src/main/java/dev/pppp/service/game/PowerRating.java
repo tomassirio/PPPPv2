@@ -7,7 +7,7 @@ package dev.pppp.service.game;
  * Checked against the base stats in the Crystal ROM (pret BaseData): every tier B-F species fits its BST band
  * except Alakazam (BST 490, listed in B).
  */
-final class PowerRating {
+public final class PowerRating {
     private PowerRating() {}
 
     static final int TOTAL_WITHOUT_MYTHICALS = 6020;
@@ -34,6 +34,24 @@ final class PowerRating {
                 190, 201, 209, 216, 223, 225, 228, 231, 238, 239, 240, 246); // E: 300-379
         tier(5, 10, 11, 13, 14, 16, 19, 21, 23, 29, 32, 37, 39, 41, 46, 50, 52, 116, 129, 132, 161, 163, 165, 167, 172,
                 173, 174, 175, 179, 183, 187, 191, 194, 204, 218, 220, 235, 236); // F: under 300
+    }
+
+    /**
+     * The species' tier letter from its PR: S (box legends), M (Mew, Celebi), A 70, B 45, C 30, D 20, E 10, F 5;
+     * null outside 1..251.
+     */
+    public static String tier(int dex) {
+        if (dex == 151 || dex == 251) return "M";
+        return switch (of(dex)) {
+            case 100 -> "S";
+            case 70 -> "A";
+            case 45 -> "B";
+            case 30 -> "C";
+            case 20 -> "D";
+            case 10 -> "E";
+            case 5 -> "F";
+            default -> null;
+        };
     }
 
     /** The species' PR; 0 outside 1..251. */
