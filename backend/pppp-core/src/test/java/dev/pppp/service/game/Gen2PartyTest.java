@@ -29,6 +29,11 @@ class Gen2PartyTest {
             g.status(0, 0x08);
             g.item(0, LEFTOVERS);
             g.moves(0, SURF, EARTHQUAKE);
+            int moves = at == Gen2Ram.CRYSTAL ? 0x10 * 0x4000 + 0x5AFB - 0x4000 : 0x10 * 0x4000 + 0x5AFE - 0x4000;
+            for (int[] m : new int[][] {{SURF, Gen2Ram.WATER}, {EARTHQUAKE, GROUND}}) { // Moves: animation (= id), .., type
+                g.rom[moves + (m[0] - 1) * 7] = (byte) m[0];
+                g.rom[moves + (m[0] - 1) * 7 + 3] = (byte) m[1];
+            }
             g.egg(1, TOGEPI);
             g.nickname(1, "EGG");
             g.mon(2, FERALIGATR, 50, Gen2Ram.PLAYER_ID);
@@ -46,10 +51,11 @@ class Gen2PartyTest {
 
             assertThat(save.members()).as(at.header()).containsExactly(
                     new PartyMon(QUAGSIRE, "Quagsire", "MUDDY", 34, 30, 91, "PSN", "Leftovers",
-                            List.of("Surf", "Earthquake"), true, false, List.of("water", "ground")),
-                    new PartyMon(TOGEPI, "Egg", null, 1, 12, 12, null, null, List.of(), false, true, List.of()),
+                            List.of("Surf", "Earthquake"), true, false, List.of("water", "ground"),
+                            List.of("water", "ground")),
+                    new PartyMon(TOGEPI, "Egg", null, 1, 12, 12, null, null, List.of(), false, true, List.of(), List.of()),
                     new PartyMon(FERALIGATR, "Feraligatr", null, 50, 0, 150, "FNT", null, List.of(), false, false,
-                            List.of("water")));
+                            List.of("water"), List.of()));
             assertThat(save.location()).isEqualTo("Ecruteak City · Pokémon Center");
             assertThat(save.map()).isEqualTo("ECRUTEAK_POKECENTER_1F");
             assertThat(save.trainerName()).isEqualTo("KRIS");

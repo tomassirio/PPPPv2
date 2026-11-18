@@ -46,12 +46,12 @@ class GameController {
     }
 
     /**
-     * Pokédex number n as the caller's own Pokédex shows it (unseen: the number only; seen: more; caught: all); with
-     * of, as that Pib's Pokédex shows it (hovering their party on the scoreboard).
+     * Pokédex number n as the caller's own Pokédex shows it (unseen: the number only; seen: more; caught: all), also
+     * when hovering someone else's Pokémon: you learn only what your own Pokédex knows.
      */
     @GetMapping("/game/dex/{n}")
-    dev.pppp.model.PokedexEntry dex(@PathVariable int n, @RequestParam(required = false) String of, Authentication auth) {
-        var entry = tracker.dex(of == null || of.isBlank() ? CurrentUser.id(auth) : of.toLowerCase(), n);
+    dev.pppp.model.PokedexEntry dex(@PathVariable int n, Authentication auth) {
+        var entry = tracker.dex(CurrentUser.id(auth), n);
         if (entry == null) throw new NotFoundException("No Pokédex entry " + n);
         return entry;
     }

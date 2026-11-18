@@ -8,7 +8,7 @@
 	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
-	import PartyIcons, { monLabel, monNote, speciesName } from '#lib/components/PartyIcons.svelte';
+	import PartyIcons, { monLabel, monNote } from '#lib/components/PartyIcons.svelte';
 	import DexCard from '#lib/components/DexCard.svelte';
 	import { DexHover } from '#lib/dexhover.svelte.ts';
 	import SubPage from '#lib/components/SubPage.svelte';
@@ -105,6 +105,13 @@
 									<span class="muted">{r.badges} badges · {r.caught} caught</span>
 								</span>
 								<span class="pts-line"><span class="pts big">{score(r).toLocaleString('en')}</span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
+								<span class="record" title="Link battles won and lost">
+									<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"
+										><path d="M9 15l6-6M10 6l1-1a5 5 0 0 1 7 7l-1 1M14 18l-1 1a5 5 0 0 1-7-7l1-1" /></svg
+									>
+									<b class="w">{r.link?.wins ?? 0}W</b><b class="l">{r.link?.losses ?? 0}L</b>
+									<span class="pct">{winRate(r.link) ?? 0}% won</span>
+								</span>
 							</span>
 						</span>
 						<!-- The party on a shelf: six tiles, each member big in hard pixels, hopping now and then. -->
@@ -116,7 +123,7 @@
 									class:empty={!m}
 									class:fnt={m?.status === 'FNT'}
 									style:--d="{k * 0.35}s"
-									onpointerenter={m && !m.egg ? (e) => dexHover.show(m.species, e.currentTarget, { of: r.userId, name: speciesName(m.species), note: monNote(m) }) : undefined}
+									onpointerenter={m && !m.egg ? (e) => dexHover.show(m.species, e.currentTarget, { note: monNote(m) }) : undefined}
 									onpointerleave={() => dexHover.hide()}
 								>
 									{#if m}
@@ -153,7 +160,7 @@
 								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}{#if v}<span class="muted">·&nbsp;<span class="ver-{v}">{v}</span></span>{/if}</span>
 							</span>
 						</span>
-						<span><PartyIcons party={r.party} size={30} hp={false} dexOf={r.userId} /></span>
+						<span><PartyIcons party={r.party} size={30} hp={false} dex /></span>
 						<span class="linkcol">
 							<span class="rec pixel"><span class="w">{r.link?.wins ?? 0}</span>–<span class="l">{r.link?.losses ?? 0}</span><span class="sr-only"> link battles won and lost</span></span>
 							<span class="muted xs">{#if winRate(r.link) != null}{winRate(r.link)}% won · {/if}{r.link?.trades ?? 0} {(r.link?.trades ?? 0) === 1 ? 'trade' : 'trades'}</span>
@@ -422,6 +429,28 @@
 	}
 	.meta {
 		flex-wrap: wrap;
+	}
+	.record {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 2px 9px;
+		border-radius: 999px;
+		font-size: 12px;
+		color: var(--muted);
+		background: color-mix(in srgb, var(--m-lo) 12%, var(--sunk));
+		border: 1px solid color-mix(in srgb, var(--m-hi) 30%, var(--border));
+		font-variant-numeric: tabular-nums;
+	}
+	.record .w {
+		color: var(--grass, #3fae4a);
+	}
+	.record .l {
+		color: var(--danger);
+	}
+	.record .pct {
+		font-weight: 600;
+		color: var(--text);
 	}
 	.shelf {
 		display: grid;

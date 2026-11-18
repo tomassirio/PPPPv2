@@ -1,6 +1,7 @@
 // Hovering a Pokémon to see its Pokédex card (DexCard). One DexHover per component: show(n, el, ...) on pointer enter,
-// hide() on leave; render <DexCard {...hover.card} /> while hover.card is set. of: whose Pokédex answers (a Pib's id;
-// none: the viewer's own), GET /game/dex/{n}?of=. Answers are cached per Pokédex, number and key (a new catch asks again).
+// hide() on leave; render <DexCard {...hover.card} /> while hover.card is set. Always the viewer's own Pokédex
+// (GET /game/dex/{n}): someone else's Pokémon shows only what you have seen or caught. Answers are cached per number
+// and key (a new catch asks again).
 import { api } from '#lib/api.ts';
 
 export type DexEntry = {
@@ -30,11 +31,11 @@ export type DexCardState = {
 
 const cache = new Map<string, Promise<DexEntry | null>>();
 
-export function loadDex(n: number, of?: string, key = ''): Promise<DexEntry | null> {
-	const id = `${of ?? ''}:${n}:${key}`;
+export function loadDex(n: number, key = ''): Promise<DexEntry | null> {
+	const id = `${n}:${key}`;
 	let p = cache.get(id);
 	if (!p) {
-		p = api<DexEntry>('GET', `/game/dex/${n}${of ? `?of=${encodeURIComponent(of)}` : ''}`).catch(() => null);
+		p = api<DexEntry>('GET', `/game/dex/${n}`).catch(() => null);
 		cache.set(id, p);
 	}
 	return p;
@@ -46,12 +47,13 @@ export class DexHover {
 
 	/**
 	 * The card for n beside el: side "above" centres it over el, "right"/"left" centre it vertically beside el, kept
-	 * on screen (half: about half the card's height plus a margin). state: what to show before the answer comes.
+	 * on screen (half: about half the card's height plus a margin). state: what to show before the answer comes
+	 * (unseen unless known; no answer, e.g. no game picked yet, keeps it).
 	 */
 	show(
 		n: number,
 		el: HTMLElement,
-		opts: { side?: Side; of?: string; key?: string; state?: DexCardState['state']; name?: string; note?: string } = {}
+		opts: { side?: Side; key?: string; state?: DexCardState['state']; name?: string; note?: string } = {}
 	) {
 		clearTimeout(this.#timer);
 		const r = el.getBoundingClientRect();
@@ -67,20 +69,20 @@ export class DexHover {
 			x = side === 'right' ? r.right + 10 : r.left - 10;
 			y = Math.min(Math.max(half, r.top + r.height / 2), innerHeight - half);
 		}
-		this.#set({ n, x, y, side, zoom, state: opts.state ?? 'caught', entry: null, name: opts.name, note: opts.note }, opts);
+		this.#set({ n, x, y, side, zoom, state: opts.state ?? 'unseen', entry: null, name: opts.name, note: opts.note }, opts);
 	}
 
-	#beside(n: number, r: DOMRect, zoom: number, opts: { of?: string; key?: string; state?: DexCardState['state']; name?: string; note?: string }) {
+	#beside(n: number, r: DOMRect, zoom: number, opts: { key?: string; state?: DexCardState['state']; name?: string; note?: string }) {
 		const right = r.right + 320 * zoom < innerWidth;
 		const half = 130 * zoom;
 		const y = Math.min(Math.max(half, r.top + r.height / 2), innerHeight - half);
-		this.#set({ n, x: right ? r.right + 10 : r.left - 10, y, side: right ? 'right' : 'left', zoom, state: opts.state ?? 'caught', entry: null, name: opts.name, note: opts.note }, opts);
+		this.#set({ n, x: right ? r.right + 10 : r.left - 10, y, side: right ? 'right' : 'left', zoom, state: opts.state ?? 'unseen', entry: null, name: opts.name, note: opts.note }, opts);
 	}
 
-	#set(card: DexCardState, opts: { of?: string; key?: string }) {
+	#set(card: DexCardState, opts: { key?: string }) {
 		const same = this.card?.n === card.n;
 		this.card = { ...card, entry: same ? (this.card?.entry ?? null) : null };
-		loadDex(card.n, opts.of, opts.key).then((entry) => {
+		loadDex(card.n, opts.key).then((entry) => {
 			if (this.card?.n === card.n) this.card = { ...this.card, entry, state: entry?.state ?? this.card.state };
 		});
 	}

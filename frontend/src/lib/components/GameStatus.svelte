@@ -11,6 +11,8 @@
 	import { hpColor } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
+	import DexCard from '#lib/components/DexCard.svelte';
+	import { DexHover } from '#lib/dexhover.svelte.ts';
 
 	const badgeArt = import.meta.glob('../assets/badges/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 	const art = (name: string, i: number) => badgeArt[`../assets/badges/${name.toLowerCase()}.png`] ?? `/api/v1/game/badges/${i}.png`;
@@ -42,6 +44,9 @@
 	);
 	// One shape for both sources: Pokémon Red's party box (names, HP) or the scoreboard row's party (Gen 2).
 	type Card = { icon: number; name: string; sub: string; level: number; hp: number | null; status: string | null; shiny: boolean; egg: boolean };
+	const hover = new DexHover(); // hovering a member: its Pokédex card
+	// The member's Pokédex number: the scoreboard row's species (Gen 2), by slot.
+	const dexOf = (i: number) => (mine?.party?.[i] && !mine.party[i].egg ? mine.party[i].species : null);
 	const party = $derived<Card[]>(
 		summary?.party.length
 			? summary.party.map((m) => ({
@@ -78,7 +83,12 @@
 	{#if party.length || mine}
 		<ul class="cards" aria-label="Your party">
 			{#each party as m, i (i)}
-				<li class="pslot">
+				{@const n = dexOf(i)}
+				<li
+					class="pslot"
+					onpointerenter={n ? (e) => hover.show(n, e.currentTarget, { side: 'left', state: 'caught', name: m.name, note: [`Lv ${m.level}`, m.status, m.shiny && 'shiny'].filter(Boolean).join(' · ') }) : undefined}
+					onpointerleave={() => hover.hide()}
+				>
 					<span class="mon" class:fnt={m.status === 'FNT'}>
 						{#if !m.egg}<img src="/api/v1/game/icons/{m.icon}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
 						{#if m.shiny}<span class="shiny" title="Shiny">✦</span>{/if}
@@ -100,6 +110,7 @@
 				<li class="pslot empty" aria-hidden="true"><span class="mon"></span><span class="xs muted">Empty</span></li>
 			{/each}
 		</ul>
+		{#if hover.card}<DexCard {...hover.card} />{/if}
 	{/if}
 	{#if summary}
 		{#each rows as row, r (row.label)}

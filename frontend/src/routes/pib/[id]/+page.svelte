@@ -14,6 +14,9 @@
 	import SubPage from '#lib/components/SubPage.svelte';
 	import TrainerPicker from '#lib/components/TrainerPicker.svelte';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
+	import DexCard from '#lib/components/DexCard.svelte';
+	import LocationMap from '#lib/components/LocationMap.svelte';
+	import { DexHover } from '#lib/dexhover.svelte.ts';
 	import { api } from '#lib/api.ts';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { on } from '#lib/events.ts';
@@ -152,6 +155,9 @@
 	const badgeArt = import.meta.glob('../../../lib/assets/badges/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 	const art = (name: string, i: number) => badgeArt[`../../../lib/assets/badges/${name.toLowerCase()}.png`] ?? `/api/v1/game/badges/${i}.png`;
 	let broken = $state<Record<string, boolean>>({});
+	const dexHover = new DexHover(); // hovering a party member: its Pokédex card, as far as the viewer's Pokédex knows it
+	const monNote = (m: { level: number; status: string | null; shiny: boolean }) =>
+		[`Lv ${m.level}`, m.status, m.shiny && 'shiny'].filter(Boolean).join(' · ');
 </script>
 
 <svelte:head><title>{you ? 'Your profile' : nameOf(id)} · Pibs&amp;PibettesPlayPokemonV2</title></svelte:head>
@@ -187,11 +193,13 @@
 						{#if version}<span class="chip g-{version}"><span class="cart-dot"></span>{version}</span>{/if}
 						<span class="chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
 						{#if row.location}
-							<span class="row tight"
-								><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true" class="pin"
-									><path d="M10 1a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 10 4.5a2.5 2.5 0 0 1 0 5z" /></svg
-								><b>{row.location}</b></span
-							>
+							<LocationMap spot={profile.spot} label={row.location}>
+								<span class="row tight"
+									><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true" class="pin"
+										><path d="M10 1a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 10 4.5a2.5 2.5 0 0 1 0 5z" /></svg
+									><b class="loc">{row.location}</b></span
+								>
+							</LocationMap>
 						{/if}
 						{#if row.playTime ?? profile.stats.playTime}<span class="muted">· playtime {row.playTime ?? profile.stats.playTime}</span>{/if}
 					</div>
@@ -220,7 +228,11 @@
 								<ul class="mons">
 									{#each profile.party as m, i (i)}
 										{@const pct = m.maxHp ? Math.round(((m.hp ?? 0) * 100) / m.maxHp) : (row.party?.[i]?.hpPercent ?? null)}
-										<li class="mcard">
+										<li
+											class="mcard"
+											onpointerenter={m.egg ? undefined : (e) => dexHover.show(m.species, e.currentTarget, { side: 'above', note: monNote(m) })}
+											onpointerleave={() => dexHover.hide()}
+										>
 											<div class="row">
 												<span class="mon" class:fnt={m.status === 'FNT'}>
 													{#if m.egg}<span class="egg"></span>{:else}<img src="/api/v1/game/icons/{m.species}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
@@ -255,7 +267,10 @@
 												</div>
 												{#if m.moves.length}
 													<ul class="moves" aria-label="Moves">
-														{#each m.moves as mv, k (k)}<li>{mv}</li>{/each}
+														{#each m.moves as mv, k (k)}
+															{@const t = m.moveTypes?.[k]}
+															<li class:typed={!!t} style:--t={t ? (TYPE_COLORS[t] ?? null) : null} title={t ? `${mv} · ${t}` : mv}>{mv}</li>
+														{/each}
 													</ul>
 												{/if}
 											{/if}
@@ -265,6 +280,7 @@
 										<li class="mcard empty" aria-hidden="true"><div class="row"><span class="mon"></span><span class="muted small">Empty</span></div></li>
 									{/each}
 								</ul>
+								{#if dexHover.card}<DexCard {...dexHover.card} />{/if}
 						</section>
 					</div>
 					<div class="col">
@@ -991,6 +1007,13 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	/* A move in its type's colour: tinted fill, the colour as a left edge. */
+	.moves li.typed {
+		border-color: color-mix(in srgb, var(--t) 55%, var(--border));
+		border-left: 4px solid var(--t);
+		background: color-mix(in srgb, var(--t) 22%, var(--panel));
+		font-weight: 600;
 	}
 	.pager {
 		display: inline-flex;

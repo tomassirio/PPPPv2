@@ -566,7 +566,8 @@ public class ProgressTracker {
                     x.hidden(), x.unlockedAt() != null, progress, goal);
         }).toList();
         return new PlayerProfile(row, card.party(), entries, new PlayerProfile.Stats(row.caught(), row.seen(),
-                card.playTime(), log.trades(), log.linkWins(), log.linkLosses(), List.copyOf(log.partners())), repo.newest(userId, 10));
+                card.playTime(), log.trades(), log.linkWins(), log.linkLosses(), List.copyOf(log.partners())), repo.newest(userId, 10),
+                card.spot());
     }
 
     /** The activity feed, newest first. */
@@ -615,7 +616,7 @@ public class ProgressTracker {
         GameProfile.Dex d = profile == null ? null : profile.dex(n);
         if (d == null) return null;
         GameSummary.Collection c = summary(userId).collection();
-        // A party member is caught by definition: answers for a Pib whose console is asleep (no live Pokédex) too.
+        // Your own party member is caught by definition (answers before your console's first reading too).
         TrainerCard card = cards.computeIfAbsent(userId, repo::card);
         boolean inParty = card != null && card.party() != null && card.party().stream().anyMatch(m -> !m.egg() && m.species() == n);
         boolean caught = inParty || c != null && c.owned().contains(n), seen = caught || c != null && c.seen().contains(n);

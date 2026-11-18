@@ -1,6 +1,6 @@
 <!-- A party as six slots: each member's 16x16 party icon (drawn from the viewer's own ROM, same species numbers) with
      a thin HP bar (hp={false} drops it, as on the scoreboards), greyed out when fainted, a star when shiny; empty slots dashed. levels: "Lv 38" under each.
-     dexOf: whose party it is; hovering a member then shows its Pokédex card from that Pib's Pokédex. -->
+     dex: hovering a member shows its Pokédex card, as far as the viewer's own Pokédex knows it. -->
 <script module lang="ts">
 	import { game } from '#lib/game.svelte.ts';
 	import type { PartyMon } from '#lib/play.ts';
@@ -27,8 +27,8 @@
 		size = 24,
 		levels = false,
 		hp = true,
-		dexOf
-	}: { party?: PartyMon[]; size?: number; levels?: boolean; hp?: boolean; dexOf?: string } = $props();
+		dex = false
+	}: { party?: PartyMon[]; size?: number; levels?: boolean; hp?: boolean; dex?: boolean } = $props();
 	const hover = new DexHover();
 	$effect(() => watchGame()); // species names for the labels
 	const slots = $derived([...party.slice(0, 6), ...Array(Math.max(0, 6 - party.length)).fill(null)] as (PartyMon | null)[]);
@@ -42,9 +42,9 @@
 					role="presentation"
 					class="mon"
 					class:fnt={m.status === 'FNT'}
-					title={dexOf ? undefined : monLabel(m)}
-					onpointerenter={dexOf && !m.egg ? (e) => hover.show(m.species, e.currentTarget, { of: dexOf, name: speciesName(m.species), note: monNote(m) }) : undefined}
-					onpointerleave={dexOf ? () => hover.hide() : undefined}
+					title={dex ? undefined : monLabel(m)}
+					onpointerenter={dex && !m.egg ? (e) => hover.show(m.species, e.currentTarget, { note: monNote(m) }) : undefined}
+					onpointerleave={dex ? () => hover.hide() : undefined}
 				>
 					{#if m.egg}
 						<span class="egg"></span>

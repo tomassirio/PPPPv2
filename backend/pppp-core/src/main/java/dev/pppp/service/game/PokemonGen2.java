@@ -179,6 +179,13 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     private final String[] names = new String[DEX_SIZE + 1]; // species id = Pokédex number in this generation
     private final int[][] types = new int[DEX_SIZE + 1][]; // {type1, type2}; -1s when the base data did not check out
     private final String[] itemNames, moveNames, landmarkNames; // by id; [0] (none, SPECIAL_MAP) is null
+    /** Each move's type name by move id (null where the ROM's Moves table is not where pret has it). */
+    private final String[] moveTypes = new String[NUM_ATTACKS + 1];
+    /**
+     * Moves (data/moves/moves.asm, bank $10): 7 bytes per move from move 1, animation (= the move id), effect,
+     * power, type, accuracy, PP, effect chance. pokecrystal11.sym 10:5afb, pokegold/pokesilver.sym 10:5afe.
+     */
+    private static final int MOVE_SIZE = 7, MOVE_TYPE = 3;
     /** By wMapGroup, wMapNumber (from 1): the pret map constant, and where the player is ({@link #place}). */
     private final String[][] mapIds, places;
     /** By wMapGroup, wMapNumber: the map's spot on the Pokégear town map, or null (no landmark there). */
@@ -260,6 +267,11 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         }
         itemNames = nameList(rom, at.itemNames, NUM_ITEMS);
         moveNames = nameList(rom, at.moveNames, NUM_ATTACKS);
+        int movesTable = at.crystal ? rom(0x10, 0x5AFB) : rom(0x10, 0x5AFE);
+        for (int m = 1; m <= NUM_ATTACKS; m++) {
+            int entry = movesTable + (m - 1) * MOVE_SIZE;
+            if (entry + MOVE_SIZE <= rom.length && (rom[entry] & 0xFF) == m) moveTypes[m] = typeName(rom[entry + MOVE_TYPE] & 0xFF);
+        }
         landmarkNames = new String[at.numLandmarks];
         for (int i = 1; i < at.numLandmarks && at.landmarks + i * 4 + 4 <= rom.length; i++) {
             int name = rom(at.landmarks / 0x4000, u16le(rom, at.landmarks + i * 4 + 2));
@@ -607,17 +619,20 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     private PartyMon member(Ram ram, int mon, int nick, boolean egg, boolean shiny) {
         int id = ram.u8(mon), hp = ram.u16(mon + MON_HP), item = ram.u8(mon + MON_ITEM);
         String nickname = PokemonRed.text(ram.slice(nick, NAME_LENGTH), 0, NAME_LENGTH);
-        List<String> moves = new ArrayList<>();
+        List<String> moves = new ArrayList<>(), moveTypeNames = new ArrayList<>();
         for (int i = 0; i < NUM_MOVES; i++) {
             int move = ram.u8(mon + MON_MOVES + i);
-            if (move > 0 && move <= NUM_ATTACKS) moves.add(moveNames[move]);
+            if (move > 0 && move <= NUM_ATTACKS) {
+                moves.add(moveNames[move]);
+                moveTypeNames.add(java.util.Objects.requireNonNullElse(moveTypes[move], "normal"));
+            }
         }
         List<String> typeNames = egg ? List.of() : IntStream.of(types[id]).distinct().mapToObj(PokemonGen2::typeName)
                 .filter(java.util.Objects::nonNull).toList();
         return new PartyMon(id, egg ? "Egg" : names[id],
                 egg || nickname.isEmpty() || nickname.equalsIgnoreCase(names[id]) ? null : nickname,
                 ram.u8(mon + MON_LEVEL), hp, ram.u16(mon + MON_MAXHP), egg ? null : status(ram.u8(mon + MON_STATUS), hp),
-                item == 0 ? null : itemNames[item], List.copyOf(moves), shiny, egg, typeNames);
+                item == 0 ? null : itemNames[item], List.copyOf(moves), shiny, egg, typeNames, List.copyOf(moveTypeNames));
     }
 
     /** The status byte (constants/battle_constants.asm: SLP counter in bits 0-2, PSN 3, BRN 4, FRZ 5, PAR 6). */
