@@ -51,6 +51,8 @@
 			clearInterval(tick);
 		};
 	});
+	// Who won, as the game calls them (two Pibs can share a name; their trainers rarely do).
+	const trainer = (user: string) => rowOf(user)?.trainerName || nameOf(user);
 	const winsOf = (user: string) => (!versus ? 0 : user === versus.a ? versus.aWins : versus.bWins);
 </script>
 
@@ -74,7 +76,7 @@
 				>Link record <b class="win">{r?.link?.wins ?? 0}</b>–<b class="loss">{r?.link?.losses ?? 0}</b>{#if rate !== null}{' '}({rate}%){/if}</span
 			>
 		</div>
-		{#if r?.party?.length}<div class="party"><PartyIcons party={r.party} size={28} levels /></div>{/if}
+		{#if r?.party?.length}<div class="party"><PartyIcons party={r.party.slice(0, 6)} size={28} levels /></div>{/if}
 	</div>
 {/snippet}
 
@@ -103,7 +105,7 @@
 					{#if versus?.recent.length}
 						<ol class="recent">
 							{#each versus.recent as e (e.at + e.user)}
-								<li><b>{nameOf(e.user)}</b> won <span class="muted">· {ago(now - e.at)}</span></li>
+								<li>{#if e.user === shown.a}◀ {/if}<b>{trainer(e.user)}</b> won{#if e.user === shown.b}{' '}▶{/if} <span class="muted">· {ago(now - e.at)}</span></li>
 							{/each}
 						</ol>
 					{:else if versus}
@@ -178,9 +180,9 @@
 	}
 	.line {
 		font-size: 13px;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
+	}
+	.party {
+		flex-basis: 100%; /* its own row under the name, so nothing is cut short */
 	}
 	.win {
 		color: var(--grass, #3fae4a);
