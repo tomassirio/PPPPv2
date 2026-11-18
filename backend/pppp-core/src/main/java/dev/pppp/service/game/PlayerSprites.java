@@ -45,7 +45,6 @@ public final class PlayerSprites {
             new Choice("BEAUTY", "Beauty", 0x2A), new Choice("TEACHER", "Teacher", 0x29),
             new Choice("SUPER_NERD", "Super Nerd", 0x2B), new Choice("ROCKER", "Rocker", 0x2C),
             new Choice("POKEFAN_M", "Pokéfan ♂", 0x2D), new Choice("POKEFAN_F", "Pokéfan ♀", 0x2E),
-            new Choice("SWIMMER_GUY", "Swimmer ♂", 0x31), new Choice("SWIMMER_GIRL", "Swimmer ♀", 0x32),
             new Choice("FISHER", "Fisher", 0x3A), new Choice("SCIENTIST", "Scientist", 0x3C),
             new Choice("KIMONO_GIRL", "Kimono Girl", 0x3D), new Choice("SAGE", "Sage", 0x3E),
             new Choice("GENTLEMAN", "Gentleman", 0x40), new Choice("BLACK_BELT", "Black Belt", 0x41),
