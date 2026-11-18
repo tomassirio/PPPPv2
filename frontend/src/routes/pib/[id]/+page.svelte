@@ -87,6 +87,21 @@
 	const masks = $derived(row ? badgeMasks(row) : { johto: 0, kanto: 0 });
 	const johto = $derived(bitCount(masks.johto));
 	const achievements = $derived(shownAchievements(profile?.achievements ?? []));
+	// ?ach=<name> (from an activity entry): that achievement is scrolled to and ringed for a moment.
+	const spotlight = $derived(page.url.searchParams.get('ach'));
+	let spotted = $state<string | null>(null);
+	$effect(() => {
+		const want = spotlight;
+		if (!want || !achievements.length) return;
+		const a = achievements.find((x) => x.name === want);
+		if (!a) return;
+		requestAnimationFrame(() => {
+			const el = document.getElementById(`ach-${a.id}`);
+			if (!el) return;
+			el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+			spotted = a.id;
+		});
+	});
 	const linkAch = $derived(achievements.filter((a) => a.category === 'Link'));
 	// Link record: the profile's stats when the backend has them, else the scoreboard row's.
 	const lr = $derived({
@@ -229,7 +244,7 @@
 						<ul class="ach">
 							{#each achievements as a (a.id)}
 								{@const pct = progressPct(a)}
-								<li class="ac r-{a.rarity}" class:locked={!a.unlocked}>
+								<li class="ac r-{a.rarity}" class:locked={!a.unlocked} class:spot={spotted === a.id} id="ach-{a.id}">
 									<span title={BALL[a.rarity]}><RarityBall rarity={a.rarity} locked={!a.unlocked} /></span>
 									<div class="col tight grow">
 										<b class="small">{a.name}<span class="sr-only">, {a.rarity}, {a.unlocked ? 'unlocked' : 'locked'}</span></b>
@@ -855,6 +870,32 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 		gap: 10px;
+	}
+	/* Reached from an activity entry: a ring of light pulses round the achievement, then stays faintly. */
+	.ac.spot {
+		position: relative;
+		z-index: 1;
+		outline: 2px solid var(--accent-text);
+		outline-offset: 3px;
+		animation: spotlight 1.4s ease-out 3;
+	}
+	@keyframes spotlight {
+		0% {
+			box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+			transform: scale(1);
+		}
+		30% {
+			transform: scale(1.03);
+		}
+		100% {
+			box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent);
+			transform: scale(1);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.ac.spot {
+			animation: none;
+		}
 	}
 	.ac {
 		display: flex;

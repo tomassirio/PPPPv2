@@ -226,7 +226,7 @@
 			<li class:system class:mine={m.user === session.me?.id}>
 				<!-- Name, react and time on one line; the message underneath. System lines keep their text on the first line. -->
 				<div class="head">
-					{#if system}<span class="sr-only">System: </span><span class="text grow">{m.text}</span>{:else}<span class="who grow" style:--name={nameColor(m.user)}><Name user={m.user} /></span>{/if}
+					{#if system}<span class="sr-only">System: </span><span class="text grow">{m.text}</span>{:else}<span class="who grow" style:--name={nameColor(m.user)}><Name user={m.user} link /></span>{/if}
 					{#if m.kind === 'ADMIN'}<span class="tag admin-only">admin only</span>{/if}
 					{#if m.kind !== 'ADMIN'}
 						<button

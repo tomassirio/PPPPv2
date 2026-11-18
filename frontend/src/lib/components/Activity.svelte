@@ -41,7 +41,8 @@
 				<FeedIcon {e} />
 				<span
 					><b><Name user={e.user} link colored label={you ? 'You' : undefined} /></b>
-					{#if e.type === 'LINK_WIN' && e.detail}beat <b><Name user={e.detail} link colored /></b> in a link battle{:else}{activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()}{/if}
+					{#if e.type === 'LINK_WIN' && e.detail}beat <b><Name user={e.detail} link colored /></b> in a link battle{:else if e.type === 'ACHIEVEMENT' && e.detail}unlocked
+						<a class="ach" href="/pib/{encodeURIComponent(e.user)}?ach={encodeURIComponent(e.detail)}">{e.detail}</a>{:else}{activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()}{/if}
 					<span class="muted">· {ago(now - e.at)} · +{e.points}</span></span
 				>
 			</li>
@@ -52,6 +53,21 @@
 {/if}
 
 <style>
+	.ach {
+		color: inherit;
+		font-weight: 600;
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+		text-underline-offset: 2px;
+	}
+	.ach:hover {
+		text-decoration-color: currentColor;
+	}
+	.ach:focus-visible {
+		outline: 2px solid var(--accent-text);
+		outline-offset: 2px;
+		border-radius: 3px;
+	}
 	.feed {
 		margin: 0;
 		padding: 0;
