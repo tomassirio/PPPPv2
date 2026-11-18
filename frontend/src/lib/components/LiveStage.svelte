@@ -11,11 +11,11 @@
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { on } from '#lib/events.ts';
 	import { clock, link, since, watchLink } from '#lib/link.svelte.ts';
-	import { ago, badgeMasks, bitCount, hpColor, TYPE_COLORS, versionOf, winRate, type ProfileMon, type ScoreEvent } from '#lib/play.ts';
+	import { ago, badgeMasks, bitCount, hpColor, TIER_NAMES, TYPE_COLORS, versionOf, winRate, type ProfileMon, type ScoreEvent, type Tier } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 
 	type Versus = { a: string; b: string; aWins: number; bWins: number; recent: ScoreEvent[] };
-	type Mon = { species: number; label: string; species_: string | null; level: number; hp: number | null; status: string | null; types: string[]; egg: boolean };
+	type Mon = { species: number; label: string; species_: string | null; level: number; hp: number | null; status: string | null; types: string[]; egg: boolean; tier: Tier | null };
 
 	$effect(() => watchLink());
 	$effect(() => watchBoard());
@@ -78,7 +78,8 @@
 				hp: m.maxHp ? Math.round(((m.hp ?? 0) * 100) / m.maxHp) : null,
 				status: m.status,
 				types: m.types ?? [],
-				egg: m.egg
+				egg: m.egg,
+				tier: m.tier ?? null
 			}));
 		}
 		return (rowOf(user)?.party ?? []).map((m) => ({
@@ -89,7 +90,8 @@
 			hp: m.hpPercent ?? null,
 			status: m.status ?? null,
 			types: [],
-			egg: !!m.egg
+			egg: !!m.egg,
+			tier: m.tier ?? null
 		}));
 	}
 	const VERSION_COLOR: Record<string, string> = { Gold: 'var(--cart-gold)', Silver: 'var(--cart-silver)', Crystal: 'var(--cart-crystal)' };
@@ -117,7 +119,8 @@
 	{@const mons = party(user)}
 	<ul class="party {side}" aria-label="{nameOf(user)}'s party">
 		{#each mons as mon, i (i)}
-			<li class:fnt={mon.status === 'FNT' || mon.hp === 0}>
+			<li class="{mon.tier ? `tier-card tier-${mon.tier}` : ''}" class:fnt={mon.status === 'FNT' || mon.hp === 0}>
+				{#if mon.tier}<span class="tier-tag tier-{mon.tier}" title="{TIER_NAMES[mon.tier]} tier">{mon.tier}</span>{/if}
 				<img src="/api/v1/game/icons/{mon.species}.png?of={encodeURIComponent(user)}" alt="" width="40" height="40" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />
 				<div class="mon">
 					<span class="mname"><b>{mon.label}</b><span class="lv">Lv {mon.level}</span></span>
@@ -360,6 +363,8 @@
 		gap: 6px;
 	}
 	.party li {
+		--frame-bg: var(--sunk);
+		position: relative;
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -371,6 +376,11 @@
 	.party.b li {
 		flex-direction: row-reverse;
 		text-align: right;
+	}
+	/* Side b's badge on the outer (left) corner, mirroring side a. */
+	.party.b .tier-tag {
+		right: auto;
+		left: -7px;
 	}
 	.party li.fnt {
 		opacity: 0.45;
