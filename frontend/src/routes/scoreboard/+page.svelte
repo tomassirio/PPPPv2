@@ -115,14 +115,14 @@
 					{@const i = first + j}
 					{@const st = status(r.userId, r.online)}
 					{@const v = versionOf(r.game, board.names)}
-					{@const where = [st.kind === 'linked' ? 'Trade Center' : place(r.location).city, v].filter(Boolean).join(' · ')}
+					{@const where = st.kind === 'linked' ? 'Trade Center' : place(r.location).city}
 					<a class="tr" class:you={r.userId === session.me?.id} href={href(r.userId)} animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={pageRows.length - j}>
 						<span class="rank pixel">{i + 1}</span>
 						<span class="row">
 							<Avatar user={r.userId} />
 							<span class="grow">
 								<b class="name"><Name user={r.userId} colored /></b>
-								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}</span>
+								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}{#if v}<span class="muted">·&nbsp;<span class="ver-{v}">{v}</span></span>{/if}</span>
 							</span>
 						</span>
 						<span><PartyIcons party={r.party} size={30} hp={false} /></span>

@@ -46,7 +46,7 @@
 								{#if you}<span class="you-tag">You</span>{/if}
 							</span>
 							<span class="sub">
-								<span class="status status-{st.kind}">{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted">&nbsp;· {where}</span>{/if}</span>
+								<span class="status status-{st.kind}"><span class="status-dot"></span>{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted">&nbsp;· {where}</span>{/if}</span>
 								{#if r.party?.length}<PartyIcons party={r.party} size={18} hp={false} />{/if}
 							</span>
 						</span>
@@ -185,6 +185,12 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.status .status-dot {
+		width: 7px;
+		height: 7px;
+		margin-right: 5px;
+		vertical-align: 1px;
 	}
 	.score {
 		display: flex;

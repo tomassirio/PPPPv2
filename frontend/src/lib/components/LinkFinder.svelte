@@ -81,7 +81,7 @@
 							<Avatar user={v.id} size={40} />
 							<span class="col">
 								<b><Name user={v.id} /></b>
-								<span class="xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if row?.game}<span class="muted"> · {versionOf(row.game, board.names) ?? ''}</span>{/if}</span>
+								<span class="xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if row?.game && versionOf(row.game, board.names)}{@const ver = versionOf(row.game, board.names)}<span class="muted"> · <span class="ver-{ver}">{ver}</span></span>{/if}</span>
 								{#if row}<span class="muted xs">{row.link?.wins ?? 0}–{row.link?.losses ?? 0}{rate != null ? ` · ${rate}% won` : ''} · {row.link?.trades ?? 0} trades</span>{/if}
 							</span>
 						</a>
