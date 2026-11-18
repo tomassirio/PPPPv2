@@ -3,6 +3,7 @@
      by a column, a page at a time (?page=, from 1; ?size= rows a page, 25 by default). Rows open the Pib's profile.
      Live from board.svelte.ts; paged here, since every row is already on the page for the live updates. -->
 <script lang="ts">
+	import Crown from '#lib/components/Crown.svelte';
 	import RankNumber from '#lib/components/RankNumber.svelte';
 	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
@@ -81,20 +82,17 @@
 
 	{#if rows.length}
 		{#if current === 1}
-		<!-- In the DOM 1, 2, 3 (read in order); on a wide screen placed 2 · 1 · 3, each on its own step. -->
+		<!-- In the DOM 1, 2, 3 (read in order); on a wide screen placed 2 · 1 · 3, #1 standing tallest. -->
 		<ol class="podium" aria-label="Top three">
 			{#each rows.slice(0, 3) as r, i (r.userId)}
 				{@const v = versionOf(r.game, board.names)}
 				{@const metal = ['gold', 'silver', 'bronze'][i]}
 				<li class="spot p{i + 1} metal-{metal}">
-					<a class="pod" href={href(r.userId)}>
-						{#if i === 0}
-							<svg class="crown" viewBox="0 0 24 16" width="34" height="23" aria-hidden="true"
-								><path d="M2 14 L3.5 4 L8.5 9 L12 2 L15.5 9 L20.5 4 L22 14 Z" fill="url(#crown-g)" stroke="#8a6508" stroke-width="1" stroke-linejoin="round" /><defs
-									><linearGradient id="crown-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b0" /><stop offset="1" stop-color="#d9a522" /></linearGradient></defs
-								></svg
-							>
-						{/if}
+					<a class="pod metal-frame" href={href(r.userId)}>
+						<span class="hang" aria-hidden="true">
+							{#if i === 0}<Crown />{/if}
+							<RankNumber rank={i + 1} total={board.rows.length} medal size={i === 0 ? 52 : 44} />
+						</span>
 						<span class="ring"><Avatar user={r.userId} size={i === 0 ? 76 : 60} /></span>
 						<b class="name"><Name user={r.userId} colored label={r.userId === session.me?.id ? 'You' : undefined} /></b>
 						<span class="row xs meta">
@@ -104,7 +102,6 @@
 						<span class="pts-line"><span class="pts big">{score(r).toLocaleString('en')}</span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
 						<PartyIcons party={r.party} size={i === 0 ? 30 : 26} levels hp={false} />
 					</a>
-					<span class="step" aria-hidden="true"><span class="pixel">{i + 1}</span></span>
 				</li>
 			{/each}
 		</ol>
@@ -344,37 +341,19 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 8px;
-		padding: 18px 16px 16px;
+		padding: 46px 16px 18px;
+		margin-top: 34px; /* the medal hangs above the card */
 		text-align: center;
 		color: inherit;
 		text-decoration: none;
-		border-radius: 14px 14px 0 0;
-		border: 1px solid color-mix(in srgb, var(--m-lo) 55%, var(--border));
-		border-bottom: none;
-		background:
-			radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--m-hi) 22%, transparent), transparent 70%),
-			var(--panel);
+		border-radius: 16px;
 	}
 	.p1 .pod {
-		padding-top: 30px;
-		border: 2px solid transparent;
-		border-bottom: none;
-		background:
-			radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--m-hi) 30%, transparent), transparent 70%) padding-box,
-			linear-gradient(var(--panel), var(--panel)) padding-box,
-			linear-gradient(110deg, var(--m-lo), var(--m-hi) 40%, #fff6c9 50%, var(--m-hi) 60%, var(--m-lo)) border-box;
-		background-size: auto, auto, 250% 100%;
-		box-shadow: 0 -6px 30px var(--m-glow);
-		animation: crown-gleam 5s ease-in-out infinite;
+		padding: 64px 18px 24px;
+		margin-top: 52px;
 	}
-	@keyframes crown-gleam {
-		0%,
-		60% {
-			background-position: 0 0, 0 0, 100% 0;
-		}
-		100% {
-			background-position: 0 0, 0 0, 0% 0;
-		}
+	.p2 .pod {
+		margin-bottom: 0;
 	}
 	.pod:hover {
 		color: inherit;
@@ -382,12 +361,14 @@
 	.pod:hover .ring {
 		transform: translateY(-2px);
 	}
-	.crown {
+	.hang {
 		position: absolute;
-		top: -14px;
+		top: 0;
 		left: 50%;
-		translate: -50% 0;
-		filter: drop-shadow(0 2px 4px var(--m-glow));
+		translate: -50% -58%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 	}
 	.ring {
 		display: inline-flex;
@@ -405,28 +386,6 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-	}
-	.step {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 0 0 10px 10px;
-		background: linear-gradient(180deg, var(--m-hi), var(--m-lo));
-		color: rgb(0 0 0 / 0.55);
-		text-shadow: 0 1px 0 rgb(255 255 255 / 0.4);
-		box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.35);
-	}
-	.p1 .step {
-		height: 56px;
-		font-size: 26px;
-	}
-	.p2 .step {
-		height: 38px;
-		font-size: 20px;
-	}
-	.p3 .step {
-		height: 26px;
-		font-size: 16px;
 	}
 	.pod .name {
 		font-size: 16px;
@@ -523,11 +482,7 @@
 			order: 0;
 		}
 	}
-	@media (prefers-reduced-motion: reduce) {
-		.p1 .pod {
-			animation: none;
-		}
-	}
+
 	@media (prefers-reduced-motion: no-preference) {
 		a.tr,
 		.pod {

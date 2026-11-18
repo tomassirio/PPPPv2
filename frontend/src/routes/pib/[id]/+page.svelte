@@ -194,6 +194,7 @@
 				</div>
 			</div>
 			<div class="row numbers wrap">
+				{#if you}<div class="trainer-slot"><TrainerPicker compact /></div>{/if}
 				{#if rank >= 0}<div class="summary-slot"><RunSummary {row} {rank} total={board.rows.length} /></div>{/if}
 			</div>
 		</section>
@@ -206,11 +207,11 @@
 			{/each}
 		</div>
 
-		<div class="panel" role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">
+		<div class="tabpanel" role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">
 			{#if tab === 'overview'}
-				<div class="grid">
+				<div class="grid fill">
 					<div class="col">
-						<section class="card" aria-labelledby="party-h">
+						<section class="card party" aria-labelledby="party-h">
 							<div class="between"><h2 id="party-h">Party · {profile.party.length} of 6</h2></div>
 								<ul class="mons">
 									{#each profile.party as m, i (i)}
@@ -377,7 +378,7 @@
 					{/if}
 				</section>
 			{:else if tab === 'badges'}
-				<div class="grid">
+				<div class="grid badges fill">
 					<div class="col">
 						<section class="card" aria-labelledby="badges-h">
 							<h2 id="badges-h">Badges</h2>
@@ -405,7 +406,7 @@
 						</section>
 					</div>
 					<div class="col">
-						<section class="card" aria-labelledby="stats-h">
+						<section class="card stats" aria-labelledby="stats-h">
 							<h2 id="stats-h">Stats</h2>
 							<dl class="kv">
 								<dt>Pokédex</dt>
@@ -414,9 +415,18 @@
 								<dt>Achievements</dt>
 								<dd>{row.achievementsUnlocked} · {row.achievementPoints} pts</dd>
 								{#if top}<dt>Top Pokémon</dt><dd>{top.nickname || top.name} · Lv {topLevel(profile.party)}</dd>{/if}
+								<dt>Party</dt>
+								<dd>{profile.party.length} of 6</dd>
+								<dt>Badges</dt>
+								<dd>{johto} Johto · {bitCount(masks.kanto)} Kanto</dd>
+								<dt>Link battles</dt>
+								<dd>{lr.wins} won · {lr.losses} lost</dd>
+								<dt>Trades</dt>
+								<dd>{lr.trades}</dd>
+								<dt>Linked with</dt>
+								<dd>{partners.length ? `${partners.length} ${partners.length === 1 ? 'Pib' : 'Pibs'}` : 'Nobody yet'}</dd>
 							</dl>
 						</section>
-						{#if you}<TrainerPicker />{/if}
 					</div>
 				</div>
 			{:else}
@@ -535,6 +545,14 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 20px;
+	}
+	.numbers {
+		align-items: stretch;
+		justify-content: flex-end;
+	}
+	.trainer-slot {
+		display: flex;
+		width: min(300px, 100%);
 	}
 	.no-game {
 		display: flex;
@@ -715,7 +733,7 @@
 		outline: 3px solid var(--accent-text);
 		outline-offset: -3px;
 	}
-	.panel {
+	.tabpanel {
 		min-width: 0;
 	}
 	.grid {
@@ -723,6 +741,26 @@
 		grid-template-columns: minmax(0, 1fr) 360px;
 		gap: 20px;
 		align-items: start;
+	}
+	/* Badges at their size (8 x 64px), the stats taking the rest. */
+	.grid.badges {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
+	/* Overview: the party card runs as tall as the link card, its six slots sharing the height. */
+	.grid.fill {
+		align-items: stretch;
+	}
+	.grid.fill > .col > .card {
+		flex: 1;
+	}
+	.party,
+	.stats {
+		height: 100%;
+		box-sizing: border-box;
+	}
+	.party .mons {
+		flex: 1;
+		grid-auto-rows: 1fr;
 	}
 	.mons {
 		display: grid;
@@ -1054,8 +1092,8 @@
 	}
 	.bdg {
 		display: grid;
-		grid-template-columns: repeat(8, minmax(0, 1fr));
-		gap: 6px;
+		grid-template-columns: repeat(8, minmax(0, 64px));
+		gap: 10px;
 	}
 	.bdg li {
 		aspect-ratio: 1;
@@ -1104,7 +1142,8 @@
 		font-variant-numeric: tabular-nums;
 	}
 	@media (max-width: 1180px) {
-		.grid {
+		.grid,
+		.grid.badges {
 			grid-template-columns: minmax(0, 1fr);
 		}
 	}
