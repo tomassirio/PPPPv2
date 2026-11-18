@@ -1,4 +1,6 @@
 <!-- The player's own live screen: PNG frames from /ws/screen drawn on a 160x144 canvas, scaled with pixelated rendering.
+     watch: another player's id instead: their screen from /ws/watch/{id}, read only, while they are linked (the socket
+     closes with 4404 otherwise, and then it says so and stops trying).
      Other players' ghosts (drawn into the frames by the server) get their name under them, and everyone on screen (the
      player too) gets their chat line above their head for a few seconds, fading out. Text only, never HTML. -->
 <script lang="ts">
@@ -13,12 +15,13 @@
 	const BUBBLE_MS = 5000;
 
 	// `controls` renders at the right of the bezel's status strip (e.g. the sound control); `leading` right after LIVE.
-	let { controls, leading }: { controls?: Snippet; leading?: Snippet } = $props();
+	let { controls, leading, watch }: { controls?: Snippet; leading?: Snippet; watch?: string } = $props();
 
 	let canvas: HTMLCanvasElement;
 	let connected = $state(false);
+	let ended = $state(false); // watching: the player is not (or no longer) linked
 
-	const overlay = $derived(connected ? null : 'Reconnecting…');
+	const overlay = $derived(ended ? 'Not linked' : connected ? null : 'Reconnecting…');
 	// Who is on screen this frame (sprite top left, screen pixels; the player first, then ghosts), and their latest chat line.
 	let ghosts = $state<Ghost[]>([]);
 	let said = $state<Record<string, { id: string; text: string }>>({});
@@ -62,7 +65,7 @@
 
 		function connect() {
 			const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-			ws = new WebSocket(`${proto}://${location.host}/ws/screen`);
+			ws = new WebSocket(`${proto}://${location.host}${watch ? `/ws/watch/${encodeURIComponent(watch)}` : '/ws/screen'}`);
 			ws.binaryType = 'blob';
 			ws.onopen = () => {
 				connected = true;
@@ -77,10 +80,11 @@
 				if (busy) pending = e.data;
 				else draw(e.data);
 			};
-			ws.onclose = () => {
+			ws.onclose = (e) => {
 				connected = false;
 				ghosts = [];
-				if (!stopped) timer = setTimeout(connect, backoff(attempt++));
+				if (watch && e.code === 4404) ended = true;
+				else if (!stopped) timer = setTimeout(connect, backoff(attempt++));
 			};
 		}
 
@@ -97,7 +101,7 @@
 <div class="fit">
 	<div class="bezel">
 		<div class="screen">
-			<canvas bind:this={canvas} width="160" height="144" aria-label="Live game screen"></canvas>
+			<canvas bind:this={canvas} width="160" height="144" aria-label={watch ? `${nameOf(watch)}'s screen` : 'Live game screen'}></canvas>
 			{#if !overlay}
 				{#each ghosts as g (g.user)}
 					{@const left = `${((g.x + 8) / 160) * 100}%`}
@@ -108,7 +112,7 @@
 							</div>
 						{/key}
 					{/if}
-					{#if g.user !== session.me?.id}
+					{#if g.user !== (watch ?? session.me?.id)}
 						<div class="tag below" style:left style:top="{((g.y + 16) / 144) * 100}%" aria-hidden="true">
 							<span class="who" style:color={nameColor(g.user)}>{nameOf(g.user)}</span>
 						</div>

@@ -159,4 +159,51 @@ class ScreenWebSocketTest {
             consoles.idle(pal);
         }
     }
+
+    /** A third Pib watches one end of a running link: frames until the cable comes out, and only then. */
+    @Test
+    void spectatorsWatchALinkedPlayerReadOnly() throws Exception {
+        String pal = "pal@x.y", buddy = "buddy@x.y";
+        consoles.pick(pal, "test");
+        consoles.pick(buddy, "test");
+        try {
+            CompletableFuture<CloseStatus> early = new CompletableFuture<>();
+            watch(pal, new LinkedBlockingQueue<>(), early);
+            assertThat(early.get(5, TimeUnit.SECONDS).getCode()).as("not linked").isEqualTo(4404);
+
+            consoles.open(pal);
+            consoles.open(buddy);
+            link.challenge(buddy, pal, "BATTLE");
+            link.accept(pal);
+            BlockingQueue<byte[]> frames = new LinkedBlockingQueue<>();
+            CompletableFuture<CloseStatus> closed = new CompletableFuture<>();
+            watch(pal, frames, closed);
+            assertThat(frames.poll(5, TimeUnit.SECONDS)).isNotNull().startsWith((byte) 0x89, (byte) 'P', (byte) 'N', (byte) 'G');
+            assertThat(consoles.isAwake("friend@x.y")).as("watching wakes no console of the spectator's").isFalse();
+
+            link.unplug(buddy);
+            assertThat(closed.get(5, TimeUnit.SECONDS).getCode()).isEqualTo(4404);
+        } finally {
+            consoles.idle(pal);
+            consoles.idle(buddy);
+        }
+    }
+
+    private void watch(String user, BlockingQueue<byte[]> frames, CompletableFuture<CloseStatus> closed) throws Exception {
+        WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+        headers.setBasicAuth("Friend@x.y", "pw");
+        new StandardWebSocketClient().execute(new AbstractWebSocketHandler() {
+            @Override
+            protected void handleBinaryMessage(WebSocketSession s, BinaryMessage m) {
+                byte[] b = new byte[m.getPayloadLength()];
+                m.getPayload().get(b);
+                frames.add(b);
+            }
+
+            @Override
+            public void afterConnectionClosed(WebSocketSession s, CloseStatus status) {
+                closed.complete(status);
+            }
+        }, headers, URI.create("ws://localhost:" + port + "/ws/watch/" + user)).get(5, TimeUnit.SECONDS);
+    }
 }

@@ -28,6 +28,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   a link room that does not fit the kind sends LINK_SESSION status ROOM and `Session.wrongRoom/peerWrongRoom`.
   After accepting, arrow keys are locked (`PlayerConsoles.pin`) until the player is inside the right link room or the
   session ends, and the sweep presses A once `PokecenterDig.atReceptionist` (dig done, facing her).
+  Spectators: `/ws/watch/{userId}` (`WatchWebSocketHandler`) streams a linked player's screen, read only, closing 4404
+  when they are not linked; `/watch/{id}` shows both ends, linked from the Link cable card's "Live now".
   `PokecenterDig.patientReceptionist` (a frame hook per console) stretches the receptionist's "Please wait" from 8.5 s
   to about a minute while linked (`LinkWaitTest`).
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs

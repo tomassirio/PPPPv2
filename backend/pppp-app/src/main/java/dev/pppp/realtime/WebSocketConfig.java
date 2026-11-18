@@ -16,10 +16,12 @@ class WebSocketConfig implements WebSocketConfigurer {
     private final AudioWebSocketHandler audio;
     private final InputWebSocketHandler input;
     private final EventPublisher events;
+    private final WatchWebSocketHandler watch;
 
     WebSocketConfig(ScreenWebSocketHandler screen, AudioWebSocketHandler audio, InputWebSocketHandler input, EventPublisher events,
-                    LinkService link) {
+                    WatchWebSocketHandler watch, LinkService link) {
         this.events = events;
+        this.watch = watch;
         link.presence(events::isOnline); // a linked player with no tab open for a minute leaves their session
         this.screen = screen;
         this.audio = audio;
@@ -31,6 +33,7 @@ class WebSocketConfig implements WebSocketConfigurer {
         registry.addHandler(screen, "/ws/screen");
         registry.addHandler(audio, "/ws/audio");
         registry.addHandler(input, "/ws/input");
+        registry.addHandler(watch, "/ws/watch/*"); // a linked player's screen, read only
         // Copies the login session id, so signing out closes the socket.
         registry.addHandler(events, "/ws/events").addInterceptors(new HttpSessionHandshakeInterceptor());
     }

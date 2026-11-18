@@ -18,6 +18,8 @@
 	const me = $derived(session.me?.id);
 	const s = $derived(link.state);
 	const others = $derived(s?.lobby.filter((p) => p.userId !== me) ?? []);
+	// Other Pibs' running links, to spectate.
+	const live = $derived(s?.links.filter((p) => p.a !== me && p.b !== me) ?? []);
 	const rowOf = (user: string) => board.rows.find((r) => r.userId === user);
 	const mine = $derived(me ? rowOf(me)?.link : undefined);
 	let finding = $state(false);
@@ -153,6 +155,24 @@
 				{/each}
 			</ul>
 			<button class="find" onclick={() => (finding = true)}>Find someone else online</button>
+		{/if}
+		{#if live.length}
+			<div class="sub">
+				<span class="label">Live now</span>
+				<span class="muted xs">watch, read only</span>
+			</div>
+			<ul>
+				{#each live as p (p.a)}
+					<li>
+						<Avatar user={p.a} />
+						<div class="who">
+							<b>{nameOf(p.a)} vs {nameOf(p.b)}</b>
+							<span class={p.kind === 'TRADE' ? 'trade' : 'battle'}>{p.kind === 'TRADE' ? 'Trading' : 'Battling'} · {clock(since(p.since))}</span>
+						</div>
+						<a class="small watch" href="/watch/{encodeURIComponent(p.a)}">Watch<span class="sr"> {nameOf(p.a)} and {nameOf(p.b)}</span></a>
+					</li>
+				{/each}
+			</ul>
 		{/if}
 		<LinkFinder bind:open={finding} />
 	{/if}
@@ -391,6 +411,18 @@
 	}
 	.num {
 		font-variant-numeric: tabular-nums;
+	}
+	.watch {
+		padding: 6px 12px;
+		border-radius: 8px;
+		border: 1px solid var(--border-strong);
+		color: var(--text);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.watch:focus-visible {
+		outline: 2px solid var(--link);
+		outline-offset: 2px;
 	}
 	.error {
 		font-size: 13px;
