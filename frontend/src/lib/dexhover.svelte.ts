@@ -3,6 +3,7 @@
 // (GET /game/dex/{n}): someone else's Pokémon shows only what you have seen or caught. Answers are cached per number
 // and key (a new catch asks again).
 import { api } from '#lib/api.ts';
+import type { Tier } from '#lib/play.ts';
 
 export type DexEntry = {
 	number: number;
@@ -14,6 +15,8 @@ export type DexEntry = {
 	heightInches: number | null;
 	weightPounds: number | null;
 	text: string | null;
+	/** Power Rating tier once seen (null while unseen). */
+	tier?: Tier | null;
 };
 
 type Side = 'right' | 'left' | 'above';

@@ -3,7 +3,7 @@
      point (vertically centred), "left" of it, or "above" it (horizontally centred). note: an extra line under the
      name ("Lv 100 · shiny"). The hovering itself: DexHover (dexhover.svelte.ts). -->
 <script lang="ts">
-	import { TYPE_COLORS } from '#lib/play.ts';
+	import { TIER_NAMES, TYPE_COLORS } from '#lib/play.ts';
 	import type { DexEntry } from '#lib/dexhover.svelte.ts';
 
 	let {
@@ -28,6 +28,7 @@
 		note?: string;
 	} = $props();
 
+	const tier = $derived(state !== 'unseen' ? (entry?.tier ?? null) : null);
 	const pad = (k: number) => String(k).padStart(3, '0');
 	const feet = (e: DexEntry) => `${e.heightFeet}′${String(e.heightInches).padStart(2, '0')}″`;
 	const metres = (e: DexEntry) => (((e.heightFeet ?? 0) * 12 + (e.heightInches ?? 0)) * 0.0254).toFixed(1);
@@ -51,7 +52,8 @@
 	</div>
 	{#if note}<div class="note">{note}</div>{/if}
 	<div class="card-body">
-		<div class="pic">
+		<div class="pic {tier ? `tier-card tier-${tier}` : ''}">
+			{#if tier}<span class="tier-tag tier-{tier}">{tier}</span>{/if}
 			{#if state === 'unseen'}
 				<span class="shape" style:--src="url(/api/v1/game/icons/{n}.png)"></span>
 			{:else}
@@ -67,6 +69,10 @@
 					{#each entry.types as t (t)}<span class="type" style:--t={TYPE_COLORS[t] ?? 'var(--border)'}>{t}</span>{/each}
 				{:else}???{/if}
 			</dd>
+			{#if state !== 'unseen' && entry?.tier}
+				<dt>Tier</dt>
+				<dd><span class="tier-name t-{entry.tier}">{entry.tier} · {TIER_NAMES[entry.tier]}</span></dd>
+			{/if}
 			<dt>Height</dt>
 			<dd>{#if state === 'caught' && entry?.heightFeet != null}{feet(entry)} <span class="muted">· {metres(entry)} m</span>{:else}?′??″{/if}</dd>
 			<dt>Weight</dt>
@@ -191,6 +197,40 @@
 	.card:not(.caught) .entry {
 		color: var(--muted);
 		font-style: italic;
+	}
+	/* The picture in its tier's frame (.tier-card in app.css). The card floats over the page, so it keeps its own tag. */
+	.pic.tier-card {
+		--frame-bg: color-mix(in srgb, var(--text) 5%, var(--panel));
+		border: 1px solid transparent;
+	}
+	.pic .tier-tag {
+		top: 4px;
+		right: 4px;
+	}
+	.tier-name {
+		font-weight: 700;
+	}
+	.tier-name.t-S,
+	.tier-name.t-A {
+		color: #c9930f;
+	}
+	.tier-name.t-M {
+		background: linear-gradient(90deg, #ff6fb5, #e0a923, #2fbf71, #3aa7e0, #9b6ad6);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+	.tier-name.t-B {
+		color: #8a959e;
+	}
+	.tier-name.t-C {
+		color: #9b5de5;
+	}
+	.tier-name.t-D {
+		color: #3d8bfd;
+	}
+	.tier-name.t-E {
+		color: #4caf50;
 	}
 	.note {
 		padding: 6px 12px 0;
