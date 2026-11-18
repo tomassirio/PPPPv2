@@ -292,10 +292,24 @@ public class ProgressTracker {
         feed.forEach(e -> events.publishEvent(new LiveEvent("PROGRESS", e)));
     }
 
+    /** Two Pibs' link battles against each other: wins each, and the newest few (LINK_WIN entries: user won, detail lost). */
+    public record Versus(String a, String b, int aWins, int bWins, List<ScoreEvent> recent) {}
+
+    /** a and b's head-to-head, from the LINK_WIN feed entries naming the other (battles before those existed are not in it). */
+    public Versus versus(String a, String b) {
+        List<ScoreEvent> between = repo.newestOfType("LINK_WIN").stream()
+                .filter(e -> e.user().equals(a) && b.equals(e.detail()) || e.user().equals(b) && a.equals(e.detail()))
+                .toList();
+        int aWins = (int) between.stream().filter(e -> e.user().equals(a)).count();
+        return new Versus(a, b, aWins, between.size() - aWins, between.stream().limit(5).toList());
+    }
+
     /**
-     * A LINK_WIN (LINK_WIN points) or LINK_LOSS (0) feed entry per link battle the save's record gained since the last read;
-     * detail: the opponent's user id (on the cable now, else the last one there, else their only partner ever), or
-     * "" when unknown. At most a few per read, so an old save's first read does not flood the feed.
+     * A LINK_WIN feed entry (LINK_WIN points) per link battle the save's record gained since the last read: one entry per
+     * battle, the winner's, naming the loser; losses only count in the record (the loser's game reports them too, and
+     * two entries for one battle read twice in the feed). detail: the opponent's user id (on the cable now, else the
+     * last one there, else their only partner ever), or "" when unknown. At most a few per read, so an old save's first
+     * read does not flood the feed.
      */
     private List<ScoreEvent> battles(String userId, TrainerLog was, TrainerLog now, long at) {
         String partner = consoles.linkedWith(userId);
@@ -304,9 +318,6 @@ public class ProgressTracker {
         List<ScoreEvent> out = new ArrayList<>();
         for (int i = was.linkWins(); i < Math.min(now.linkWins(), was.linkWins() + 3); i++) {
             out.add(new ScoreEvent(userId, "LINK_WIN", partner, LINK_WIN, at));
-        }
-        for (int i = was.linkLosses(); i < Math.min(now.linkLosses(), was.linkLosses() + 3); i++) {
-            out.add(new ScoreEvent(userId, "LINK_LOSS", partner, 0, at));
         }
         return out;
     }

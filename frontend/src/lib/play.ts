@@ -125,7 +125,7 @@ export function activityText(e: ScoreEvent, who = shortUser(e.user), name: (user
 		HALL_OF_FAME: 'entered the Hall of Fame',
 		ACHIEVEMENT: `unlocked ${e.detail}`,
 		TITLE: `is now ${e.detail}`,
-		LINK_WIN: `won a link battle${against}`,
+		LINK_WIN: e.detail ? `beat ${name(e.detail)} in a link battle` : 'won a link battle',
 		LINK_LOSS: `lost a link battle${against}`
 	};
 	return `${who} ${did[e.type] ?? e.type.toLowerCase()}`;

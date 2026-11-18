@@ -3,6 +3,7 @@ package dev.pppp.controller;
 import dev.pppp.model.LinkState;
 import dev.pppp.security.CurrentUser;
 import dev.pppp.service.LinkService;
+import dev.pppp.service.game.ProgressTracker;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Link cable: the lobby, challenges and the caller's session. Every call answers with the caller's new LinkState. */
@@ -23,7 +25,17 @@ public class LinkController {
 
     private final LinkService link;
 
-    public LinkController(LinkService link) {
+    private final ProgressTracker tracker;
+
+    /** Two Pibs' link battles against each other (the spectator page). */
+    @GetMapping("/versus")
+    public ProgressTracker.Versus versus(@RequestParam String a,
+                                                             @RequestParam String b) {
+        return tracker.versus(a.toLowerCase(), b.toLowerCase());
+    }
+
+    public LinkController(LinkService link, ProgressTracker tracker) {
+        this.tracker = tracker;
         this.link = link;
     }
 

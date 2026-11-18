@@ -1,6 +1,7 @@
 <!-- The activity feed, newest first: badges, catches, levels (pictures: FeedIcon). A new entry arrives with its tier's
      animation (tierOf, arriveTier). limit: how many (the scoreboard's "Latest" shows a few);
-     events: show these instead of everyone's (a profile's recent feed). -->
+     events: show these instead of everyone's (a profile's recent feed). A link battle is one entry, the winner's, told
+     the same to everyone ("Ash beat Misty in a link battle", never "You"); older LINK_LOSS entries are left out. -->
 <script lang="ts">
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import FeedIcon from '#lib/components/FeedIcon.svelte';
@@ -23,7 +24,7 @@
 	// Keyed by what happened, not by position, so a new entry animates in instead of relabelling the list.
 	const shown = $derived.by(() => {
 		const seen: Record<string, number> = {};
-		return (events ?? board.activity).slice(0, limit).map((e) => {
+		return (events ?? board.activity).filter((e) => e.type !== 'LINK_LOSS').slice(0, limit).map((e) => {
 			const k = `${e.at}:${e.user}:${e.type}:${e.detail}`;
 			seen[k] = (seen[k] ?? 0) + 1;
 			return { e, key: `${k}:${seen[k]}` };
@@ -34,10 +35,10 @@
 {#if shown.length}
 	<ul class="feed" aria-label={label}>
 		{#each shown as { e, key } (key)}
-			{@const you = e.user === session.me?.id}
+			{@const you = e.user === session.me?.id && e.type !== 'LINK_WIN'}
 			<li in:arriveTier={{ tier: tierOf(e) }}>
 				<FeedIcon {e} />
-				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '', (u) => (u === session.me?.id ? 'you' : nameOf(u))).trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
+				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
 			</li>
 		{/each}
 	</ul>

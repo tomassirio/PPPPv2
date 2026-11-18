@@ -334,12 +334,25 @@ class ProgressTrackerTest {
         assertThat(tracker.scoreboard().getFirst().points()).isEqualTo(25); // a win counts towards the points
 
         sav[wins + 3] = 1; // a loss can only come from a running console
-        twice(tracker);
-        assertThat(scored()).noneMatch(s -> s.startsWith("LINK_LOSS"));
         when(consoles.isAwake(ASH)).thenReturn(true);
         twice(tracker);
-        assertThat(scored()).containsSubsequence("LINK_WIN misty@x.y +25", "LINK_LOSS misty@x.y +0");
+        // One feed entry per battle, the winner's: a loss shows only in the record.
+        assertThat(scored()).noneMatch(s -> s.startsWith("LINK_LOSS"));
+        assertThat(tracker.scoreboard().getFirst().link().losses()).isEqualTo(1);
         assertThat(tracker.scoreboard().getFirst().points()).isEqualTo(25); // a loss costs nothing
+    }
+
+    @Test
+    void versusCountsTheWinsBetweenTwoPibs() {
+        when(repo.newestOfType("LINK_WIN")).thenReturn(List.of(
+                new ScoreEvent(ASH, "LINK_WIN", "misty@x.y", 25, 3),
+                new ScoreEvent("misty@x.y", "LINK_WIN", ASH, 25, 2),
+                new ScoreEvent(ASH, "LINK_WIN", "brock@x.y", 25, 1), // someone else
+                new ScoreEvent(ASH, "LINK_WIN", "misty@x.y", 25, 0)));
+        ProgressTracker.Versus v = tracker().versus(ASH, "misty@x.y");
+        assertThat(v.aWins()).isEqualTo(2);
+        assertThat(v.bWins()).isEqualTo(1);
+        assertThat(v.recent()).extracting(ScoreEvent::at).containsExactly(3L, 2L, 0L);
     }
 
     @Test
