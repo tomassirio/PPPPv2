@@ -1,6 +1,7 @@
 <!-- A Pib's two ratings, kept apart: uncapped points with the rank they give (top row), and the capped 0–1000
      Trainer rating behind grade and title (bottom row, with a bar). Your run and the profile hero use it. -->
 <script lang="ts">
+	import RankNumber from '#lib/components/RankNumber.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import { score, type ScoreRow } from '#lib/play.ts';
 
@@ -14,7 +15,7 @@
 			<span class="unit">points</span>
 		</div>
 		<div class="place" class:first={rank === 0}>
-			<span class="pos pixel">#{rank + 1}</span>
+			<span class="pos"><RankNumber rank={rank + 1} {total} prefix="#" animate /></span>
 			<span class="unit">of {total} {total === 1 ? 'Pib' : 'Pibs'}</span>
 		</div>
 	</div>
@@ -66,9 +67,6 @@
 		font-size: 18px;
 		line-height: 1.2;
 		color: var(--text);
-	}
-	.place.first .pos {
-		color: var(--accent-text);
 	}
 	.unit {
 		font-size: 12px;

@@ -2,6 +2,7 @@
      playing / offline) · where they are, their party's icons, and score + grade; the signed-in player's row
      highlighted. Each row opens that Pib's profile. Then "Full scoreboard" and the "Latest" feed. Rows from board.svelte.ts. -->
 <script lang="ts">
+	import RankNumber from '#lib/components/RankNumber.svelte';
 	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Activity from '#lib/components/Activity.svelte';
@@ -38,7 +39,7 @@
 				<li animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={shown.length - i}>
 					<a class="standing" class:you href="/pib/{encodeURIComponent(r.userId)}">
 						{#key score(r)}<span class="flash" aria-hidden="true" in:glow></span>{/key}
-						<span class="rank pixel" aria-hidden="true">{i + 1}</span>
+						<span class="rank" aria-hidden="true"><RankNumber rank={i + 1} total={board.rows.length} medal /></span>
 						<Avatar user={r.userId} size={32} />
 						<span class="mid">
 							<span class="line">
@@ -137,8 +138,7 @@
 		outline-offset: 2px;
 	}
 	.rank {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: 11px;
 	}
 	/* Two lines a row, so ten fit: the name, then status and the party side by side. */
 	.mid {

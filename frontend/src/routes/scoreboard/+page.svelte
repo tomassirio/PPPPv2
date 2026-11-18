@@ -3,6 +3,7 @@
      by a column, a page at a time (?page=, from 1; ?size= rows a page, 25 by default). Rows open the Pib's profile.
      Live from board.svelte.ts; paged here, since every row is already on the page for the live updates. -->
 <script lang="ts">
+	import RankNumber from '#lib/components/RankNumber.svelte';
 	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -117,7 +118,7 @@
 					{@const v = versionOf(r.game, board.names)}
 					{@const where = st.kind === 'linked' ? 'Trade Center' : place(r.location).city}
 					<a class="tr" class:you={r.userId === session.me?.id} href={href(r.userId)} animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={pageRows.length - j}>
-						<span class="rank pixel">{i + 1}</span>
+						<span class="rank"><RankNumber rank={i + 1} total={board.rows.length} medal /></span>
 						<span class="row">
 							<Avatar user={r.userId} />
 							<span class="grow">
@@ -406,8 +407,7 @@
 		box-shadow: inset 3px 0 0 var(--accent);
 	}
 	.rank {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: 11px;
 	}
 	.num {
 		font-variant-numeric: tabular-nums;
