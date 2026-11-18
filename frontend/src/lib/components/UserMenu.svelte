@@ -1,5 +1,5 @@
-<!-- The avatar in the top bar opens this menu: who you are, light/dark (Solrock/Lunatone, with a reveal animation), Pokédex banners (wide desktops), My profile, Settings (key bindings), Admin (admins only; Play when
-     already on /admin), Sign out. -->
+<!-- The avatar in the top bar opens this menu: who you are, light/dark (Solrock/Lunatone, with a reveal animation), Pokédex banners (wide desktops), My profile (not on it already),
+     Settings (key bindings), Admin (admins only), Play (on /admin only: elsewhere the top bar's tabs have it), Sign out. -->
 <script lang="ts">
 	import { page } from '$app/state';
 	import { isAdmin, logout, type Me } from '#lib/session.svelte.ts';
@@ -105,10 +105,12 @@
 				</label>
 			{/if}
 
-			{#if page.url.pathname !== '/play'}
+			{#if page.url.pathname.startsWith('/admin')}
 				<a class="item" href="/play">Play</a>
 			{/if}
-			<a class="item" href="/pib/{encodeURIComponent(me.id)}">My profile</a>
+			{#if page.url.pathname !== `/pib/${encodeURIComponent(me.id)}`}
+				<a class="item" href="/pib/{encodeURIComponent(me.id)}">My profile</a>
+			{/if}
 			<button
 				type="button"
 				class="item"

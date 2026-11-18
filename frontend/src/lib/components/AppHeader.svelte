@@ -48,7 +48,9 @@
 <style>
 	header {
 		position: relative;
-		z-index: 2; /* above a page's fixed backdrop (the game picker's title screen) */
+		/* Its own layer: above the game picker's fixed backdrop, and the account menu inside it above every page's
+		   content (scoreboard rows set their own z-index). Under dialogs and sheets. */
+		z-index: 20;
 		background: color-mix(in srgb, var(--bg) 88%, transparent); /* the page colour: readable over that backdrop */
 		backdrop-filter: blur(6px);
 		display: flex;
