@@ -41,7 +41,7 @@
 			<ol class="steps">
 				<li><b aria-hidden="true">1</b><span>Accept when you're free to leave: outdoors or in a cave, no battle, menu or dialog open.</span></li>
 				<li><b aria-hidden="true">2</b><span>You both Dig to your last Pokémon Center, upstairs, in front of the {desk(c.kind).side} receptionist ({desk(c.kind).room}).</span></li>
-				<li><b aria-hidden="true">3</b><span>Talk to her and {verb(c.kind)} as on a real Game Boy. Unplug any time.</span></li>
+				<li><b aria-hidden="true">3</b><span>She starts talking to you. Answer, save, then {verb(c.kind)} as on a real Game Boy. Unplug any time.</span></li>
 			</ol>
 			<div class="actions">
 				<button class="primary" onclick={() => act('POST', '/link/challenges/accept')}>Accept {verb(c.kind)}</button>

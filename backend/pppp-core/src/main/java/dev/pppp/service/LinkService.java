@@ -31,6 +31,8 @@ public class LinkService {
     private Duration challengeTtl = Duration.ofSeconds(60);
     /** How long a linked player may have no page open (a closed browser) before their session ends. */
     private Duration awayLimit = Duration.ofSeconds(60);
+    /** How long after accepting the dig may take before A is no longer pressed for the player. */
+    private static final Duration TALK_WITHIN = Duration.ofSeconds(20);
     /** Whether the player has a page open; the app plugs in the events socket's presence. */
     private Predicate<String> online = id -> true;
 
@@ -44,6 +46,8 @@ public class LinkService {
     private final Map<String, String> wrongRoom = new HashMap<>();
     /** Linked players who have been in the link room that fits their session: leaving it ends the session. */
     private final Set<String> visited = new java.util.HashSet<>();
+    /** Linked players about to talk to their receptionist: userId -> give up after (epoch ms). */
+    private final Map<String, Long> talk = new HashMap<>();
     /** Linked players with no page open: userId -> since when. */
     private final Map<String, Long> away = new HashMap<>();
 
@@ -150,6 +154,11 @@ public class LinkService {
         dig.dig(c.from(), c.kind());
         dig.dig(userId, c.kind());
         consoles.link(c.from(), userId);
+        // Arrows locked until they are in the link room; A pressed for them once the dig has them facing her.
+        for (String id : List.of(c.from(), userId)) {
+            consoles.pin(id, true);
+            talk.put(id, System.currentTimeMillis() + TALK_WITHIN.toMillis());
+        }
         close(c, "ACCEPTED");
         for (String id : List.of(c.from(), userId)) { // both are busy now: out of the lobby, other challenges off
             lobby.remove(id);
@@ -192,13 +201,21 @@ public class LinkService {
             if (online.test(id)) away.remove(id);
             else if (now - away.computeIfAbsent(id, k -> now) >= awayLimit.toMillis()) end(id, "LEFT");
         }
+        for (var t : List.copyOf(talk.entrySet())) {
+            SessionEvent s = sessions.get(t.getKey());
+            if (s == null || t.getValue() < now) talk.remove(t.getKey());
+            else if (dig.atReceptionist(t.getKey(), s.kind())) {
+                talk.remove(t.getKey());
+                consoles.press(t.getKey(), "a", 1);
+            }
+        }
         for (SessionEvent s : sessions.values().stream().distinct().toList()) {
             boolean changed = false, finished = false;
             for (String id : List.of(s.a(), s.b())) {
                 String map = dig.map(id);
                 if (map == null) continue; // cannot tell this second
                 String room = PokecenterDig.LINK_ROOMS.contains(map) ? map : null;
-                if (room != null && fits(s.kind(), room)) visited.add(id);
+                if (room != null && fits(s.kind(), room) && visited.add(id)) consoles.pin(id, false);
                 else if (room == null && visited.contains(id)) finished = true;
                 String wrong = room == null || fits(s.kind(), room) ? null : room;
                 if (java.util.Objects.equals(wrong, wrongRoom.get(id))) continue;
@@ -237,6 +254,10 @@ public class LinkService {
         away.remove(s.b());
         visited.remove(s.a());
         visited.remove(s.b());
+        talk.remove(s.a());
+        talk.remove(s.b());
+        consoles.pin(s.a(), false);
+        consoles.pin(s.b(), false);
         consoles.unlink(userId); // parks both consoles
         events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.since(), "ENDED", reason)));
     }

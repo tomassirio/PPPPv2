@@ -154,10 +154,14 @@ class LinkApiTest {
         assertThat(consoles.speed(SAM)).isEqualTo(1.0);
         challenge(ASH, GARY).andExpect(status().isConflict());
 
+        assertThat(consoles.pinned(ASH)).as("arrows locked while linked").isTrue();
+        assertThat(consoles.pinned(SAM)).isTrue();
         as(ASH, delete("/api/v1/link/session"), null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.session").doesNotExist());
         assertThat(consoles.linkedWith(ASH)).isNull();
         assertThat(consoles.linkedWith(SAM)).isNull();
+        assertThat(consoles.pinned(ASH)).isFalse();
+        assertThat(consoles.pinned(SAM)).isFalse();
         as(SAM, get("/api/v1/link"), null).andExpect(jsonPath("$.session").doesNotExist());
         assertThat(DATA.resolve("saves/" + ASH + "/test.state")).isNotEmptyFile();
         assertThat(DATA.resolve("saves/" + SAM + "/test.state")).isNotEmptyFile();
@@ -241,9 +245,12 @@ class LinkApiTest {
             link.sweep();
             assertThat(consoles.linkedWith(SAM)).as("a wrong room left again").isEqualTo(ASH);
 
+            assertThat(consoles.pinned(SAM)).as("a wrong room does not unlock").isTrue();
             org.mockito.Mockito.when(dig.map(SAM)).thenReturn("TRADE_CENTER");
             link.sweep();
             assertThat(consoles.linkedWith(SAM)).isEqualTo(ASH);
+            assertThat(consoles.pinned(SAM)).as("inside the right room: arrows back").isFalse();
+            assertThat(consoles.pinned(ASH)).isTrue();
             org.mockito.Mockito.when(dig.map(SAM)).thenReturn(null); // cannot tell: nothing happens
             link.sweep();
             assertThat(consoles.linkedWith(SAM)).isEqualTo(ASH);

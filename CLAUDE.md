@@ -26,6 +26,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   newloadmap MAPSETUP_TELEPORT); `queue` arms one through wMapReentryScriptQueueFlag and sets wBackupWarp* so the 2F
   stairs lead into that Center (the current one, or wLastSpawnMap's). The link sweep reads each linked player's room;
   a link room that does not fit the kind sends LINK_SESSION status ROOM and `Session.wrongRoom/peerWrongRoom`.
+  After accepting, arrow keys are locked (`PlayerConsoles.pin`) until the player is inside the right link room or the
+  session ends, and the sweep presses A once `PokecenterDig.atReceptionist` (dig done, facing her).
   `PokecenterDig.patientReceptionist` (a frame hook per console) stretches the receptionist's "Please wait" from 8.5 s
   to about a minute while linked (`LinkWaitTest`).
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs

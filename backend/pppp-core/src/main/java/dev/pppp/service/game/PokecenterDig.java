@@ -122,6 +122,23 @@ public class PokecenterDig {
         return map == null ? null : game.maps.mapId(map[0] & 0xFF, map[1] & 0xFF);
     }
 
+    /**
+     * Whether the dig is done: the player stands free on the tile below kind's receptionist, facing her (the script
+     * ends with that turn, and a queued or running script is not free). False when it cannot be told.
+     */
+    public boolean atReceptionist(String userId, String kind) {
+        Game game = game(userId);
+        Boolean at = game == null ? null : consoles.withBus(userId, bus -> atReceptionist(game, bus, kind));
+        return Boolean.TRUE.equals(at);
+    }
+
+    static boolean atReceptionist(Game game, AddressSpace bus, String kind) {
+        Layout at = game.at;
+        return check(game, bus) == null && u8(bus, at.mapGroup) == game.pc2f[0] && u8(bus, at.mapGroup + 1) == game.pc2f[1]
+                && u8(bus, at.mapGroup + 3) == ("BATTLE".equals(kind) ? BATTLE_X : TRADE_X)
+                && u8(bus, at.mapGroup + 2) == RECEPTIONIST_Y;
+    }
+
     private Game game(String userId) {
         String cartridge = consoles.game(userId);
         return cartridge == null ? null : games.computeIfAbsent(cartridge, this::load).orElse(null);

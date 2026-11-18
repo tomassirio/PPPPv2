@@ -48,6 +48,9 @@ public class PlayerConsoles {
     private final List<BiConsumer<String, int[]>> frameListeners = new CopyOnWriteArrayList<>();
     private final List<BiConsumer<String, short[]>> audioListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<String>> idleListeners = new CopyOnWriteArrayList<>();
+    /** Players whose arrow keys do nothing: linked, standing at the receptionist until they are in the link room. */
+    private final Set<String> pinned = ConcurrentHashMap.newKeySet();
+    private static final Set<Button> ARROWS = Set.of(Button.UP, Button.DOWN, Button.LEFT, Button.RIGHT);
     /** Link cables, one entry per end: userId -> the player at the other end. Guarded by itself. */
     private final Map<String, String> links = new HashMap<>();
     private final PlayerRepository players;
@@ -119,8 +122,9 @@ public class PlayerConsoles {
     public void press(String userId, String command, int repeat) {
         Console c = consoles.get(userId);
         if (c == null) throw new IllegalStateException("Your console is not running");
-        List<Button> steps = CommandParser.parse(command, repeat);
-        if (c.pending().get() > MAX_PENDING) return;
+        List<Button> parsed = CommandParser.parse(command, repeat);
+        List<Button> steps = pinned.contains(userId) ? parsed.stream().filter(b -> !ARROWS.contains(b)).toList() : parsed;
+        if (steps.isEmpty() || c.pending().get() > MAX_PENDING) return;
         c.pending().incrementAndGet();
         c.presses().execute(() -> {
             try {
@@ -135,8 +139,28 @@ public class PlayerConsoles {
 
     /** Holds or lets go of a button on the player's own console, like a finger on it. No-op without a console. */
     public void hold(String userId, Button button, boolean down) {
+        if (down && pinned.contains(userId) && ARROWS.contains(button)) return;
         Console c = consoles.get(userId);
         if (c != null) c.host().hold(button, down);
+    }
+
+    /**
+     * Locks or unlocks the player's arrow keys (A, B, Start, Select still work), e.g. while the link receptionist
+     * talks to them. Locking lets go of any arrow they hold.
+     */
+    public void pin(String userId, boolean on) {
+        if (!on) {
+            pinned.remove(userId);
+            return;
+        }
+        pinned.add(userId);
+        Console c = consoles.get(userId);
+        if (c != null) for (Button b : ARROWS) c.host().hold(b, false);
+    }
+
+    /** Whether the player's arrow keys are locked ({@link #pin}). */
+    public boolean pinned(String userId) {
+        return pinned.contains(userId);
     }
 
     /** Lets go of every button the player holds (their input socket closed or their window lost focus). */

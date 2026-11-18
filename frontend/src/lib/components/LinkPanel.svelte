@@ -64,7 +64,8 @@
 			</div>
 		</div>
 		<p class="where">
-			Upstairs in the Pokémon Center, talk to the <b>{d.side}</b> receptionist ({d.room}).
+			You're in front of the <b>{d.side}</b> receptionist ({d.room}) and she's talking to you: answer her, save, and wait
+			for your friend. Arrow keys are locked until you're inside or unplug.
 		</p>
 		{#if ss.wrongRoom}
 			<p class="error" role="alert">

@@ -66,6 +66,12 @@ class PokecenterDigTest {
                 assertThat(new int[] {now[2], now[3]}).as(kind).containsExactly(kind.equals("TRADE") ? 5 : 9, 3);
                 assertThat(game.maps().pokecenter(now[4], now[5])).as("stairs lead down into a Center").isTrue();
                 assertThat(host.<String>withBus(bus -> PokecenterDig.check(game, bus))).as("free again").isNull();
+                assertThat(host.<Boolean>withBus(bus -> PokecenterDig.atReceptionist(game, bus, kind))).as("at her").isTrue();
+                host.press(Button.A, 6, 30); // what LinkService presses for them: she talks
+                assertThat(host.<String>withBus(bus -> PokecenterDig.check(game, bus))).as("talking").isNotNull();
+                for (int i = 0; i < 20 && host.withBus(bus -> PokecenterDig.check(game, bus)) != null; i++) {
+                    host.press(Button.B, 6, 30); // "No", and out of her dialog
+                }
             }
         } finally {
             host.shutdown();
