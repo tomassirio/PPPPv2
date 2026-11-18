@@ -361,3 +361,10 @@ button {
 		animation: none;
 	}
 }
+
+/* Linked by cable (AppHeader sets <html data-linked>): links that would leave the game are disabled. */
+html[data-linked] a[href]:not([href^='/play']):not([href^='/api/']):not([href^='http']) {
+	opacity: 0.4;
+	cursor: not-allowed;
+	filter: grayscale(0.6);
+}

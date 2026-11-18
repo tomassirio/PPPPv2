@@ -26,6 +26,33 @@
 	// Link sessions other Pibs are in: something to watch.
 	const live = $derived((link.state?.links ?? []).filter((p) => p.a !== me.id && p.b !== me.id).length);
 	const peer = $derived(link.state?.session?.peer);
+
+	// While the cable is in, the game is where you belong: every in-app link that leaves /play is disabled
+	// (<html data-linked>: greyed out in app.css, and clicks and Enter on them are stopped here, as CSS alone
+	// would still let the keyboard through). Play stays open, so a Pib elsewhere can always get back.
+	const leaves = (a: HTMLAnchorElement) => {
+		const url = new URL(a.href, location.href);
+		return url.origin === location.origin && !url.pathname.startsWith('/play') && !url.pathname.startsWith('/api/');
+	};
+	$effect(() => {
+		const on = !!peer;
+		document.documentElement.toggleAttribute('data-linked', on);
+		if (!on) return;
+		const stop = (e: Event) => {
+			const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+			if (a && leaves(a) && (e.type === 'click' || (e as KeyboardEvent).key === 'Enter')) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		};
+		addEventListener('click', stop, true);
+		addEventListener('keydown', stop, true);
+		return () => {
+			removeEventListener('click', stop, true);
+			removeEventListener('keydown', stop, true);
+			document.documentElement.removeAttribute('data-linked');
+		};
+	});
 </script>
 
 <header class="app-header" class:on-play={ownTabs ?? path === '/play'}>
