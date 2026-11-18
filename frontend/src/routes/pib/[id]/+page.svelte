@@ -119,7 +119,20 @@
 	<nav class="crumb" aria-label="Breadcrumb"><a href="/scoreboard">← Scoreboard</a><span class="muted">/ {you ? 'You' : nameOf(id)}</span></nav>
 
 	{#if missing}
-		<p class="muted">No Pib called {id} has started a game.</p>
+		<section class="card no-game">
+			<Avatar user={id} size={72} />
+			<h1>{you ? (session.me?.name ?? nameOf(id)) : nameOf(id)}</h1>
+			{#if you}
+				<p class="muted">You haven't picked a game yet. Choose Gold, Silver or Crystal and your profile fills in as you play: party, badges, Pokédex, achievements and link battles.</p>
+				<div class="actions">
+					<a class="btn primary" href="/play">Pick your game</a>
+					<a class="btn" href="/watch">Watch live battles</a>
+				</div>
+			{:else}
+				<p class="muted">Hasn't started a game yet. Their profile shows up here once they do.</p>
+				<div class="actions"><a class="btn" href="/scoreboard">Back to the scoreboard</a></div>
+			{/if}
+		</section>
 	{:else if !profile || !row || !status}
 		<p class="muted" role="status">Loading…</p>
 	{:else}
@@ -460,6 +473,57 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 20px;
+	}
+	.no-game {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+		padding: 48px 24px;
+		text-align: center;
+	}
+	.no-game h1 {
+		margin: 6px 0 0;
+		font-size: 22px;
+	}
+	.no-game p {
+		margin: 0;
+		max-width: 460px;
+	}
+	.no-game .actions {
+		display: flex;
+		gap: 10px;
+		flex-wrap: wrap;
+		justify-content: center;
+		margin-top: 8px;
+	}
+	.no-game .btn {
+		display: inline-flex;
+		align-items: center;
+		height: 38px;
+		padding: 0 16px;
+		border-radius: 10px;
+		border: 1px solid var(--border-strong);
+		background: var(--panel);
+		color: var(--text);
+		font-weight: 600;
+		font-size: 14px;
+		text-decoration: none;
+	}
+	.no-game .btn:hover {
+		border-color: var(--accent-text);
+	}
+	.no-game .btn.primary {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: var(--ink);
+	}
+	.no-game .btn.primary:hover {
+		background: var(--accent-hover);
+	}
+	.no-game .btn:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
 	}
 	.who {
 		gap: 18px;
