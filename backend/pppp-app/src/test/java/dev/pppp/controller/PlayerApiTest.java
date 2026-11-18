@@ -156,4 +156,19 @@ class PlayerApiTest {
         mvc.perform(json(put("/api/v1/me/keys"), "{\"up\":\"w\"}")).andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/me/keys").with(PIB)).andExpect(jsonPath("$.b").value("j")); // unchanged
     }
+
+    /** The trainer sprite: the game's own until picked; only a trainer the player's game has (the test ROM has none). */
+    @Test
+    void theTrainerSpriteIsOneOfTheGamesOwn() throws Exception {
+        var other = user("solo@x.y").roles("PLAYER");
+        mvc.perform(put("/api/v1/me/sprite").with(other).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"key\":\"RED\"}")).andExpect(status().isConflict()); // no game yet
+        consoles.pick("solo@x.y", "test");
+        mvc.perform(get("/api/v1/me/sprite").with(other)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.current").value("CHRIS"))
+                .andExpect(jsonPath("$.choices").isEmpty()); // not a Pokémon ROM: nothing to walk as
+        mvc.perform(put("/api/v1/me/sprite").with(other).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"key\":\"RED\"}")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/me/sprites/RED.png").with(other)).andExpect(status().isNotFound());
+    }
 }

@@ -7,7 +7,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Per-player facts in the Redis hash "pibs:player:{userId}" {game}. Picking also enters the player on the scoreboard.
+ * Per-player facts in the Redis hash "pibs:player:{userId}" {game, sprite (the trainer they walk as, PlayerSprites)}. Picking also enters the player on the scoreboard.
  * Key bindings live apart in "pibs:keys:{userId}" {up, down, left, right, a, b, start, select}, so a reset keeps them.
  */
 @Repository
@@ -33,6 +33,16 @@ public class PlayerRepository {
     public String game(String userId) {
         Object game = redis.opsForHash().get(key(userId), "game");
         return game == null ? null : game.toString();
+    }
+
+    /** The trainer sprite key the player walks as, or null for the game's own. */
+    public String sprite(String userId) {
+        Object sprite = redis.opsForHash().get(key(userId), "sprite");
+        return sprite == null ? null : sprite.toString();
+    }
+
+    public void saveSprite(String userId, String key) {
+        redis.opsForHash().put(key(userId), "sprite", key);
     }
 
     /** The saved bindings, or null when the player never changed them. */

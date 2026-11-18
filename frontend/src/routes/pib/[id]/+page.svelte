@@ -10,6 +10,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import RarityBall from '#lib/components/RarityBall.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
+	import TrainerPicker from '#lib/components/TrainerPicker.svelte';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 	import { api } from '#lib/api.ts';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
@@ -352,6 +353,8 @@
 						{#if top}<dt>Top Pokémon</dt><dd>{top.nickname || top.name} · Lv {topLevel(profile.party)}</dd>{/if}
 					</dl>
 				</section>
+
+				{#if you}<TrainerPicker />{/if}
 
 				<section class="card" aria-labelledby="recent-h">
 					<h2 id="recent-h">Recent</h2>

@@ -297,7 +297,7 @@
 				<span
 					class="player"
 					class:mirror={t.at.facing === 'right'}
-					style:background-image="url(/api/v1/public/sprites/{t.cartridge}/player.png)"
+					style:background-image="url(/api/v1/public/sprites/{t.cartridge}/player.png{t.sprite ? `?sprite=${encodeURIComponent(t.sprite)}` : ''})"
 					style:--row={ROW[t.at.facing] ?? 0}
 				></span>
 				<button

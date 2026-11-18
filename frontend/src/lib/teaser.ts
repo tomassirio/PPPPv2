@@ -35,6 +35,8 @@ export type Teaser = {
 		caught?: number;
 		playTime?: string | null;
 		location?: string | null;
+		/** The trainer they walk as (a PlayerSprites key), null for the game's own. */
+		sprite?: string | null;
 	}[];
 	/** Latest catches, badges, achievements and Hall of Fame entries, newest first; trainer: index in trainers. */
 	moments?: { trainer: number; type: 'CAUGHT' | 'BADGE' | 'ACHIEVEMENT' | 'HALL_OF_FAME'; detail: string; at: number }[];

@@ -6,6 +6,8 @@ import dev.pppp.realtime.EventPublisher;
 import dev.pppp.exception.NotFoundException;
 import dev.pppp.service.AllowlistService;
 import dev.pppp.service.CartridgeService;
+import dev.pppp.service.PlayerConsoles;
+import dev.pppp.service.game.PlayerSprites;
 import java.time.Duration;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -17,6 +19,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -30,9 +33,11 @@ class PublicController {
     private final ProgressTracker tracker;
     private final CartridgeService cartridges;
     private final AllowlistService allowlist;
+    private final PlayerConsoles consoles;
 
     PublicController(EventPublisher events, ProgressTracker tracker, CartridgeService cartridges,
-                     AllowlistService allowlist) {
+                     AllowlistService allowlist, PlayerConsoles consoles) {
+        this.consoles = consoles;
         this.events = events;
         this.tracker = tracker;
         this.cartridges = cartridges;
@@ -61,11 +66,12 @@ class PublicController {
      * name: the first word of their name; cartridge: for /public/sprites/{cartridge}/...; version: the ROM header
      * title; region, x, y: the town-map spot (x, y in that region's 160x144 screen), region null before their first
      * reading; party: species in order; title, badges (Johto and Kanto), caught, playTime ("H:MM" or null) and
-     * location (the landmark, or null) for the card shown over their name.
+     * location (the landmark, or null) for the card shown over their name; sprite: the trainer they walk as
+     * (PlayerSprites key, null for the game's own), for /public/sprites/{cartridge}/player.png?sprite=.
      */
     record Trainer(String name, String cartridge, String version, boolean online, String region, int x, int y,
                    java.util.List<Integer> party, dev.pppp.model.MapSpot spot, String title, int badges, int caught,
-                   String playTime, String location) {}
+                   String playTime, String location, String sprite) {}
 
     @GetMapping("/teaser")
     Teaser teaser() {
@@ -98,7 +104,7 @@ class PublicController {
                             t.pin() == null ? null : t.pin().region(), t.pin() == null ? 0 : t.pin().x(),
                             t.pin() == null ? 0 : t.pin().y(), t.party(), t.spot(), r == null ? null : r.title(),
                             r == null ? 0 : r.badges(), r == null ? 0 : r.caught(), r == null ? null : r.playTime(),
-                            location));
+                            location, sprite(t.userId())));
                 })
                 .sorted(java.util.Comparator.comparing((Placed p) -> p.trainer().region() == null ? "~" : p.trainer().region())
                         .thenComparingInt(p -> p.trainer().x()).thenComparingInt(p -> p.trainer().y()))
@@ -121,10 +127,17 @@ class PublicController {
         return name.trim().split("\\s+")[0];
     }
 
-    /** The player sprite sheet of a cartridge (16x96, see PokemonGen2#playerSprite). */
+    /** The player sprite sheet of a cartridge (16x96, see PokemonGen2#playerSprite); with sprite, that trainer's. */
     @GetMapping("/sprites/{cartridge}/player.png")
-    ResponseEntity<byte[]> player(@PathVariable String cartridge) {
-        return png(known(cartridge) ? tracker.playerSpriteOf(cartridge) : null);
+    ResponseEntity<byte[]> player(@PathVariable String cartridge,
+                                  @RequestParam(required = false) String sprite) {
+        if (!known(cartridge)) return png(null);
+        return png(sprite == null || sprite.isBlank() ? tracker.playerSpriteOf(cartridge) : consoles.spriteSheetOf(cartridge, sprite));
+    }
+
+    private String sprite(String userId) {
+        String key = consoles.sprite(userId);
+        return PlayerSprites.DEFAULT.equals(key) ? null : key;
     }
 
     /** A Pokémon's front pic in a cartridge's game, by Pokédex number. */
@@ -139,7 +152,7 @@ class PublicController {
     /** A map of Crystal as the game draws it, by pret map constant; time: morn, day or nite. */
     @GetMapping("/maps/{map}.png")
     ResponseEntity<byte[]> map(@PathVariable String map,
-                               @org.springframework.web.bind.annotation.RequestParam(defaultValue = "day") String time) {
+                               @RequestParam(defaultValue = "day") String time) {
         int t = time(time);
         boolean ok = t >= 0 && map.matches("[A-Z0-9_]{1,40}");
         return png(ok ? tracker.mapArt(map, t, MAP_MARGIN) : null);
@@ -148,7 +161,7 @@ class PublicController {
     /** What stands on that map image at a time of day: neighbours, NPCs, tall grass, wild Pokémon (Gen2MapArt.Info). */
     @GetMapping("/maps/{map}.json")
     ResponseEntity<Object> mapInfo(@PathVariable String map,
-                                   @org.springframework.web.bind.annotation.RequestParam(defaultValue = "day") String time) {
+                                   @RequestParam(defaultValue = "day") String time) {
         int t = time(time);
         Object info = t >= 0 && map.matches("[A-Z0-9_]{1,40}") ? tracker.mapInfo(map, t, MAP_MARGIN) : null;
         if (info == null) throw new NotFoundException("No map " + map);
@@ -158,7 +171,7 @@ class PublicController {
     /** A Crystal overworld sprite's sheet (Gen2MapArt#npcSheet) in palette 0-7. */
     @GetMapping("/npcs/{sprite}/{palette}.png")
     ResponseEntity<byte[]> npc(@PathVariable int sprite, @PathVariable int palette,
-                               @org.springframework.web.bind.annotation.RequestParam(defaultValue = "day") String time) {
+                               @RequestParam(defaultValue = "day") String time) {
         int t = time(time);
         return png(t >= 0 ? tracker.npcSheet(sprite, palette, t) : null);
     }

@@ -6,6 +6,7 @@ import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
 import dev.pppp.service.game.Ghosts;
+import dev.pppp.service.game.PlayerSprites;
 import dev.pppp.service.game.PokecenterDig;
 import dev.pppp.service.game.V1Red;
 import java.io.IOException;
@@ -211,6 +212,65 @@ public class PlayerConsoles {
         log.info("Link cable plugged: {} and {}", userA, userB);
     }
 
+    /** The trainers the player can walk as (their game's walking sprites); empty before they pick a game. */
+    public List<PlayerSprites.Choice> spriteChoices(String userId) {
+        String game = players.game(userId);
+        return game == null ? List.of() : PlayerSprites.choices(rom(game));
+    }
+
+    /** The trainer the player walks as (PlayerSprites.DEFAULT when they never picked one). */
+    public String sprite(String userId) {
+        String key = players.sprite(userId);
+        return key == null ? PlayerSprites.DEFAULT : key;
+    }
+
+    /** The trainer as a sprite sheet, drawn from the player's ROM; null when their game cannot draw it. */
+    public byte[] spriteSheet(String userId, String key) {
+        String game = players.game(userId);
+        return game == null ? null : PlayerSprites.sheet(rom(game), key);
+    }
+
+    /**
+     * Walks the player as key's trainer from now on: saved, and a console in memory is rebuilt with the patched ROM
+     * from its parked state (nothing is lost; a running one keeps running). The game draws the new trainer on the
+     * next map it loads. IllegalArgumentException for a trainer their game has not; IllegalStateException without a
+     * game or while a link cable is plugged in (rebuilding would pull it).
+     */
+    public void pickSprite(String userId, String key) {
+        if (players.game(userId) == null) throw new IllegalStateException("Pick a game first");
+        if (spriteChoices(userId).stream().noneMatch(c -> c.key().equals(key))) {
+            throw new IllegalArgumentException("No trainer " + key + " in your game");
+        }
+        if (linkedWith(userId) != null) throw new IllegalStateException("Unplug the link cable first");
+        players.saveSprite(userId, key);
+        Console c = consoles.remove(userId);
+        if (c == null) return;
+        boolean awake = !c.host().status().paused();
+        releaseAll(userId);
+        c.presses().shutdownNow();
+        park(userId, c);
+        c.host().shutdown();
+        if (awake) open(userId);
+    }
+
+    /** A trainer of a cartridge as a sprite sheet (the sign-in page's town map), or null. */
+    public byte[] spriteSheetOf(String cartridgeId, String key) {
+        return PlayerSprites.sheet(rom(cartridgeId), key);
+    }
+
+    /** The cartridge's ROM bytes, read once. */
+    private byte[] rom(String cartridgeId) {
+        return roms.computeIfAbsent(cartridgeId, id -> {
+            try {
+                return Files.readAllBytes(cartridges.require(id));
+            } catch (IOException e) {
+                throw new java.io.UncheckedIOException(e);
+            }
+        });
+    }
+
+    private final Map<String, byte[]> roms = new ConcurrentHashMap<>();
+
     /** Speeds a player has to pick from. Audio only plays at 1x (EmulatorHost drops it otherwise). */
     public static final java.util.Set<Double> SPEEDS = java.util.Set.of(1.0, 2.0, 4.0);
 
@@ -325,7 +385,7 @@ public class PlayerConsoles {
         EmulatorHost host = new EmulatorHost();
         V1Red red = new V1Red();
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game),
-                rom -> PokecenterDig.patch(red.patch(rom)));
+                rom -> PlayerSprites.patch(PokecenterDig.patch(red.patch(rom)), players.sprite(userId)));
         host.afterFrame(red::nicknames);
         host.afterFrame(PokecenterDig.patientReceptionist(host::isLinked));
         host.onFrame(pixels -> {

@@ -36,10 +36,10 @@ public class Ghosts {
      * box or a menu runs); windowStackSize: wWindowStackSize; battleMode: wBattleMode; scroll: hSCX (hSCY next);
      * sprites: OverworldSprites (data/sprites/sprites.asm).
      */
-    private record Layout(int mapGroup, int playerStruct, int scriptMode, int windowStackSize, int battleMode,
+    record Layout(int mapGroup, int playerStruct, int scriptMode, int windowStackSize, int battleMode,
                           int scroll, int sprites) {}
 
-    private static final Layout GOLD_SILVER = new Layout(0xDA00, 0xD1FD, 0xD15E, 0xCEAF, 0xD116, 0xFFD1, rom(0x05, 0x47DE)),
+    static final Layout GOLD_SILVER = new Layout(0xDA00, 0xD1FD, 0xD15E, 0xCEAF, 0xD116, 0xFFD1, rom(0x05, 0x47DE)),
             CRYSTAL = new Layout(0xDCB5, 0xD4D6, 0xD437, 0xCF78, 0xD22D, 0xFFCF, rom(0x05, 0x4736));
 
     /** Where the player's sprite sits on screen (its OAM entries: y 76, x 72). */
@@ -181,9 +181,13 @@ public class Ghosts {
 
     /** Frames 0-5 as drawn, 6-11 mirrored; null when the id is no walking sprite of this ROM. */
     private static int[][] frames(Game game, int id) {
+        return frames(game.rom, game.at.sprites, id);
+    }
+
+    /** As above from a ROM and its OverworldSprites table (also PlayerSprites' previews). */
+    static int[][] frames(byte[] rom, int table, int id) {
         if (id < 1 || id > NUM_SPRITES) return null;
-        byte[] rom = game.rom;
-        int entry = game.at.sprites + (id - 1) * SPRITE_ENTRY;
+        int entry = table + (id - 1) * SPRITE_ENTRY;
         int address = (rom[entry] & 0xFF) | (rom[entry + 1] & 0xFF) << 8, bank = rom[entry + 3] & 0xFF,
                 type = rom[entry + 4] & 0xFF, palette = rom[entry + 5] & 7;
         int gfx = rom(bank, address);

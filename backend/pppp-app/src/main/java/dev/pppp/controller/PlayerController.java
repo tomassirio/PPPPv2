@@ -1,5 +1,6 @@
 package dev.pppp.controller;
 
+import dev.pppp.exception.NotFoundException;
 import dev.pppp.model.Cartridge;
 import dev.pppp.model.KeyBindings;
 import dev.pppp.security.CurrentUser;
@@ -7,7 +8,11 @@ import dev.pppp.service.CartridgeService;
 import dev.pppp.service.KeyBindingService;
 import dev.pppp.service.PlayerConsoles;
 import dev.pppp.service.PlayerResetService;
+import dev.pppp.service.game.PlayerSprites;
+import java.time.Duration;
 import java.util.List;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -78,6 +83,34 @@ public class PlayerController {
     }
 
     /** Admin: wipes the player's pick, saves, progress, points and activity, so they pick a game again. */
+    /** The trainer the player walks as, and the ones their game has. */
+    public record SpriteState(String current, List<PlayerSprites.Choice> choices) {}
+
+    public record SpriteRequest(String key) {}
+
+    @GetMapping("/api/v1/me/sprite")
+    public SpriteState sprite(Authentication auth) {
+        String me = CurrentUser.id(auth);
+        return new SpriteState(consoles.sprite(me), consoles.spriteChoices(me));
+    }
+
+    /** Walks as that trainer from now on (refused while linked); the game shows it from the next map it loads. */
+    @PutMapping("/api/v1/me/sprite")
+    public SpriteState pickSprite(@RequestBody SpriteRequest req, Authentication auth) {
+        String me = CurrentUser.id(auth);
+        consoles.pickSprite(me, req == null ? null : req.key());
+        return new SpriteState(consoles.sprite(me), consoles.spriteChoices(me));
+    }
+
+    /** A trainer of the caller's game as a 16x96 sprite sheet (six 16x16 frames: down, up, left, then walking). */
+    @GetMapping("/api/v1/me/sprites/{key}.png")
+    public ResponseEntity<byte[]> spriteSheet(@PathVariable String key, Authentication auth) {
+        byte[] png = consoles.spriteSheet(CurrentUser.id(auth), key);
+        if (png == null) throw new NotFoundException("No trainer " + key);
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG)
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate()).body(png);
+    }
+
     /** The reset button on the player's own Game Boy: boots it again from the game's own save (unplugs a link). */
     @PostMapping("/api/v1/me/reset")
     public ResponseEntity<Void> reset(Authentication auth) {
