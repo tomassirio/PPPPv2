@@ -1,6 +1,7 @@
 <!-- Phones: new player chat messages float over the bottom of the game screen and fade out. Text only (never
      HTML). Off on the Chat tab (`hidden`) or when muted from the bezel. Place inside a positioned container. -->
 <script lang="ts">
+	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { chatOverlay } from '#lib/chatOverlay.svelte.ts';
 	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
 	import { on } from '#lib/events.ts';
@@ -24,7 +25,7 @@
 
 <ul class="overlay" aria-hidden="true">
 	{#each lines as m (m.id)}
-		<li><b style:color={nameColor(m.user)}>{m.name}</b> {m.text}</li>
+		<li><b style:color={nameColor(m.user)}>{nameOf(m.user)}</b> {m.text}</li>
 	{/each}
 </ul>
 

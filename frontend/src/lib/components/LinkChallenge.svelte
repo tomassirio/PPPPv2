@@ -2,6 +2,7 @@
      cable card on desktop; sheet: a bottom sheet over the game on phones (each shows only at its own size);
      floating (pages besides /play): a card in the corner on desktop, the bottom sheet on phones. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
@@ -28,13 +29,13 @@
 			<div class="who">
 				<Avatar user={c.from} size={sheet ? 48 : 40} />
 				<div>
-					<p class="title" id="challenge-h-{sheet ? 's' : 'i'}">{nameOf(c.from)} wants to {verb(c.kind)}</p>
+					<p class="title" id="challenge-h-{sheet ? 's' : 'i'}"><Name user={c.from} /> wants to {verb(c.kind)}</p>
 					{#if facts}<p class="muted">{facts}</p>{/if}
 				</div>
 			</div>
 			{#if row?.party?.length}
 				<div class="their">
-					<span class="muted">{nameOf(c.from)}'s party</span>
+					<span class="muted"><Name user={c.from} />'s party</span>
 					<PartyIcons party={row.party} size={30} />
 				</div>
 			{/if}

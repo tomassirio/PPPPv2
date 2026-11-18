@@ -60,11 +60,13 @@ public class LinkService {
     private final PlayerConsoles consoles;
     private final PokecenterDig dig;
     private final ProgressTracker tracker;
+    private final AllowlistService names;
     private final ChatService chat;
     private final ApplicationEventPublisher events;
 
     public LinkService(LobbyRepository lobby, PlayerConsoles consoles, PokecenterDig dig, ProgressTracker tracker,
-                       ChatService chat, ApplicationEventPublisher events) {
+                       AllowlistService names, ChatService chat, ApplicationEventPublisher events) {
+        this.names = names;
         this.lobby = lobby;
         this.consoles = consoles;
         this.dig = dig;
@@ -315,7 +317,8 @@ public class LinkService {
                 : name(userId) + "'s Cable Club isn't open yet");
     }
 
-    private static String name(String userId) {
-        return userId.split("@")[0];
+    /** How others see the player (their nickname, see AllowlistService.displayName). */
+    private String name(String userId) {
+        return names.displayName(userId);
     }
 }

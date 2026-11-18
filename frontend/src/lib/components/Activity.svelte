@@ -3,6 +3,7 @@
      events: show these instead of everyone's (a profile's recent feed). A link battle is one entry, the winner's, told
      the same to everyone ("Ash beat Misty in a link battle", never "You"); older LINK_LOSS entries are left out. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import FeedIcon from '#lib/components/FeedIcon.svelte';
 	import { watchGame } from '#lib/game.svelte.ts';
@@ -38,7 +39,7 @@
 			{@const you = e.user === session.me?.id && e.type !== 'LINK_WIN'}
 			<li in:arriveTier={{ tier: tierOf(e) }}>
 				<FeedIcon {e} />
-				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
+				<span><b>{#if you}You{:else}<Name user={e.user} />{/if}</b> {activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
 			</li>
 		{/each}
 	</ul>

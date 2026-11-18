@@ -2,11 +2,12 @@
      dot while others are linked), "Linked with X"
      while a link cable is in, who is online and the account menu. Phones on /play get their own tabs instead of the nav. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import { page } from '$app/state';
 	import Presence from '#lib/components/Presence.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
 	import { link, watchLink } from '#lib/link.svelte.ts';
-	import { nameOf } from '#lib/pictures.svelte.ts';
+	import { nameOf, needPicture, usernameOf } from '#lib/pictures.svelte.ts';
 	import type { Me } from '#lib/session.svelte.ts';
 	import banner from '#lib/assets/banner-v2.png';
 	import ppppLogo from '#lib/assets/ppppv2-logo.png';
@@ -14,6 +15,9 @@
 	// ownTabs: the page has its own tabs on phones, so the nav hides there (/play once a game is picked).
 	let { me, ownTabs }: { me: Me; ownTabs?: boolean } = $props();
 	$effect(() => watchLink());
+	$effect(() => {
+		needPicture(me.id); // your nickname on the My profile tab
+	});
 
 	const mine = $derived(`/pib/${encodeURIComponent(me.id)}`);
 	const path = $derived(page.url.pathname);
@@ -31,13 +35,13 @@
 			<img class="short" src={ppppLogo} alt="PPPP V2" width="480" height="174" />
 		</a>
 		<nav aria-label="Main">
-			{#each [['/play', 'Play'], ['/scoreboard', 'Scoreboard'], ['/watch', 'Live'], [mine, 'My profile']] as [href, label] (label)}
-				<a {href} aria-current={current === href ? 'page' : undefined}
-					>{label}{#if href === '/watch' && live}<span class="live-dot" aria-hidden="true"></span><span class="sr">, {live} running</span>{/if}</a
+			{#each [['/play', 'Play'], ['/scoreboard', 'Scoreboard'], ['/watch', 'Live'], [mine, 'My profile']] as [href, label] (href)}
+				<a {href} aria-current={current === href ? 'page' : undefined} title={href === mine ? `My profile · ${usernameOf(me.id)}` : undefined}
+					>{href === mine ? nameOf(me.id) : label}{#if href === '/watch' && live}<span class="live-dot" aria-hidden="true"></span><span class="sr">, {live} running</span>{/if}</a
 				>
 			{/each}
 		</nav>
-		{#if peer}<span class="chip status-linked"><span class="status-dot"></span>Linked with {nameOf(peer)}</span>{/if}
+		{#if peer}<span class="chip status-linked"><span class="status-dot"></span>Linked with <Name user={peer} /></span>{/if}
 	</div>
 	<div class="user">
 		<Presence />

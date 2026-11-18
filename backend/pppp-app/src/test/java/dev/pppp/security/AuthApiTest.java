@@ -188,6 +188,28 @@ class AuthApiTest {
                 .andExpect(jsonPath("$.roles[0]").value("PLAYER"));
     }
 
+    /** @username from the e-mail; the nickname is the Google name until changed, and what everyone is shown. */
+    @Test
+    void nicknamesAndUsernames() throws Exception {
+        var google = oidcLogin().authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_PLAYER"))
+                .idToken(t -> t.claim("email", "ash.k@x.com").claim("name", "Ash Ketchum"));
+        mvc.perform(get("/api/v1/me").with(google))
+                .andExpect(jsonPath("$.username").value("@ash.k"))
+                .andExpect(jsonPath("$.nickname").value("Ash Ketchum"));
+        var ash = user("ash.k@x.com").roles("PLAYER");
+        mvc.perform(put("/api/v1/me/nickname").with(ash).with(csrf()).contentType("application/json")
+                        .content("{\"nickname\":\"  Pallet   Kid \"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nickname").value("Pallet Kid"));
+        mvc.perform(get("/api/v1/players/names").with(user("other@x.com").roles("PLAYER")))
+                .andExpect(jsonPath("$['ash.k@x.com']").value("Pallet Kid"));
+        mvc.perform(put("/api/v1/me/nickname").with(ash).with(csrf()).contentType("application/json")
+                        .content("{\"nickname\":\"" + "x".repeat(25) + "\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/me/nickname").with(ash).with(csrf()).contentType("application/json")
+                        .content("{\"nickname\":\"\"}"))
+                .andExpect(jsonPath("$.nickname").value("Ash Ketchum")); // blank: back to the Google name
+    }
+
     @Test
     void meIncludesGooglePicture() throws Exception {
         mvc.perform(get("/api/v1/me").with(oidcLogin()

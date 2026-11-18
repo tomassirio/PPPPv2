@@ -3,6 +3,7 @@
      by a column, a page at a time (?page=, from 1; ?size= rows a page, 25 by default). Rows open the Pib's profile.
      Live from board.svelte.ts; paged here, since every row is already on the page for the live updates. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
@@ -91,7 +92,7 @@
 						<span class="row">
 							<Avatar user={r.userId} size={44} />
 							<span class="grow">
-								<b class="name">{r.userId === session.me?.id ? 'You' : nameOf(r.userId)}</b>
+								<b class="name">{#if r.userId === session.me?.id}You{:else}<Name user={r.userId} />{/if}</b>
 								<span class="row xs">
 									{#if v}<span class="chip g-{v}"><span class="cart-dot"></span>{v}</span>{/if}
 									<span class="muted">{r.badges} badges · {r.caught} caught</span>
@@ -120,7 +121,7 @@
 						<span class="row">
 							<Avatar user={r.userId} />
 							<span class="grow">
-								<b class="name">{nameOf(r.userId)}</b>
+								<b class="name"><Name user={r.userId} /></b>
 								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}</span>
 							</span>
 						</span>

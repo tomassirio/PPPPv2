@@ -77,8 +77,44 @@ public class AllowlistService {
         }
     }
 
+    /** Every player's shown name: their nickname, else their Google name (players without either: none). */
     public java.util.Map<String, String> names() {
-        return repo.names();
+        Map<String, String> out = new HashMap<>(repo.names());
+        out.putAll(repo.nicknames());
+        return out;
+    }
+
+    /** What others see a player as: their nickname, else their Google name, else their username without the @. */
+    public String displayName(String id) {
+        String nick = repo.nickname(id);
+        if (nick != null) return nick;
+        String name = repo.name(id);
+        return name != null ? name : id.split("@")[0];
+    }
+
+    /** The player's username: "@" and their e-mail's local part (e-mails never repeat, so neither do these). */
+    public static String username(String id) {
+        return "@" + id.split("@")[0];
+    }
+
+    /** The longest nickname. */
+    public static final int NICKNAME_MAX = 24;
+
+    /**
+     * Sets the name the player is shown as: trimmed, inner spaces collapsed, control characters dropped; blank goes
+     * back to their Google name. Tells every browser (NAMES_CHANGED {user, name}). IllegalArgumentException when
+     * longer than NICKNAME_MAX.
+     */
+    public String setNickname(String id, String nickname) {
+        String n = nickname == null ? "" : nickname.replaceAll("\\p{Cntrl}", "").strip().replaceAll("\\s+", " ");
+        if (n.codePointCount(0, n.length()) > NICKNAME_MAX) {
+            throw new IllegalArgumentException("A nickname is at most " + NICKNAME_MAX + " characters");
+        }
+        if (n.isEmpty()) repo.removeNickname(id);
+        else repo.saveNickname(id, n);
+        String shown = displayName(id);
+        events.publishEvent(new LiveEvent("NAMES_CHANGED", Map.of("user", id, "name", shown)));
+        return shown;
     }
 
     /** Player id -> profile photo URL, for players who have opened the page since photos were remembered. */

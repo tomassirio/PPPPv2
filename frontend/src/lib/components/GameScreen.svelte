@@ -4,6 +4,7 @@
      Other players' ghosts (drawn into the frames by the server) get their name under them, and everyone on screen (the
      player too) gets their chat line above their head for a few seconds, fading out. Text only, never HTML. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import type { Snippet } from 'svelte';
 	import { backoff } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
@@ -114,7 +115,7 @@
 					{/if}
 					{#if g.user !== (watch ?? session.me?.id)}
 						<div class="tag below" style:left style:top="{((g.y + 16) / 144) * 100}%" aria-hidden="true">
-							<span class="who" style:color={nameColor(g.user)}>{nameOf(g.user)}</span>
+							<span class="who" style:color={nameColor(g.user)}><Name user={g.user} /></span>
 						</div>
 					{/if}
 				{/each}

@@ -3,6 +3,7 @@
      board underneath on tablets; phone = Play / Scores / Chat tabs under the header, a challenge comes up as a bottom
      sheet and a linked session as a banner over the screen. Held sideways, Link / Scores / Chat are sheets. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import { goto } from '$app/navigation';
 	import { dexBanners } from '#lib/dex.svelte.ts';
 	import { api } from '#lib/api.ts';
@@ -274,7 +275,7 @@
 					<div class="linked-banner">
 						<span class="pair" aria-hidden="true"><Avatar user={me.id} /><span class="cable"></span><Avatar user={ls.peer} /></span>
 						<span class="lb-text"
-							><b>Linked with {nameOf(ls.peer)}</b><span>{ls.kind === 'TRADE' ? 'Trade' : 'Battle'} · linked {clock(since(ls.since))}</span></span
+							><b>Linked with <Name user={ls.peer} /></b><span>{ls.kind === 'TRADE' ? 'Trade' : 'Battle'} · linked {clock(since(ls.since))}</span></span
 						>
 						<button type="button" class="unplug" onclick={() => act('DELETE', '/link/session')}>Unplug</button>
 					</div>

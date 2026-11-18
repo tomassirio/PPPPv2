@@ -31,8 +31,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AllowlistController {
     public record Entry(@NotBlank @Email String email, @NotNull Role role) {}
     public record RoleChange(@NotNull Role role) {}
-    /** picture: Google profile photo URL, null for non-OIDC logins or accounts without one. */
-    public record Me(String id, String name, String picture, List<String> roles) {}
+    /**
+     * picture: Google profile photo URL, null for non-OIDC logins or accounts without one. name: their Google name;
+     * nickname: what others see them as (their nickname, else that name); username: "@" and the e-mail's local part.
+     */
+    public record Me(String id, String name, String picture, List<String> roles, String nickname, String username) {}
+
+    public record NicknameRequest(String nickname) {}
 
     private final AllowlistService allowlist;
     private final PlayerResetService resets;
@@ -51,7 +56,16 @@ public class AllowlistController {
                 .filter(a -> a.startsWith("ROLE_"))
                 .map(a -> a.substring(5))
                 .toList();
-        return new Me(v.id(), v.name(), v.picture(), roles);
+        return new Me(v.id(), v.name(), v.picture(), roles, allowlist.displayName(v.id()), AllowlistService.username(v.id()));
+    }
+
+    /** Sets the caller's nickname (blank: back to their Google name); answers the name they are now shown as. */
+    @org.springframework.web.bind.annotation.PutMapping("/me/nickname")
+    public java.util.Map<String, String> nickname(@org.springframework.web.bind.annotation.RequestBody NicknameRequest req,
+                                                  Authentication auth) {
+        String id = CurrentUser.id(auth);
+        return java.util.Map.of("nickname", allowlist.setNickname(id, req == null ? null : req.nickname()),
+                "username", AllowlistService.username(id));
     }
 
     /** Player id -> Google profile photo URL, for wherever players are listed. */

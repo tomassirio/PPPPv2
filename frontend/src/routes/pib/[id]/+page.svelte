@@ -3,6 +3,8 @@
      status, moves), achievements, badges, stats and their recent feed. GET /players/{id}/profile, fetched again when
      their scoreboard row changes; an older backend without it gets the scoreboard row and achievement catalogue. -->
 <script lang="ts">
+	import NicknameEditor from '#lib/components/NicknameEditor.svelte';
+	import Name from '#lib/components/Name.svelte';
 	import RunSummary from '#lib/components/RunSummary.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import { page } from '$app/state';
@@ -117,12 +119,12 @@
 <svelte:head><title>{you ? 'Your profile' : nameOf(id)} · Pibs&amp;PibettesPlayPokemonV2</title></svelte:head>
 
 <SubPage>
-	<nav class="crumb" aria-label="Breadcrumb"><a href="/scoreboard">← Scoreboard</a><span class="muted">/ {you ? 'You' : nameOf(id)}</span></nav>
+	<nav class="crumb" aria-label="Breadcrumb"><a href="/scoreboard">← Scoreboard</a><span class="muted">/ {#if you}You{:else}<Name user={id} />{/if}</span></nav>
 
 	{#if missing}
 		<section class="card no-game">
 			<Avatar user={id} size={72} />
-			<h1>{you ? (session.me?.name ?? nameOf(id)) : nameOf(id)}</h1>
+			<NicknameEditor user={id} editable={you} />
 			{#if you}
 				<p class="muted">You haven't picked a game yet. Choose Gold, Silver or Crystal and your profile fills in as you play: party, badges, Pokédex, achievements and link battles.</p>
 				<div class="actions">
@@ -141,7 +143,7 @@
 			<div class="row who">
 				<span class="av status-{status.kind}"><Avatar user={id} size={64} /><i class="status-dot" aria-hidden="true"></i></span>
 				<div class="col">
-					<h1 id="pib-h" class="pixel">{you ? 'Your profile' : nameOf(id)}</h1>
+					<NicknameEditor user={id} editable={you} headingId="pib-h" />
 					{#if row.trainerName}<span class="muted small">Trainer <b class="pixel tname">{row.trainerName}</b></span>{/if}
 					<div class="row xs wrap">
 						{#if version}<span class="chip g-{version}"><span class="cart-dot"></span>{version}</span>{/if}
@@ -306,10 +308,10 @@
 								onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}>Offer battle</button
 							>
 						</div>
-						{#if waiting}<span class="muted xs" role="status">Waiting for {nameOf(id)} to answer… {left(waiting.expiresAt)} s</span>{/if}
-						{#if theyBusy}<span class="muted xs">{nameOf(id)} is linked with someone right now.</span>
-						{:else if ready}<span class="muted xs">{nameOf(id)} is ready to {ready === 'TRADE' ? 'trade' : 'battle'}.</span>
-						{:else if !busy}<span class="muted xs">{nameOf(id)} sees your offer wherever they are, for a minute.</span>{/if}
+						{#if waiting}<span class="muted xs" role="status">Waiting for <Name user={id} /> to answer… {left(waiting.expiresAt)} s</span>{/if}
+						{#if theyBusy}<span class="muted xs"><Name user={id} /> is linked with someone right now.</span>
+						{:else if ready}<span class="muted xs"><Name user={id} /> is ready to {ready === 'TRADE' ? 'trade' : 'battle'}.</span>
+						{:else if !busy}<span class="muted xs"><Name user={id} /> sees your offer wherever they are, for a minute.</span>{/if}
 						{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
 					{:else}
 						<button type="button" class="btn primary wide" onclick={() => (finding = true)}>Find someone to link with</button>
@@ -366,11 +368,6 @@
 </SubPage>
 
 <style>
-	h1 {
-		margin: 0;
-		font-size: 18px;
-		line-height: 1.5;
-	}
 	h2 {
 		margin: 0;
 		font-size: 12px;
@@ -484,10 +481,6 @@
 		gap: 10px;
 		padding: 48px 24px;
 		text-align: center;
-	}
-	.no-game h1 {
-		margin: 6px 0 0;
-		font-size: 22px;
 	}
 	.no-game p {
 		margin: 0;
