@@ -148,14 +148,12 @@ public class PokecenterDig {
 
     /**
      * Queues the dig, whatever the player is doing (check first). False when there is nowhere to go: they never
-     * entered a Pokémon Center. Standing at the receptionist already, nothing happens and it is true.
+     * entered a Pokémon Center. Already on the receptionist's tile, it still runs: it turns them to face her.
      */
     static boolean queue(String userId, Game game, AddressSpace bus, String kind) {
         Layout at = game.at;
         int group = u8(bus, at.mapGroup), number = u8(bus, at.mapGroup + 1);
-        int x = "BATTLE".equals(kind) ? BATTLE_X : TRADE_X;
         boolean upstairs = group == game.pc2f[0] && number == game.pc2f[1];
-        if (upstairs && u8(bus, at.mapGroup + 3) == x && u8(bus, at.mapGroup + 2) == RECEPTIONIST_Y) return true;
         if (!upstairs) { // the 2F stairs lead back down into this Center (1F), or the respawn one
             int g = group, n = number;
             if (!game.maps.pokecenter(g, n)) {
