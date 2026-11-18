@@ -1,4 +1,5 @@
-<!-- The top bar on /play, /scoreboard and the Pib profiles: logo, Play | Scoreboard | My profile, "Linked with X"
+<!-- The top bar on /play, /scoreboard and the Pib profiles: logo, Play | Scoreboard | Live | My profile (Live with a red
+     dot while others are linked), "Linked with X"
      while a link cable is in, who is online and the account menu. Phones on /play get their own tabs instead of the nav. -->
 <script lang="ts">
 	import { page } from '$app/state';
@@ -16,7 +17,9 @@
 	const mine = $derived(`/pib/${encodeURIComponent(me.id)}`);
 	const path = $derived(page.url.pathname);
 	// Another Pib's profile belongs to the scoreboard.
-	const current = $derived(path === mine ? mine : path.startsWith('/pib/') ? '/scoreboard' : path);
+	const current = $derived(path === mine ? mine : path.startsWith('/pib/') ? '/scoreboard' : path.startsWith('/watch') ? '/watch' : path);
+	// Link sessions other Pibs are in: something to watch.
+	const live = $derived((link.state?.links ?? []).filter((p) => p.a !== me.id && p.b !== me.id).length);
 	const peer = $derived(link.state?.session?.peer);
 </script>
 
@@ -27,8 +30,10 @@
 			<img class="short" src={ppppLogo} alt="PPPP V2" width="480" height="174" />
 		</a>
 		<nav aria-label="Main">
-			{#each [['/play', 'Play'], ['/scoreboard', 'Scoreboard'], [mine, 'My profile']] as [href, label] (label)}
-				<a {href} aria-current={current === href ? 'page' : undefined}>{label}</a>
+			{#each [['/play', 'Play'], ['/scoreboard', 'Scoreboard'], ['/watch', 'Live'], [mine, 'My profile']] as [href, label] (label)}
+				<a {href} aria-current={current === href ? 'page' : undefined}
+					>{label}{#if href === '/watch' && live}<span class="live-dot" aria-hidden="true"></span><span class="sr">, {live} running</span>{/if}</a
+				>
 			{/each}
 		</nav>
 		{#if peer}<span class="chip status-linked"><span class="status-dot"></span>Linked with {nameOf(peer)}</span>{/if}
@@ -91,6 +96,31 @@
 	}
 	nav a:hover {
 		color: var(--text);
+	}
+	.live-dot {
+		width: 7px;
+		height: 7px;
+		margin-left: 6px;
+		border-radius: 50%;
+		background: #e3350d;
+		animation: live-pulse 1.4s ease-in-out infinite;
+	}
+	@keyframes live-pulse {
+		50% {
+			opacity: 0.35;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.live-dot {
+			animation: none;
+		}
+	}
+	.sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
 	}
 	nav a[aria-current='page'] {
 		color: var(--accent-text);

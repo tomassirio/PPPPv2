@@ -169,7 +169,7 @@
 							<b>{nameOf(p.a)} vs {nameOf(p.b)}</b>
 							<span class={p.kind === 'TRADE' ? 'trade' : 'battle'}>{p.kind === 'TRADE' ? 'Trading' : 'Battling'} · {clock(since(p.since))}</span>
 						</div>
-						<a class="small watch" href="/watch/{encodeURIComponent(p.a)}">Watch<span class="sr"> {nameOf(p.a)} and {nameOf(p.b)}</span></a>
+						<a class="small watch" href="/watch?u={encodeURIComponent(p.a)}">Watch<span class="sr"> {nameOf(p.a)} and {nameOf(p.b)}</span></a>
 					</li>
 				{/each}
 			</ul>
