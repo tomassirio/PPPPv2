@@ -1,12 +1,15 @@
 <!-- The trainer the player walks as in their game (GET/PUT /me/sprite): the current one walking in place, and "Change"
      opens every walking trainer their game has, each drawn from their own ROM (/me/sprites/{key}.png, a 16x96 sheet:
      down, up, left, then each walking). Picking one rebuilds their Game Boy from where it is (the backend refuses
-     while a link cable is in); the game draws the new trainer from the next map it loads. -->
+     while a link cable is in); the game draws the new trainer from the next map it loads. compact: a small block for the
+     profile hero, the choices opening over the page. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
 
 	type Choice = { key: string; name: string; id: number };
 	type State = { current: string; choices: Choice[] };
+
+	let { compact = false }: { compact?: boolean } = $props();
 
 	let picked = $state<State | null>(null);
 	let open = $state(false);
@@ -39,7 +42,42 @@
 	}
 </script>
 
-{#if picked?.choices.length}
+{#snippet list(p: State)}
+	<ul class="choices" aria-label="Trainers">
+		{#each p.choices as c (c.key)}
+			<li>
+				<button type="button" class:on={c.key === p.current} aria-pressed={c.key === p.current} disabled={!!busy} onclick={() => pick(c)} title={c.name}>
+					<span class="walk" style:background-image="url({sheet(c.key)})" aria-hidden="true"></span>
+					<span class="name">{c.name}</span>
+				</button>
+			</li>
+		{/each}
+	</ul>
+{/snippet}
+
+{#if picked?.choices.length && compact}
+	<div class="mini">
+		<div class="mini-head">
+			<span class="label">Your trainer</span>
+			<button type="button" class="change" aria-expanded={open} onclick={() => (open = !open)}>{open ? 'Close' : 'Change'}</button>
+		</div>
+		<div class="mini-body">
+			{#if current}<span class="walk big" style:background-image="url({sheet(current.key)})" role="img" aria-label={current.name}></span>{/if}
+			<div class="mini-text">
+				<b>{current?.name ?? picked.current}</b>
+				<span class="muted desc">Who you walk as in your game, seen by everyone on their screens and the town map.</span>
+			</div>
+		</div>
+		{#if message}<p class="ok tip" role="status">{message}</p>{/if}
+		{#if error}<p class="error tip" role="alert">{error}</p>{/if}
+		{#if open}
+			<div class="pop" role="dialog" aria-label="Pick your trainer">
+				<p class="muted">Who you walk around as in your game. Others see it too, on their screen and on the town map.</p>
+				{@render list(picked)}
+			</div>
+		{/if}
+	</div>
+{:else if picked?.choices.length}
 	<section class="card trainer" aria-labelledby="trainer-h">
 		<div class="between">
 			<h2 id="trainer-h">Your trainer</h2>
@@ -54,22 +92,86 @@
 		</div>
 		{#if message}<p class="ok" role="status">{message}</p>{/if}
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
-		{#if open}
-			<ul class="choices" aria-label="Trainers">
-				{#each picked.choices as c (c.key)}
-					<li>
-						<button type="button" class:on={c.key === picked.current} aria-pressed={c.key === picked.current} disabled={!!busy} onclick={() => pick(c)} title={c.name}>
-							<span class="walk" style:background-image="url({sheet(c.key)})" aria-hidden="true"></span>
-							<span class="name">{c.name}</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
+		{#if open}{@render list(picked)}{/if}
 	</section>
 {/if}
 
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape') open = false;
+	}}
+/>
+
 <style>
+	.mini {
+		position: relative;
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		border: 1px solid var(--border);
+		background: var(--sunk);
+	}
+	.mini-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+	.mini-body {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+	.mini-text {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		line-height: 1.25;
+		min-width: 0;
+	}
+	.desc {
+		font-size: 12px;
+	}
+	.mini .change {
+		height: 28px;
+		min-width: 70px;
+	}
+	.label {
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.tip {
+		position: absolute;
+		top: calc(100% + 6px);
+		left: 0;
+		right: 0;
+		font-size: 12px !important;
+	}
+	.pop {
+		position: absolute;
+		z-index: 30;
+		top: calc(100% + 8px);
+		right: 0;
+		width: min(560px, 90vw);
+		max-height: min(420px, 60vh);
+		overflow: auto;
+		padding: 14px;
+		border-radius: 12px;
+		border: 1px solid var(--border-strong);
+		background: var(--panel);
+		box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+	}
+	.pop p {
+		margin: 0 0 8px;
+		font-size: 13px;
+	}
 	.card {
 		background: var(--panel);
 		border: 1px solid var(--border);

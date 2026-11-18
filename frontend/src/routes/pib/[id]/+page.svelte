@@ -3,6 +3,8 @@
      status, moves), achievements, badges, stats and their recent feed. GET /players/{id}/profile, fetched again when
      their scoreboard row changes; an older backend without it gets the scoreboard row and achievement catalogue. -->
 <script lang="ts">
+	import NicknameEditor from '#lib/components/NicknameEditor.svelte';
+	import Name from '#lib/components/Name.svelte';
 	import RunSummary from '#lib/components/RunSummary.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import { page } from '$app/state';
@@ -85,6 +87,44 @@
 	const masks = $derived(row ? badgeMasks(row) : { johto: 0, kanto: 0 });
 	const johto = $derived(bitCount(masks.johto));
 	const achievements = $derived(shownAchievements(profile?.achievements ?? []));
+	// The profile below the hero, in tabs so each fits one screen.
+	const TABS = [
+		{ id: 'overview', label: 'Overview' },
+		{ id: 'achievements', label: 'Achievements' },
+		{ id: 'badges', label: 'Badges & stats' },
+		{ id: 'recent', label: 'Recent' }
+	] as const;
+	let tab = $state<(typeof TABS)[number]['id']>(page.url.searchParams.has('ach') ? 'achievements' : 'overview');
+	// Achievements in pages of three rows: the grid's width says how many fit in a row (180px cards, 10px gaps).
+	let achWidth = $state(0);
+	let achPage = $state(0);
+	// A rarity tier picked in the legend shows only that tier's achievements; picking it again shows all.
+	let tierFilter = $state<string | null>(null);
+	const shownAch = $derived(tierFilter ? achievements.filter((a) => a.rarity === tierFilter) : achievements);
+	const perPage = $derived(Math.max(4, Math.floor((achWidth + 10) / 190) * 3));
+	const achPages = $derived(Math.max(1, Math.ceil(shownAch.length / perPage)));
+	const pageAch = $derived(shownAch.slice(achPage * perPage, achPage * perPage + perPage));
+	$effect(() => {
+		if (achPage >= achPages) achPage = achPages - 1;
+	});
+	// ?ach=<name> (from an activity entry): that achievement's page, scrolled to and ringed for a moment.
+	const spotlight = $derived(page.url.searchParams.get('ach'));
+	let spotted = $state<string | null>(null);
+	$effect(() => {
+		const want = spotlight;
+		if (!want || !achievements.length || !achWidth) return;
+		const at = achievements.findIndex((x) => x.name === want);
+		if (at < 0) return;
+		const a = achievements[at];
+		tierFilter = null;
+		achPage = Math.floor(at / perPage);
+		requestAnimationFrame(() => {
+			const el = document.getElementById(`ach-${a.id}`);
+			if (!el) return;
+			el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+			spotted = a.id;
+		});
+	});
 	const linkAch = $derived(achievements.filter((a) => a.category === 'Link'));
 	// Link record: the profile's stats when the backend has them, else the scoreboard row's.
 	const lr = $derived({
@@ -117,12 +157,12 @@
 <svelte:head><title>{you ? 'Your profile' : nameOf(id)} · Pibs&amp;PibettesPlayPokemonV2</title></svelte:head>
 
 <SubPage>
-	<nav class="crumb" aria-label="Breadcrumb"><a href="/scoreboard">← Scoreboard</a><span class="muted">/ {you ? 'You' : nameOf(id)}</span></nav>
+	<nav class="crumb" aria-label="Breadcrumb"><a href="/scoreboard">← Scoreboard</a><span class="muted">/ {#if you}You{:else}<Name user={id} />{/if}</span></nav>
 
 	{#if missing}
 		<section class="card no-game">
 			<Avatar user={id} size={72} />
-			<h1>{you ? (session.me?.name ?? nameOf(id)) : nameOf(id)}</h1>
+			<NicknameEditor user={id} editable={you} />
 			{#if you}
 				<p class="muted">You haven't picked a game yet. Choose Gold, Silver or Crystal and your profile fills in as you play: party, badges, Pokédex, achievements and link battles.</p>
 				<div class="actions">
@@ -141,7 +181,7 @@
 			<div class="row who">
 				<span class="av status-{status.kind}"><Avatar user={id} size={64} /><i class="status-dot" aria-hidden="true"></i></span>
 				<div class="col">
-					<h1 id="pib-h" class="pixel">{you ? 'Your profile' : nameOf(id)}</h1>
+					<NicknameEditor user={id} editable={you} headingId="pib-h" />
 					{#if row.trainerName}<span class="muted small">Trainer <b class="pixel tname">{row.trainerName}</b></span>{/if}
 					<div class="row xs wrap">
 						{#if version}<span class="chip g-{version}"><span class="cart-dot"></span>{version}</span>{/if}
@@ -158,76 +198,182 @@
 				</div>
 			</div>
 			<div class="row numbers wrap">
+				{#if you}<div class="trainer-slot"><TrainerPicker compact /></div>{/if}
 				{#if rank >= 0}<div class="summary-slot"><RunSummary {row} {rank} total={board.rows.length} /></div>{/if}
 			</div>
 		</section>
 
-		<div class="grid">
-			<div class="col">
-				<section class="card" aria-labelledby="party-h">
-					<div class="between"><h2 id="party-h">Party · {profile.party.length} of 6</h2><span class="muted xs">From {you ? 'your' : `${nameOf(id)}’s`} game</span></div>
-						<ul class="mons">
-							{#each profile.party as m, i (i)}
-								{@const pct = m.maxHp ? Math.round(((m.hp ?? 0) * 100) / m.maxHp) : (row.party?.[i]?.hpPercent ?? null)}
-								<li class="mcard">
-									<div class="row">
-										<span class="mon" class:fnt={m.status === 'FNT'}>
-											{#if m.egg}<span class="egg"></span>{:else}<img src="/api/v1/game/icons/{m.species}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
-										</span>
-										<div class="grow">
-											{#if m.egg}
-												<b>Egg</b>
-												<div class="muted xs">It's making sounds inside</div>
-											{:else}
-												<div class="between"><b class="mname">{m.nickname || m.name}</b><span class="xs">Lv {m.level}</span></div>
-												<div class="muted xs ell">{m.nickname && m.nickname !== m.name ? `${m.name} · ` : ''}{m.item ?? 'No item'}</div>
-												{#if m.types.length || m.shiny}
-													<div class="types">
-														{#each m.types as t (t)}<span class="type" style:--t={TYPE_COLORS[t.toLowerCase()] ?? 'var(--border)'}>{t}</span>{/each}
-														{#if m.shiny}<span class="type" style:--t="var(--accent)">shiny</span>{/if}
+		<div class="tabs" role="tablist" aria-label="Profile">
+			{#each TABS as t (t.id)}
+				<button type="button" role="tab" id="tab-{t.id}" aria-selected={tab === t.id} aria-controls="panel-{t.id}" class:on={tab === t.id} onclick={() => (tab = t.id)}
+					>{t.label}</button
+				>
+			{/each}
+		</div>
+
+		<div class="tabpanel" role="tabpanel" id="panel-{tab}" aria-labelledby="tab-{tab}">
+			{#if tab === 'overview'}
+				<div class="grid fill">
+					<div class="col">
+						<section class="card party" aria-labelledby="party-h">
+							<div class="between"><h2 id="party-h">Party · {profile.party.length} of 6</h2></div>
+								<ul class="mons">
+									{#each profile.party as m, i (i)}
+										{@const pct = m.maxHp ? Math.round(((m.hp ?? 0) * 100) / m.maxHp) : (row.party?.[i]?.hpPercent ?? null)}
+										<li class="mcard">
+											<div class="row">
+												<span class="mon" class:fnt={m.status === 'FNT'}>
+													{#if m.egg}<span class="egg"></span>{:else}<img src="/api/v1/game/icons/{m.species}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
+												</span>
+												<div class="grow">
+													{#if m.egg}
+														<b>Egg</b>
+														<div class="muted xs">It's making sounds inside</div>
+													{:else}
+														<div class="between"><b class="mname">{m.nickname || m.name}</b><span class="xs">Lv {m.level}</span></div>
+														<div class="muted xs ell">{m.nickname && m.nickname !== m.name ? `${m.name} · ` : ''}{m.item ?? 'No item'}</div>
+														{#if m.types.length || m.shiny}
+															<div class="types">
+																{#each m.types as t (t)}<span class="type" style:--t={TYPE_COLORS[t.toLowerCase()] ?? 'var(--border)'}>{t}</span>{/each}
+																{#if m.shiny}<span class="type" style:--t="var(--accent)">shiny</span>{/if}
+															</div>
+														{/if}
+													{/if}
+												</div>
+											</div>
+											{#if !m.egg}
+												<div class="col tight">
+													<div class="between xs">
+														<span class="muted">HP</span>
+														<span class="row tight"
+															>{#if m.status}<span class="st st-{m.status}">{m.status}</span>{/if}{#if m.maxHp}<span class="num">{m.hp} / {m.maxHp}</span>{:else if pct != null}<span
+																	class="num">{pct}%</span
+																>{/if}</span
+														>
 													</div>
+													{#if pct != null}<span class="bar"><b style:width="{pct}%" style:background={hpColor(pct)}></b></span>{/if}
+												</div>
+												{#if m.moves.length}
+													<ul class="moves" aria-label="Moves">
+														{#each m.moves as mv, k (k)}<li>{mv}</li>{/each}
+													</ul>
 												{/if}
 											{/if}
-										</div>
+										</li>
+									{/each}
+									{#each Array(Math.max(0, 6 - profile.party.length)) as _, i (i)}
+										<li class="mcard empty" aria-hidden="true"><div class="row"><span class="mon"></span><span class="muted small">Empty</span></div></li>
+									{/each}
+								</ul>
+						</section>
+					</div>
+					<div class="col">
+						<!-- Link cable: the heart of v2. Record, trades, who they linked with, the Link achievements, and the buttons. -->
+						<section class="card linkcard" aria-labelledby="link-h">
+							<div class="between">
+								<h2 id="link-h" class="linkh">
+									<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"
+										><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8" /></svg
+									>Link cable
+								</h2>
+								<span class="chip small-chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
+							</div>
+							<!-- Three numbers in one panel, like the points/rank/rating summary. -->
+							<dl class="linkstats">
+								<div><dt>Won</dt><dd class="w">{lr.wins}</dd></div>
+								<div><dt>Lost</dt><dd class="l">{lr.losses}</dd></div>
+								<div><dt>Trades</dt><dd>{lr.trades}</dd></div>
+								{#if lr.wins + lr.losses}
+									<span class="winbar" role="img" aria-label="{Math.round((lr.wins * 100) / (lr.wins + lr.losses))}% of link battles won"
+										><b style:width="{(lr.wins * 100) / (lr.wins + lr.losses)}%"></b></span
+									>
+								{/if}
+							</dl>
+							<div class="linkrow">
+								<span class="label">Linked with</span>
+								{#if partners.length}
+									<div class="partners">
+										{#each partners as p (p)}<a href="/pib/{encodeURIComponent(p)}" title={nameOf(p)}><Avatar user={p} size={28} /></a>{/each}
 									</div>
-									{#if !m.egg}
-										<div class="col tight">
-											<div class="between xs">
-												<span class="muted">HP</span>
-												<span class="row tight"
-													>{#if m.status}<span class="st st-{m.status}">{m.status}</span>{/if}{#if m.maxHp}<span class="num">{m.hp} / {m.maxHp}</span>{:else if pct != null}<span
-															class="num">{pct}%</span
-														>{/if}</span
-												>
-											</div>
-											{#if pct != null}<span class="bar"><b style:width="{pct}%" style:background={hpColor(pct)}></b></span>{/if}
-										</div>
-										{#if m.moves.length}
-											<ul class="moves" aria-label="Moves">
-												{#each m.moves as mv, k (k)}<li>{mv}</li>{/each}
-											</ul>
-										{/if}
-									{/if}
-								</li>
-							{/each}
-							{#each Array(Math.max(0, 6 - profile.party.length)) as _, i (i)}
-								<li class="mcard empty" aria-hidden="true"><div class="row"><span class="mon"></span><span class="muted small">Empty</span></div></li>
-							{/each}
-						</ul>
-				</section>
-
+								{:else}
+									<span class="muted small">Nobody yet</span>
+								{/if}
+							</div>
+							{#if linkAch.length}
+								<div class="col tight">
+									<div class="between"><span class="label">Link achievements</span><span class="muted xs">{linkAch.filter((a) => a.unlocked).length} of {linkAch.length}</span></div>
+									<!-- One row of balls (name and what it takes on hover); the cards are in the Achievements tab. -->
+									<ul class="linkballs">
+										{#each linkAch as a (a.id)}
+											<li class:got={a.unlocked} title="{a.name}: {a.description}{a.unlocked ? '' : ' (locked)'}"
+												><RarityBall rarity={a.rarity} locked={!a.unlocked} size={24} /><span class="sr-only">{a.name}, {a.unlocked ? 'unlocked' : 'locked'}</span></li
+											>
+										{/each}
+									</ul>
+								</div>
+							{/if}
+							{#if !you}
+								<div class="offers">
+									<button
+										type="button"
+										class="btn primary grow"
+										disabled={busy || theyBusy}
+										onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'TRADE' })}>Offer trade</button
+									>
+									<button
+										type="button"
+										class="btn grow"
+										disabled={busy || theyBusy}
+										onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}>Offer battle</button
+									>
+								</div>
+								{#if waiting}<span class="muted xs" role="status">Waiting for <Name user={id} /> to answer… {left(waiting.expiresAt)} s</span>{/if}
+								{#if theyBusy}<span class="muted xs"><Name user={id} /> is linked with someone right now.</span>
+								{:else if ready}<span class="muted xs"><Name user={id} /> is ready to {ready === 'TRADE' ? 'trade' : 'battle'}.</span>
+								{:else if !busy}<span class="muted xs"><Name user={id} /> sees your offer wherever they are, for a minute.</span>{/if}
+								{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
+							{:else}
+								<button type="button" class="btn primary wide" onclick={() => (finding = true)}>Find someone to link with</button>
+								<LinkFinder bind:open={finding} />
+							{/if}
+						</section>
+					</div>
+				</div>
+			{:else if tab === 'achievements'}
 				<section class="card" aria-labelledby="ach-h">
-					<div class="between"><h2 id="ach-h">Achievements</h2><span class="muted small">{got} of {achievements.length}</span></div>
+					<div class="between">
+						<h2 id="ach-h">Achievements</h2>
+						<span class="pager">
+							<span class="muted small">{tierFilter ? `${shownAch.filter((a) => a.unlocked).length} of ${shownAch.length} ${tierFilter}` : `${got} of ${achievements.length}`}</span>
+							{#if achPages > 1}
+								<button type="button" class="pg" onclick={() => (achPage = Math.max(0, achPage - 1))} disabled={achPage === 0} aria-label="Previous achievements">‹</button>
+								<span class="muted xs" aria-live="polite">{achPage + 1} / {achPages}</span>
+								<button type="button" class="pg" onclick={() => (achPage = Math.min(achPages - 1, achPage + 1))} disabled={achPage >= achPages - 1} aria-label="Next achievements">›</button>
+							{/if}
+						</span>
+					</div>
 					{#if achievements.length}
 						<ul class="legend" aria-label="Rarity tiers">
 							{#each tiers as t (t.rarity)}
-								<li class="r-{t.rarity}"><RarityBall rarity={t.rarity} size={18} /><span class="tier">{t.rarity}</span><span class="muted">{t.got} of {t.of}</span></li>
+								<li class="r-{t.rarity}">
+									<button
+										type="button"
+										class:on={tierFilter === t.rarity}
+										class:off={tierFilter !== null && tierFilter !== t.rarity}
+										aria-pressed={tierFilter === t.rarity}
+										title={tierFilter === t.rarity ? 'Show every tier' : `Show only ${t.rarity}`}
+										onclick={() => {
+											tierFilter = tierFilter === t.rarity ? null : t.rarity;
+											achPage = 0;
+										}}><RarityBall rarity={t.rarity} size={18} /><span class="tier">{t.rarity}</span><span class="muted">{t.got} of {t.of}</span></button
+									>
+								</li>
 							{/each}
 						</ul>
-						<ul class="ach">
-							{#each achievements as a (a.id)}
+						<ul class="ach" bind:clientWidth={achWidth}>
+							{#each pageAch as a (a.id)}
 								{@const pct = progressPct(a)}
-								<li class="ac r-{a.rarity}" class:locked={!a.unlocked}>
+								<li class="ac r-{a.rarity}" class:locked={!a.unlocked} class:spot={spotted === a.id} id="ach-{a.id}">
 									<span title={BALL[a.rarity]}><RarityBall rarity={a.rarity} locked={!a.unlocked} /></span>
 									<div class="col tight grow">
 										<b class="small">{a.name}<span class="sr-only">, {a.rarity}, {a.unlocked ? 'unlocked' : 'locked'}</span></b>
@@ -247,130 +393,69 @@
 						<p class="muted small">No achievements to show.</p>
 					{/if}
 				</section>
-			</div>
-
-			<div class="col">
-				<!-- Link cable: the heart of v2. Record, trades, who they linked with, the Link achievements, and the buttons. -->
-				<section class="card linkcard" aria-labelledby="link-h">
-					<div class="between">
-						<h2 id="link-h" class="linkh">
-							<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"
-								><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8" /></svg
-							>Link cable
-						</h2>
-						<span class="chip small-chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
+			{:else if tab === 'badges'}
+				<div class="grid badges fill">
+					<div class="col">
+						<section class="card" aria-labelledby="badges-h">
+							<h2 id="badges-h">Badges</h2>
+							{#each [{ label: 'Johto', names: JOHTO, mask: masks.johto, offset: 0 }, { label: 'Kanto', names: KANTO, mask: masks.kanto, offset: 8 }] as region (region.label)}
+								<div class="col tight">
+									<div class="between xs"><b>{region.label}</b><span class="muted">{bitCount(region.mask)} of 8</span></div>
+									<ul class="bdg" aria-label="{region.label} badges">
+										{#each region.names as n, j (n)}
+											{@const earned = (region.mask & (1 << j)) !== 0}
+											{@const label = `${n} Badge: ${earned ? 'earned' : 'not earned'}`}
+											<li class:locked={!earned} title={label}>
+												{#if broken[n]}
+													<span class="letter" role="img" aria-label={label}>{n[0]}</span>
+												{:else}
+													<img src={art(n, region.offset + j)} alt={label} onerror={() => (broken[n] = true)} />
+												{/if}
+											</li>
+										{/each}
+									</ul>
+									{#if region.offset === 0}
+										<span class="muted xs">{johto ? `Latest: ${JOHTO[johto - 1]} Badge` : 'No badges yet'}{johto < 8 ? ` · next: ${JOHTO[johto]}` : ''}</span>
+									{/if}
+								</div>
+							{/each}
+						</section>
 					</div>
-					<!-- Three numbers in one panel, like the points/rank/rating summary. -->
-					<dl class="linkstats">
-						<div><dt>Won</dt><dd class="w">{lr.wins}</dd></div>
-						<div><dt>Lost</dt><dd class="l">{lr.losses}</dd></div>
-						<div><dt>Trades</dt><dd>{lr.trades}</dd></div>
-						{#if lr.wins + lr.losses}
-							<span class="winbar" role="img" aria-label="{Math.round((lr.wins * 100) / (lr.wins + lr.losses))}% of link battles won"
-								><b style:width="{(lr.wins * 100) / (lr.wins + lr.losses)}%"></b></span
-							>
-						{/if}
-					</dl>
-					<div class="linkrow">
-						<span class="label">Linked with</span>
-						{#if partners.length}
-							<div class="partners">
-								{#each partners as p (p)}<a href="/pib/{encodeURIComponent(p)}" title={nameOf(p)}><Avatar user={p} size={28} /></a>{/each}
-							</div>
-						{:else}
-							<span class="muted small">Nobody yet</span>
-						{/if}
+					<div class="col">
+						<section class="card stats" aria-labelledby="stats-h">
+							<h2 id="stats-h">Stats</h2>
+							<dl class="kv">
+								<dt>Pokédex</dt>
+								<dd>{profile.stats.caught} caught · {profile.stats.seen} seen</dd>
+								{#if profile.stats.playTime ?? row.playTime}<dt>Playtime</dt><dd>{profile.stats.playTime ?? row.playTime}</dd>{/if}
+								<dt>Achievements</dt>
+								<dd>{row.achievementsUnlocked} · {row.achievementPoints} pts</dd>
+								{#if top}<dt>Top Pokémon</dt><dd>{top.nickname || top.name} · Lv {topLevel(profile.party)}</dd>{/if}
+								<dt>Party</dt>
+								<dd>{profile.party.length} of 6</dd>
+								<dt>Badges</dt>
+								<dd>{johto} Johto · {bitCount(masks.kanto)} Kanto</dd>
+								<dt>Link battles</dt>
+								<dd>{lr.wins} won · {lr.losses} lost</dd>
+								<dt>Trades</dt>
+								<dd>{lr.trades}</dd>
+								<dt>Linked with</dt>
+								<dd>{partners.length ? `${partners.length} ${partners.length === 1 ? 'Pib' : 'Pibs'}` : 'Nobody yet'}</dd>
+							</dl>
+						</section>
 					</div>
-					{#if linkAch.length}
-						<div class="col tight">
-							<div class="between"><span class="label">Link achievements</span><span class="muted xs">{linkAch.filter((a) => a.unlocked).length} of {linkAch.length}</span></div>
-							<ul class="linkach">
-								{#each linkAch as a (a.id)}
-									<li class:got={a.unlocked} title={a.description}><RarityBall rarity={a.rarity} locked={!a.unlocked} size={20} /><span class="ell">{a.name}</span></li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-					{#if !you}
-						<div class="offers">
-							<button
-								type="button"
-								class="btn primary grow"
-								disabled={busy || theyBusy}
-								onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'TRADE' })}>Offer trade</button
-							>
-							<button
-								type="button"
-								class="btn grow"
-								disabled={busy || theyBusy}
-								onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}>Offer battle</button
-							>
-						</div>
-						{#if waiting}<span class="muted xs" role="status">Waiting for {nameOf(id)} to answer… {left(waiting.expiresAt)} s</span>{/if}
-						{#if theyBusy}<span class="muted xs">{nameOf(id)} is linked with someone right now.</span>
-						{:else if ready}<span class="muted xs">{nameOf(id)} is ready to {ready === 'TRADE' ? 'trade' : 'battle'}.</span>
-						{:else if !busy}<span class="muted xs">{nameOf(id)} sees your offer wherever they are, for a minute.</span>{/if}
-						{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
-					{:else}
-						<button type="button" class="btn primary wide" onclick={() => (finding = true)}>Find someone to link with</button>
-						<LinkFinder bind:open={finding} />
-					{/if}
-				</section>
-
-				<section class="card" aria-labelledby="badges-h">
-					<h2 id="badges-h">Badges</h2>
-					{#each [{ label: 'Johto', names: JOHTO, mask: masks.johto, offset: 0 }, { label: 'Kanto', names: KANTO, mask: masks.kanto, offset: 8 }] as region (region.label)}
-						<div class="col tight">
-							<div class="between xs"><b>{region.label}</b><span class="muted">{bitCount(region.mask)} of 8</span></div>
-							<ul class="bdg" aria-label="{region.label} badges">
-								{#each region.names as n, j (n)}
-									{@const earned = (region.mask & (1 << j)) !== 0}
-									{@const label = `${n} Badge: ${earned ? 'earned' : 'not earned'}`}
-									<li class:locked={!earned} title={label}>
-										{#if broken[n]}
-											<span class="letter" role="img" aria-label={label}>{n[0]}</span>
-										{:else}
-											<img src={art(n, region.offset + j)} alt={label} onerror={() => (broken[n] = true)} />
-										{/if}
-									</li>
-								{/each}
-							</ul>
-							{#if region.offset === 0}
-								<span class="muted xs">{johto ? `Latest: ${JOHTO[johto - 1]} Badge` : 'No badges yet'}{johto < 8 ? ` · next: ${JOHTO[johto]}` : ''}</span>
-							{/if}
-						</div>
-					{/each}
-				</section>
-
-				<section class="card" aria-labelledby="stats-h">
-					<h2 id="stats-h">Stats</h2>
-					<dl class="kv">
-						<dt>Pokédex</dt>
-						<dd>{profile.stats.caught} caught · {profile.stats.seen} seen</dd>
-						{#if profile.stats.playTime ?? row.playTime}<dt>Playtime</dt><dd>{profile.stats.playTime ?? row.playTime}</dd>{/if}
-						<dt>Achievements</dt>
-						<dd>{row.achievementsUnlocked} · {row.achievementPoints} pts</dd>
-						{#if top}<dt>Top Pokémon</dt><dd>{top.nickname || top.name} · Lv {topLevel(profile.party)}</dd>{/if}
-					</dl>
-				</section>
-
-				{#if you}<TrainerPicker />{/if}
-
+				</div>
+			{:else}
 				<section class="card" aria-labelledby="recent-h">
 					<h2 id="recent-h">Recent</h2>
 					<Activity events={profile.recent} limit={8} label="Recent" />
 				</section>
-			</div>
+			{/if}
 		</div>
 	{/if}
 </SubPage>
 
 <style>
-	h1 {
-		margin: 0;
-		font-size: 18px;
-		line-height: 1.5;
-	}
 	h2 {
 		margin: 0;
 		font-size: 12px;
@@ -477,6 +562,14 @@
 		justify-content: space-between;
 		gap: 20px;
 	}
+	.numbers {
+		align-items: stretch;
+		justify-content: flex-end;
+	}
+	.trainer-slot {
+		display: flex;
+		width: min(300px, 100%);
+	}
 	.no-game {
 		display: flex;
 		flex-direction: column;
@@ -484,10 +577,6 @@
 		gap: 10px;
 		padding: 48px 24px;
 		text-align: center;
-	}
-	.no-game h1 {
-		margin: 6px 0 0;
-		font-size: 22px;
 	}
 	.no-game p {
 		margin: 0;
@@ -613,11 +702,81 @@
 		cursor: not-allowed;
 	}
 
+	.linkballs {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.linkballs li {
+		display: inline-flex;
+		padding: 4px;
+		border-radius: 50%;
+		border: 1px solid var(--border);
+	}
+	.linkballs li.got {
+		border-color: var(--accent-text);
+		background: var(--accent-tint);
+	}
+	.tabs {
+		display: flex;
+		gap: 4px;
+		border-bottom: 1px solid var(--border);
+		overflow-x: auto;
+	}
+	.tabs button {
+		padding: 10px 16px;
+		border: none;
+		border-bottom: 3px solid transparent;
+		background: none;
+		color: var(--muted);
+		font: inherit;
+		font-size: 14px;
+		font-weight: 600;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	.tabs button:hover {
+		color: var(--text);
+	}
+	.tabs button.on {
+		color: var(--accent-text);
+		border-bottom-color: var(--accent);
+	}
+	.tabs button:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: -3px;
+	}
+	.tabpanel {
+		min-width: 0;
+	}
 	.grid {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) 360px;
 		gap: 20px;
 		align-items: start;
+	}
+	/* Badges at their size (8 x 64px), the stats taking the rest. */
+	.grid.badges {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
+	/* Overview: the party card runs as tall as the link card, its six slots sharing the height. */
+	.grid.fill {
+		align-items: stretch;
+	}
+	.grid.fill > .col > .card {
+		flex: 1;
+	}
+	.party,
+	.stats {
+		height: 100%;
+		box-sizing: border-box;
+	}
+	.party .mons {
+		flex: 1;
+		grid-auto-rows: 1fr;
 	}
 	.mons {
 		display: grid;
@@ -723,31 +882,6 @@
 	.partners a {
 		display: flex;
 		border-radius: 50%;
-	}
-	.linkach {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 6px;
-	}
-	.linkach li {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 6px 8px;
-		border-radius: 8px;
-		border: 1px solid var(--border);
-		font-size: 12px;
-		color: var(--muted);
-		min-width: 0;
-	}
-	.linkach li.got {
-		color: var(--text);
-		font-weight: 600;
-		border-color: var(--link);
-		background: var(--link-tint, var(--sunk));
 	}
 	/* Two equal buttons that always fit the card. */
 	.offers {
@@ -858,10 +992,60 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.pager {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.pg {
+		width: 28px;
+		height: 28px;
+		border-radius: 8px;
+		border: 1px solid var(--border-strong);
+		background: var(--panel);
+		color: var(--text);
+		font-size: 16px;
+		line-height: 1;
+		cursor: pointer;
+	}
+	.pg:disabled {
+		opacity: 0.35;
+		cursor: default;
+	}
+	.pg:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
 	.ach {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 		gap: 10px;
+	}
+	/* Reached from an activity entry: a ring of light pulses round the achievement, then stays faintly. */
+	.ac.spot {
+		position: relative;
+		z-index: 1;
+		outline: 2px solid var(--accent-text);
+		outline-offset: 3px;
+		animation: spotlight 1.4s ease-out 3;
+	}
+	@keyframes spotlight {
+		0% {
+			box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
+			transform: scale(1);
+		}
+		30% {
+			transform: scale(1.03);
+		}
+		100% {
+			box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent);
+			transform: scale(1);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.ac.spot {
+			animation: none;
+		}
 	}
 	.ac {
 		display: flex;
@@ -896,10 +1080,32 @@
 		gap: 6px 16px;
 		font-size: 12px;
 	}
-	.legend li {
+	.legend button {
 		display: flex;
 		align-items: center;
 		gap: 6px;
+		padding: 3px 10px 3px 4px;
+		border-radius: 999px;
+		border: 1px solid transparent;
+		background: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		transition: opacity 150ms, background 150ms;
+	}
+	.legend button:hover {
+		border-color: var(--border-strong);
+	}
+	.legend button.on {
+		border-color: var(--r);
+		background: color-mix(in srgb, var(--r) 14%, transparent);
+	}
+	.legend button.off {
+		opacity: 0.45;
+	}
+	.legend button:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
 	}
 	.tier {
 		font-weight: 700;
@@ -924,8 +1130,8 @@
 	}
 	.bdg {
 		display: grid;
-		grid-template-columns: repeat(8, minmax(0, 1fr));
-		gap: 6px;
+		grid-template-columns: repeat(8, minmax(0, 64px));
+		gap: 10px;
 	}
 	.bdg li {
 		aspect-ratio: 1;
@@ -974,7 +1180,8 @@
 		font-variant-numeric: tabular-nums;
 	}
 	@media (max-width: 1180px) {
-		.grid {
+		.grid,
+		.grid.badges {
 			grid-template-columns: minmax(0, 1fr);
 		}
 	}

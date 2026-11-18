@@ -3,6 +3,9 @@
      by a column, a page at a time (?page=, from 1; ?size= rows a page, 25 by default). Rows open the Pib's profile.
      Live from board.svelte.ts; paged here, since every row is already on the page for the live updates. -->
 <script lang="ts">
+	import Crown from '#lib/components/Crown.svelte';
+	import RankNumber from '#lib/components/RankNumber.svelte';
+	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
@@ -79,26 +82,25 @@
 
 	{#if rows.length}
 		{#if current === 1}
+		<!-- In the DOM 1, 2, 3 (read in order); on a wide screen placed 2 · 1 · 3, #1 standing tallest. -->
 		<ol class="podium" aria-label="Top three">
 			{#each rows.slice(0, 3) as r, i (r.userId)}
 				{@const v = versionOf(r.game, board.names)}
-				<li>
-					<a class="card pod" class:first={i === 0} href={href(r.userId)}>
-						<span class="between">
-							<span class="place pixel">{i + 1}</span>
-							<span><span class="pts big">{score(r)}</span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
+				{@const metal = ['gold', 'silver', 'bronze'][i]}
+				<li class="spot p{i + 1} metal-{metal}">
+					<a class="pod metal-frame" href={href(r.userId)}>
+						<span class="hang" aria-hidden="true">
+							{#if i === 0}<Crown />{/if}
+							<RankNumber rank={i + 1} total={board.rows.length} medal size={i === 0 ? 52 : 44} />
 						</span>
-						<span class="row">
-							<Avatar user={r.userId} size={44} />
-							<span class="grow">
-								<b class="name">{r.userId === session.me?.id ? 'You' : nameOf(r.userId)}</b>
-								<span class="row xs">
-									{#if v}<span class="chip g-{v}"><span class="cart-dot"></span>{v}</span>{/if}
-									<span class="muted">{r.badges} badges · {r.caught} caught</span>
-								</span>
-							</span>
+						<span class="ring"><Avatar user={r.userId} size={i === 0 ? 76 : 60} /></span>
+						<b class="name"><Name user={r.userId} colored label={r.userId === session.me?.id ? 'You' : undefined} /></b>
+						<span class="row xs meta">
+							{#if v}<span class="chip g-{v}"><span class="cart-dot"></span>{v}</span>{/if}
+							<span class="muted">{r.badges} badges · {r.caught} caught</span>
 						</span>
-						<PartyIcons party={r.party} size={30} levels hp={false} />
+						<span class="pts-line"><span class="pts big">{score(r).toLocaleString('en')}</span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
+						<PartyIcons party={r.party} size={i === 0 ? 30 : 26} levels hp={false} />
 					</a>
 				</li>
 			{/each}
@@ -114,14 +116,14 @@
 					{@const i = first + j}
 					{@const st = status(r.userId, r.online)}
 					{@const v = versionOf(r.game, board.names)}
-					{@const where = [st.kind === 'linked' ? 'Trade Center' : place(r.location).city, v].filter(Boolean).join(' · ')}
+					{@const where = st.kind === 'linked' ? 'Trade Center' : place(r.location).city}
 					<a class="tr" class:you={r.userId === session.me?.id} href={href(r.userId)} animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={pageRows.length - j}>
-						<span class="rank pixel">{i + 1}</span>
+						<span class="rank"><RankNumber rank={i + 1} total={board.rows.length} medal /></span>
 						<span class="row">
 							<Avatar user={r.userId} />
 							<span class="grow">
-								<b class="name">{nameOf(r.userId)}</b>
-								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}</span>
+								<b class="name"><Name user={r.userId} colored /></b>
+								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}{#if v}<span class="muted">·&nbsp;<span class="ver-{v}">{v}</span></span>{/if}</span>
 							</span>
 						</span>
 						<span><PartyIcons party={r.party} size={30} hp={false} /></span>
@@ -315,39 +317,81 @@
 		list-style: none;
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
+		align-items: end;
 		gap: 14px;
+		padding-top: 18px; /* room for #1's crown */
 	}
-	.card {
-		background: var(--panel);
-		border: 1px solid var(--border);
-		border-radius: 12px;
-		padding: 18px;
+	.spot {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
 		min-width: 0;
+	}
+	.spot.p1 {
+		order: 2;
+	}
+	.spot.p2 {
+		order: 1;
+	}
+	.spot.p3 {
+		order: 3;
+	}
+	.pod {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		padding: 46px 16px 18px;
+		margin-top: 34px; /* the medal hangs above the card */
+		text-align: center;
 		color: inherit;
 		text-decoration: none;
-		height: 100%;
-		box-sizing: border-box;
+		border-radius: 16px;
+	}
+	.p1 .pod {
+		padding: 64px 18px 24px;
+		margin-top: 52px;
+	}
+	.p2 .pod {
+		margin-bottom: 0;
 	}
 	.pod:hover {
-		border-color: var(--border-strong);
 		color: inherit;
 	}
-	.pod.first {
-		border-color: var(--accent);
-		background: linear-gradient(var(--accent-tint), var(--accent-tint)), var(--panel);
+	.pod:hover .ring {
+		transform: translateY(-2px);
 	}
-	.place {
-		font-size: 20px;
-		color: var(--muted);
+	.hang {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		translate: -50% -58%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 	}
-	.first .place {
-		color: var(--accent-text);
+	.ring {
+		display: inline-flex;
+		padding: 3px;
+		border-radius: 50%;
+		background: linear-gradient(135deg, var(--m-hi), var(--m-lo));
+		box-shadow: 0 0 18px var(--m-glow);
+		transition: transform 0.2s;
+	}
+	.meta {
+		justify-content: center;
+		flex-wrap: wrap;
+	}
+	.pts-line {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
 	}
 	.pod .name {
 		font-size: 16px;
+	}
+	.p1 .pod .name {
+		font-size: 19px;
 	}
 
 	.tablewrap {
@@ -405,8 +449,7 @@
 		box-shadow: inset 3px 0 0 var(--accent);
 	}
 	.rank {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: 11px;
 	}
 	.num {
 		font-variant-numeric: tabular-nums;
@@ -433,7 +476,13 @@
 		.podium {
 			grid-template-columns: minmax(0, 1fr);
 		}
+		.spot.p1,
+		.spot.p2,
+		.spot.p3 {
+			order: 0;
+		}
 	}
+
 	@media (prefers-reduced-motion: no-preference) {
 		a.tr,
 		.pod {

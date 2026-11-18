@@ -127,7 +127,7 @@ button {
 	border-radius: 12px;
 }
 
-/* A player's status (playerStatus kinds in play.ts): coloured text, and a dot that is a hollow ring when offline. */
+/* A player's status (playerStatus kinds in play.ts): coloured text and a dot; offline: muted text, a red dot. */
 .status-playing {
 	color: var(--grass);
 }
@@ -155,8 +155,74 @@ button {
 	background: var(--accent);
 }
 .status-offline .status-dot {
-	background: none;
-	box-shadow: inset 0 0 0 1.5px var(--muted);
+	background: var(--hp-low);
+}
+
+/* Podium metals (the scoreboard's top three): --m-hi light, --m-lo dark, --m-glow for shadows. */
+.metal-gold {
+	--m-hi: #f7d774;
+	--m-lo: #b8860b;
+	--m-glow: rgb(247 200 80 / 0.45);
+}
+.metal-silver {
+	--m-hi: #e3e8ec;
+	--m-lo: #8a959e;
+	--m-glow: rgb(200 210 220 / 0.35);
+}
+.metal-bronze {
+	--m-hi: #e3a26b;
+	--m-lo: #8a4b22;
+	--m-glow: rgb(220 140 80 / 0.35);
+}
+
+/* A card framed in its podium metal (with .metal-*): a metal border with a gleam passing along it, a sheen from the
+   top and the metal's glow; gold breathes. --frame-bg is what is inside (the panel by default). */
+.metal-frame {
+	--frame-bg: var(--panel);
+	border: 2px solid transparent !important;
+	background:
+		radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--m-hi) 22%, transparent), transparent 70%) padding-box,
+		linear-gradient(var(--frame-bg), var(--frame-bg)) padding-box,
+		linear-gradient(115deg, var(--m-lo), var(--m-hi) 35%, #fffaf0 50%, var(--m-hi) 65%, var(--m-lo)) border-box !important;
+	background-size: auto, auto, 250% 100% !important;
+	box-shadow: 0 6px 22px var(--m-glow);
+	animation: frame-gleam 5s ease-in-out infinite;
+}
+.metal-frame.metal-gold {
+	animation:
+		frame-gleam 4s ease-in-out infinite,
+		frame-breathe 3s ease-in-out infinite;
+}
+@keyframes frame-gleam {
+	0%,
+	55% {
+		background-position: 0 0, 0 0, 100% 0;
+	}
+	100% {
+		background-position: 0 0, 0 0, 0% 0;
+	}
+}
+@keyframes frame-breathe {
+	50% {
+		box-shadow: 0 6px 34px var(--m-glow), 0 0 0 1px color-mix(in srgb, var(--m-hi) 35%, transparent);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.metal-frame,
+	.metal-frame.metal-gold {
+		animation: none;
+	}
+}
+
+/* A version's name in its cartridge's colour, pulled toward the text so it reads on either theme. */
+.ver-Gold {
+	color: color-mix(in srgb, var(--cart-gold) 75%, var(--text));
+}
+.ver-Silver {
+	color: color-mix(in srgb, var(--cart-silver) 70%, var(--text));
+}
+.ver-Crystal {
+	color: color-mix(in srgb, var(--cart-crystal) 75%, var(--text));
 }
 
 /* Visually hidden, still read out. */

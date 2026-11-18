@@ -1,5 +1,7 @@
 <!-- CONTRACT: self-contained chat panel, no props. Fills its container's height; the play page decides placement. -->
 <script lang="ts">
+	import { nameOf } from '#lib/pictures.svelte.ts';
+	import Name from '#lib/components/Name.svelte';
 	import { onMount, tick } from 'svelte';
 	import { api, ApiError } from '../api';
 	import { on } from '../events';
@@ -174,7 +176,7 @@
 		try {
 			await api('POST', `/admin/users/${encodeURIComponent(m.user)}/mute`, { minutes: muteMinutes });
 			error = '';
-			note = `${m.name} muted for ${muteMinutes} min.`;
+			note = `${nameOf(m.user)} muted for ${muteMinutes} min.`;
 		} catch (e) {
 			error = e instanceof ApiError ? e.detail : 'Could not mute.';
 		}
@@ -224,7 +226,7 @@
 			<li class:system class:mine={m.user === session.me?.id}>
 				<!-- Name, react and time on one line; the message underneath. System lines keep their text on the first line. -->
 				<div class="head">
-					{#if system}<span class="sr-only">System: </span><span class="text grow">{m.text}</span>{:else}<span class="who grow" style:--name={nameColor(m.user)}>{m.name}</span>{/if}
+					{#if system}<span class="sr-only">System: </span><span class="text grow">{m.text}</span>{:else}<span class="who grow" style:--name={nameColor(m.user)}><Name user={m.user} link /></span>{/if}
 					{#if m.kind === 'ADMIN'}<span class="tag admin-only">admin only</span>{/if}
 					{#if m.kind !== 'ADMIN'}
 						<button
@@ -232,7 +234,7 @@
 							class="react"
 							class:open={picking === m.id}
 							aria-expanded={picking === m.id}
-							aria-label="React to {system ? 'system message' : `message from ${m.name}`}"
+							aria-label="React to {system ? 'system message' : `message from ${nameOf(m.user)}`}"
 							title="React"
 							onclick={() => (picking = picking === m.id ? null : m.id)}><img src={REACTIONS[0].src} alt="" /></button
 						>
@@ -242,9 +244,9 @@
 				{#if !system}<p class="text body">{m.text}</p>{/if}
 				{#if admin && !system}
 					<span class="mod">
-						<button type="button" onclick={() => del(m)} aria-label="Delete message from {m.name}">Delete</button>
+						<button type="button" onclick={() => del(m)} aria-label="Delete message from {nameOf(m.user)}">Delete</button>
 						{#if m.user !== session.me?.id}
-							<button type="button" onclick={() => mute(m)} aria-label="Mute {m.name}">Mute</button>
+							<button type="button" onclick={() => mute(m)} aria-label="Mute {nameOf(m.user)}">Mute</button>
 						{/if}
 					</span>
 				{/if}

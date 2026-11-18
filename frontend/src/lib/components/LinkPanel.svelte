@@ -3,6 +3,7 @@
      Unplug), and Find someone to link with (LinkFinder: anyone online).
      State lives in link.svelte.ts. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
 	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
@@ -65,7 +66,7 @@
 			</div>
 			<span class="sr">linked with</span>
 			<div class="side end">
-				<b>{nameOf(ss.peer)}</b>
+				<b><Name user={ss.peer} /></b>
 				<PartyIcons party={rowOf(ss.peer)?.party} />
 			</div>
 		</div>
@@ -79,7 +80,7 @@
 			</p>
 		{:else if ss.peerWrongRoom}
 			<p class="error" role="alert">
-				{nameOf(ss.peer)} walked into the {roomName(ss.peerWrongRoom)}, but this link is a {verb(ss.kind)}. They need the {d.side} receptionist.
+				<Name user={ss.peer} /> walked into the {roomName(ss.peerWrongRoom)}, but this link is a {verb(ss.kind)}. They need the {d.side} receptionist.
 			</p>
 		{/if}
 		<p class="muted">Both consoles run in step until someone unplugs, with no time limit. Closing the browser for a minute unplugs too.</p>
@@ -139,7 +140,7 @@
 
 		{#if s?.outgoing}
 			<p class="waiting" role="status">
-				Offered to {verb(s.outgoing.kind)} with <b>{nameOf(s.outgoing.to)}</b>. Waiting… <span class="num">{left(s.outgoing.expiresAt)} s</span>
+				Offered to {verb(s.outgoing.kind)} with <b><Name user={s.outgoing.to} /></b>. Waiting… <span class="num">{left(s.outgoing.expiresAt)} s</span>
 			</p>
 		{/if}
 
@@ -156,7 +157,7 @@
 					<li>
 						<Avatar user={p.userId} />
 						<div class="who">
-							<b>{nameOf(p.userId)}</b>
+							<b><Name user={p.userId} /></b>
 							<span class={p.kind === 'TRADE' ? 'trade' : 'battle'}>Wants to {verb(p.kind)}{g ? ` · ${g}` : ''}</span>
 							{#if rowOf(p.userId)?.party?.length}<PartyIcons party={rowOf(p.userId)?.party} size={22} hp={false} />{/if}
 						</div>
@@ -184,7 +185,7 @@
 					<li>
 						<Avatar user={p.a} />
 						<div class="who">
-							<b>{nameOf(p.a)} vs {nameOf(p.b)}</b>
+							<b><Name user={p.a} /> vs <Name user={p.b} /></b>
 							<span class={p.kind === 'TRADE' ? 'trade' : 'battle'}>{p.kind === 'TRADE' ? 'Trading' : 'Battling'} · {clock(since(p.since))}</span>
 						</div>
 						<a class="small watch" href="/watch?u={encodeURIComponent(p.a)}">Watch<span class="sr"> {nameOf(p.a)} and {nameOf(p.b)}</span></a>

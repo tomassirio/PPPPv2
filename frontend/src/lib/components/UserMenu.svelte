@@ -1,6 +1,7 @@
 <!-- The avatar in the top bar opens this menu: who you are, light/dark (Solrock/Lunatone, with a reveal animation), Pokédex banners (wide desktops), My profile (not on it already),
      Settings (key bindings), Admin (admins only), Play (on /admin only: elsewhere the top bar's tabs have it), Sign out. -->
 <script lang="ts">
+	import { initialsOf, nameOf, usernameOf } from '#lib/pictures.svelte.ts';
 	import { page } from '$app/state';
 	import { isAdmin, logout, type Me } from '#lib/session.svelte.ts';
 	import { pending, watchRequests } from '#lib/requests.svelte.ts';
@@ -20,14 +21,7 @@
 	let pictureFailed = $state(false);
 	let settingsOpen = $state(false);
 
-	const initials = $derived(
-		me.name
-			.split(/[\s@.]+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((w) => w[0].toUpperCase())
-			.join('')
-	);
+	const initials = $derived(initialsOf(me.id));
 
 	// Auto follows the OS until the player picks one; the toggle shows whichever is in effect.
 	let osDark = $state(typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -63,8 +57,8 @@
 		aria-haspopup="true"
 		aria-expanded={open}
 		aria-controls="user-menu"
-		aria-label="Account menu for {me.name}{waiting ? `, ${waiting} access ${waiting === 1 ? 'request' : 'requests'} waiting` : ''}"
-		title={me.name}
+		aria-label="Account menu for {nameOf(me.id)}{waiting ? `, ${waiting} access ${waiting === 1 ? 'request' : 'requests'} waiting` : ''}"
+		title="{nameOf(me.id)} · {usernameOf(me.id)}"
 		onclick={() => (open = !open)}
 	>
 		{#if me.picture && !pictureFailed}
@@ -82,8 +76,8 @@
 	{#if open}
 		<div class="panel dropdown" id="user-menu">
 			<div class="who">
-				<strong>{me.name}</strong>
-				<span>{me.id}</span>
+				<strong>{nameOf(me.id)}</strong>
+				<span>{usernameOf(me.id)}</span>
 			</div>
 
 			<div class="row">

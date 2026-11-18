@@ -1,6 +1,7 @@
 <!-- "Find someone to link with": the Pibs online right now, each with what they're doing, their version and link record,
      and Offer trade / Offer battle. Live via PRESENCE and the link state; the offer's countdown shows at the top. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import { api } from '#lib/api.ts';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
@@ -63,7 +64,7 @@
 
 		{#if outgoing}
 			<p class="waiting" role="status">
-				Offered to {verb(outgoing.kind)} with <b>{nameOf(outgoing.to)}</b>. Waiting for an answer… {left(outgoing.expiresAt)} s
+				Offered to {verb(outgoing.kind)} with <b><Name user={outgoing.to} /></b>. Waiting for an answer… {left(outgoing.expiresAt)} s
 			</p>
 		{/if}
 		{#if link.error}<p class="error small" role="alert">{link.error}</p>{/if}
@@ -79,8 +80,8 @@
 						<a class="who" href="/pib/{encodeURIComponent(v.id)}" onclick={() => dialog?.close()}>
 							<Avatar user={v.id} size={40} />
 							<span class="col">
-								<b>{nameOf(v.id)}</b>
-								<span class="xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if row?.game}<span class="muted"> · {versionOf(row.game, board.names) ?? ''}</span>{/if}</span>
+								<b><Name user={v.id} /></b>
+								<span class="xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if row?.game && versionOf(row.game, board.names)}{@const ver = versionOf(row.game, board.names)}<span class="muted"> · <span class="ver-{ver}">{ver}</span></span>{/if}</span>
 								{#if row}<span class="muted xs">{row.link?.wins ?? 0}–{row.link?.losses ?? 0}{rate != null ? ` · ${rate}% won` : ''} · {row.link?.trades ?? 0} trades</span>{/if}
 							</span>
 						</a>

@@ -2,6 +2,7 @@
      game and trainer, battle or trade, time linked); none running: says so. ?u= a player of one: that one on the
      LiveStage, with a button back to the list. A Pib who is linked themselves is sent to /play by SubPage. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import { page } from '$app/state';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import LiveStage from '#lib/components/LiveStage.svelte';
@@ -51,9 +52,9 @@
 									><span class="dot" aria-hidden="true"></span>{p.kind === 'TRADE' ? 'Trade' : 'Battle'} · {clock(since(p.since))}</span
 								>
 								<span class="pair">
-									<span class="side"><Avatar user={p.a} size={44} /><span><b>{nameOf(p.a)}</b><span class="muted xs">{who(p.a)}</span></span></span>
+									<span class="side"><Avatar user={p.a} size={44} /><span><b><Name user={p.a} /></b><span class="muted xs">{who(p.a)}</span></span></span>
 									<span class="vs pixel" aria-hidden="true">VS</span>
-									<span class="side end"><span><b>{nameOf(p.b)}</b><span class="muted xs">{who(p.b)}</span></span><Avatar user={p.b} size={44} /></span>
+									<span class="side end"><span><b><Name user={p.b} /></b><span class="muted xs">{who(p.b)}</span></span><Avatar user={p.b} size={44} /></span>
 								</span>
 								<span class="watch">Watch<span class="sr"> {nameOf(p.a)} and {nameOf(p.b)}</span> →</span>
 							</a>

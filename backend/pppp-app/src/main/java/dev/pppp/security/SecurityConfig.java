@@ -22,7 +22,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/", "/assets/**", "/actuator/health/**", "/error").permitAll()
                         // Mapped only when pppp.dev-login=true (DevLoginController); otherwise a 404.
-                        .requestMatchers("/dev/login").permitAll()
+                        .requestMatchers("/dev/login", "/dev/nudge", "/dev/grade").permitAll()
                         // The sign-in page's teaser (player counts only).
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

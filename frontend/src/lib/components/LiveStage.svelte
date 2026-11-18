@@ -4,6 +4,7 @@
      GET /players/{id}/profile, every few seconds while live; sprites from that player's own ROM, icons?of=) and the
      latest results between them down the middle. Narrow windows stack it. When the cable comes out it says so. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import { api } from '#lib/api.ts';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
@@ -102,7 +103,7 @@
 	<div class="trainer {side}" style:--ver={v ? VERSION_COLOR[v] : 'var(--muted)'}>
 		<span class="ring"><Avatar {user} size={56} /></span>
 		<div class="tinfo">
-			<span class="pib">{nameOf(user)}</span>
+			<span class="pib"><Name user={user} /></span>
 			<span class="tname pixel">{r?.trainerName ?? '???'}{#if v}<span class="ver">{v}</span>{/if}</span>
 			<span class="facts">
 				{#if rankOf(user)}#{rankOf(user)}{' · '}{/if}{m ? bitCount(m.johto) + bitCount(m.kanto) : 0} badges · link
@@ -180,7 +181,7 @@
 			</div>
 		</section>
 	{:else if link.state}
-		<p class="muted">{nameOf(id)} is not linked with anyone right now.</p>
+		<p class="muted"><Name user={id} /> is not linked with anyone right now.</p>
 	{/if}
 
 

@@ -1,8 +1,9 @@
-<!-- The activity feed, newest first: badges, catches, levels (pictures: FeedIcon). A new entry arrives with its tier's
+<!-- The activity feed, newest first (each player's name links to their profile): badges, catches, levels (pictures: FeedIcon). A new entry arrives with its tier's
      animation (tierOf, arriveTier). limit: how many (the scoreboard's "Latest" shows a few);
      events: show these instead of everyone's (a profile's recent feed). A link battle is one entry, the winner's, told
      the same to everyone ("Ash beat Misty in a link battle", never "You"); older LINK_LOSS entries are left out. -->
 <script lang="ts">
+	import Name from '#lib/components/Name.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import FeedIcon from '#lib/components/FeedIcon.svelte';
 	import { watchGame } from '#lib/game.svelte.ts';
@@ -38,7 +39,12 @@
 			{@const you = e.user === session.me?.id && e.type !== 'LINK_WIN'}
 			<li in:arriveTier={{ tier: tierOf(e) }}>
 				<FeedIcon {e} />
-				<span><b>{you ? 'You' : nameOf(e.user)}</b> {activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()} <span class="muted">· {ago(now - e.at)} · +{e.points}</span></span>
+				<span
+					><b><Name user={e.user} link colored label={you ? 'You' : undefined} /></b>
+					{#if e.type === 'LINK_WIN' && e.detail}beat <b><Name user={e.detail} link colored /></b> in a link battle{:else if e.type === 'ACHIEVEMENT' && e.detail}unlocked
+						<a class="ach" href="/pib/{encodeURIComponent(e.user)}?ach={encodeURIComponent(e.detail)}">{e.detail}</a>{:else}{activityText(e, '', (u) => (u === session.me?.id && e.type !== 'LINK_WIN' ? 'you' : nameOf(u))).trim()}{/if}
+					<span class="muted">· {ago(now - e.at)} · +{e.points}</span></span
+				>
 			</li>
 		{/each}
 	</ul>
@@ -47,6 +53,21 @@
 {/if}
 
 <style>
+	.ach {
+		color: inherit;
+		font-weight: 600;
+		text-decoration: underline;
+		text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+		text-underline-offset: 2px;
+	}
+	.ach:hover {
+		text-decoration-color: currentColor;
+	}
+	.ach:focus-visible {
+		outline: 2px solid var(--accent-text);
+		outline-offset: 2px;
+		border-radius: 3px;
+	}
 	.feed {
 		margin: 0;
 		padding: 0;

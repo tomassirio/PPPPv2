@@ -2,6 +2,8 @@
      playing / offline) · where they are, their party's icons, and score + grade; the signed-in player's row
      highlighted. Each row opens that Pib's profile. Then "Full scoreboard" and the "Latest" feed. Rows from board.svelte.ts. -->
 <script lang="ts">
+	import RankNumber from '#lib/components/RankNumber.svelte';
+	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -35,17 +37,17 @@
 				{@const where = st.kind === 'linked' ? 'Trade Center' : place(r.location).city}
 				<!-- Higher ranks paint on top, so a player climbing slides over the ones they pass. -->
 				<li animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={shown.length - i}>
-					<a class="standing" class:you href="/pib/{encodeURIComponent(r.userId)}">
+					<a class="standing {i < 3 ? `podium p${i + 1} metal-frame metal-${['gold', 'silver', 'bronze'][i]}` : ''}" class:you href="/pib/{encodeURIComponent(r.userId)}">
 						{#key score(r)}<span class="flash" aria-hidden="true" in:glow></span>{/key}
-						<span class="rank pixel" aria-hidden="true">{i + 1}</span>
+						<span class="rank" aria-hidden="true"><RankNumber rank={i + 1} total={board.rows.length} medal size={i === 0 ? 24 : 21} /></span>
 						<Avatar user={r.userId} size={32} />
 						<span class="mid">
 							<span class="line">
-								<b class="name"><span class="sr-only">{i + 1}. </span>{nameOf(r.userId)}</b>
+								<b class="name"><span class="sr-only">{i + 1}. </span><Name user={r.userId} colored /></b>
 								{#if you}<span class="you-tag">You</span>{/if}
 							</span>
 							<span class="sub">
-								<span class="status status-{st.kind}">{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted">&nbsp;· {where}</span>{/if}</span>
+								<span class="status status-{st.kind}"><span class="status-dot"></span>{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted">&nbsp;· {where}</span>{/if}</span>
 								{#if r.party?.length}<PartyIcons party={r.party} size={18} hp={false} />{/if}
 							</span>
 						</span>
@@ -131,13 +133,19 @@
 		background: var(--accent-tint);
 		box-shadow: inset 3px 0 0 var(--accent);
 	}
+	/* The podium: framed in its metal (.metal-frame, as everywhere the top three show). */
+	.standing.p1 :global(.pib-name) {
+		font-size: 1.06em;
+	}
+	.standing.podium:hover {
+		filter: brightness(1.06);
+	}
 	.standing:focus-visible {
 		outline: 3px solid var(--accent-text);
 		outline-offset: 2px;
 	}
 	.rank {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: 11px;
 	}
 	/* Two lines a row, so ten fit: the name, then status and the party side by side. */
 	.mid {
@@ -184,6 +192,12 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.status .status-dot {
+		width: 7px;
+		height: 7px;
+		margin-right: 5px;
+		vertical-align: 1px;
 	}
 	.score {
 		display: flex;
