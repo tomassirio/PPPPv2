@@ -615,7 +615,10 @@ public class ProgressTracker {
         GameProfile.Dex d = profile == null ? null : profile.dex(n);
         if (d == null) return null;
         GameSummary.Collection c = summary(userId).collection();
-        boolean caught = c != null && c.owned().contains(n), seen = caught || c != null && c.seen().contains(n);
+        // A party member is caught by definition: answers for a Pib whose console is asleep (no live Pokédex) too.
+        TrainerCard card = cards.computeIfAbsent(userId, repo::card);
+        boolean inParty = card != null && card.party() != null && card.party().stream().anyMatch(m -> !m.egg() && m.species() == n);
+        boolean caught = inParty || c != null && c.owned().contains(n), seen = caught || c != null && c.seen().contains(n);
         if (!seen) return new dev.pppp.model.PokedexEntry(n, "unseen", null, null, null, null, null, null, null);
         if (!caught) return new dev.pppp.model.PokedexEntry(n, "seen", d.name(), d.category(), d.types(), null, null, null, null);
         return new dev.pppp.model.PokedexEntry(n, "caught", d.name(), d.category(), d.types(), d.heightFeet(),

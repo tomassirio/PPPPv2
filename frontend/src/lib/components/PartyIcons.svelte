@@ -1,5 +1,6 @@
 <!-- A party as six slots: each member's 16x16 party icon (drawn from the viewer's own ROM, same species numbers) with
-     a thin HP bar (hp={false} drops it, as on the scoreboards), greyed out when fainted, a star when shiny; empty slots dashed. levels: "Lv 38" under each. -->
+     a thin HP bar (hp={false} drops it, as on the scoreboards), greyed out when fainted, a star when shiny; empty slots dashed. levels: "Lv 38" under each.
+     dexOf: whose party it is; hovering a member then shows its Pokédex card from that Pib's Pokédex. -->
 <script module lang="ts">
 	import { game } from '#lib/game.svelte.ts';
 	import type { PartyMon } from '#lib/play.ts';
@@ -10,13 +11,25 @@
 	/** "Gyarados · Lv 32 · PAR · shiny", for tooltips and screen readers. */
 	export const monLabel = (m: PartyMon) =>
 		m.egg ? 'Egg' : [speciesName(m.species), `Lv ${m.level}`, m.status, m.shiny && 'shiny'].filter(Boolean).join(' · ');
+
+	/** "Lv 32 · PAR · shiny": the line under the name on a party member's Pokédex card. */
+	export const monNote = (m: PartyMon) => [`Lv ${m.level}`, m.status, m.shiny && 'shiny'].filter(Boolean).join(' · ');
 </script>
 
 <script lang="ts">
 	import { hpColor } from '#lib/play.ts';
 	import { watchGame } from '#lib/game.svelte.ts';
+	import DexCard from '#lib/components/DexCard.svelte';
+	import { DexHover } from '#lib/dexhover.svelte.ts';
 
-	let { party = [], size = 24, levels = false, hp = true }: { party?: PartyMon[]; size?: number; levels?: boolean; hp?: boolean } = $props();
+	let {
+		party = [],
+		size = 24,
+		levels = false,
+		hp = true,
+		dexOf
+	}: { party?: PartyMon[]; size?: number; levels?: boolean; hp?: boolean; dexOf?: string } = $props();
+	const hover = new DexHover();
 	$effect(() => watchGame()); // species names for the labels
 	const slots = $derived([...party.slice(0, 6), ...Array(Math.max(0, 6 - party.length)).fill(null)] as (PartyMon | null)[]);
 </script>
@@ -25,7 +38,14 @@
 	{#each slots as m, i (i)}
 		<span class:slot={levels}>
 			{#if m}
-				<span class="mon" class:fnt={m.status === 'FNT'} title={monLabel(m)}>
+				<span
+					role="presentation"
+					class="mon"
+					class:fnt={m.status === 'FNT'}
+					title={dexOf ? undefined : monLabel(m)}
+					onpointerenter={dexOf && !m.egg ? (e) => hover.show(m.species, e.currentTarget, { of: dexOf, name: speciesName(m.species), note: monNote(m) }) : undefined}
+					onpointerleave={dexOf ? () => hover.hide() : undefined}
+				>
 					{#if m.egg}
 						<span class="egg"></span>
 					{:else}
@@ -41,6 +61,7 @@
 		</span>
 	{/each}
 </span>
+{#if hover.card}<DexCard {...hover.card} />{/if}
 
 <style>
 	.party {

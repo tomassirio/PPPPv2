@@ -45,10 +45,13 @@ class GameController {
         return png(tracker.icon(of == null || of.isBlank() ? CurrentUser.id(auth) : of.toLowerCase(), id), "No icon " + id);
     }
 
-    /** Pokédex number n as the caller's own Pokédex shows it (unseen: the number only; seen: more; caught: all). */
+    /**
+     * Pokédex number n as the caller's own Pokédex shows it (unseen: the number only; seen: more; caught: all); with
+     * of, as that Pib's Pokédex shows it (hovering their party on the scoreboard).
+     */
     @GetMapping("/game/dex/{n}")
-    dev.pppp.model.PokedexEntry dex(@PathVariable int n, Authentication auth) {
-        var entry = tracker.dex(CurrentUser.id(auth), n);
+    dev.pppp.model.PokedexEntry dex(@PathVariable int n, @RequestParam(required = false) String of, Authentication auth) {
+        var entry = tracker.dex(of == null || of.isBlank() ? CurrentUser.id(auth) : of.toLowerCase(), n);
         if (entry == null) throw new NotFoundException("No Pokédex entry " + n);
         return entry;
     }

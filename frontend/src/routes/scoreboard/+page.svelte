@@ -8,7 +8,9 @@
 	import Name from '#lib/components/Name.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
-	import PartyIcons, { monLabel } from '#lib/components/PartyIcons.svelte';
+	import PartyIcons, { monLabel, monNote, speciesName } from '#lib/components/PartyIcons.svelte';
+	import DexCard from '#lib/components/DexCard.svelte';
+	import { DexHover } from '#lib/dexhover.svelte.ts';
 	import SubPage from '#lib/components/SubPage.svelte';
 	import { goto } from '$app/navigation';
 	import { flip } from 'svelte/animate';
@@ -56,6 +58,7 @@
 	}
 	const href = (user: string) => `/pib/${encodeURIComponent(user)}`;
 	const status = (user: string, online: boolean) => playerStatus(user, online, session.me?.id, link.state?.lobby ?? [], link.links);
+	const dexHover = new DexHover(); // the podium's party tiles
 </script>
 
 <svelte:head><title>Scoreboard · Pibs&amp;PibettesPlayPokemonV2</title></svelte:head>
@@ -107,7 +110,15 @@
 						<!-- The party on a shelf: six tiles, each member big in hard pixels, hopping now and then. -->
 						<span class="shelf" role="img" aria-label="Party: {r.party?.length ? r.party.map(monLabel).join(', ') : 'empty'}">
 							{#each Array.from({ length: 6 }, (_, k) => r.party?.[k] ?? null) as m, k (k)}
-								<span class="tile" class:empty={!m} class:fnt={m?.status === 'FNT'} style:--d="{k * 0.35}s" title={m ? monLabel(m) : undefined}>
+								<span
+									role="presentation"
+									class="tile"
+									class:empty={!m}
+									class:fnt={m?.status === 'FNT'}
+									style:--d="{k * 0.35}s"
+									onpointerenter={m && !m.egg ? (e) => dexHover.show(m.species, e.currentTarget, { of: r.userId, name: speciesName(m.species), note: monNote(m) }) : undefined}
+									onpointerleave={() => dexHover.hide()}
+								>
 									{#if m}
 										{#if m.egg}<span class="egg"></span>{:else}<img src="/api/v1/game/icons/{m.species}.png" alt="" loading="lazy" />{/if}
 										{#if m.shiny}<span class="spark">✦</span>{/if}
@@ -120,6 +131,7 @@
 				</li>
 			{/each}
 		</ol>
+		{#if dexHover.card}<DexCard {...dexHover.card} />{/if}
 		{/if}
 
 		<div class="tablewrap">
@@ -141,7 +153,7 @@
 								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}{#if v}<span class="muted">·&nbsp;<span class="ver-{v}">{v}</span></span>{/if}</span>
 							</span>
 						</span>
-						<span><PartyIcons party={r.party} size={30} hp={false} /></span>
+						<span><PartyIcons party={r.party} size={30} hp={false} dexOf={r.userId} /></span>
 						<span class="linkcol">
 							<span class="rec pixel"><span class="w">{r.link?.wins ?? 0}</span>–<span class="l">{r.link?.losses ?? 0}</span><span class="sr-only"> link battles won and lost</span></span>
 							<span class="muted xs">{#if winRate(r.link) != null}{winRate(r.link)}% won · {/if}{r.link?.trades ?? 0} {(r.link?.trades ?? 0) === 1 ? 'trade' : 'trades'}</span>
