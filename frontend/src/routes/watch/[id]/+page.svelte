@@ -93,7 +93,7 @@
 			egg: !!m.egg
 		}));
 	}
-	const VERSION_COLOR: Record<string, string> = { Gold: '#e0b13a', Silver: '#b8c0c8', Crystal: '#62c4ea' };
+	const VERSION_COLOR: Record<string, string> = { Gold: 'var(--cart-gold)', Silver: 'var(--cart-silver)', Crystal: 'var(--cart-crystal)' };
 </script>
 
 <svelte:head><title>Watch {nameOf(id)} · PPPP</title></svelte:head>
@@ -103,7 +103,7 @@
 	{@const v = r ? versionOf(r.game, board.names) : null}
 	{@const m = r ? badgeMasks(r) : null}
 	{@const rate = winRate(r?.link)}
-	<div class="trainer {side}" style:--ver={v ? VERSION_COLOR[v] : '#8a8f96'}>
+	<div class="trainer {side}" style:--ver={v ? VERSION_COLOR[v] : 'var(--muted)'}>
 		<span class="ring"><Avatar {user} size={56} /></span>
 		<div class="tinfo">
 			<span class="pib">{nameOf(user)}</span>
@@ -203,21 +203,18 @@
 		color: var(--muted);
 	}
 
-	/* The stage is its own dark surface in both themes, like the Game Boy bezel. */
+	/* A card like the rest of the app, in its theme; the link colour glows faintly from the top. */
 	.stage {
-		--ink: #eef1f4;
-		--ink-dim: #9aa3ad;
-		--line: rgba(255, 255, 255, 0.1);
-		color: var(--ink);
+		color: var(--text);
 		background:
-			radial-gradient(ellipse at 50% 0%, rgba(98, 196, 234, 0.12), transparent 60%),
-			linear-gradient(180deg, #1b1f26, #12151a);
+			radial-gradient(ellipse at 50% 0%, var(--link-tint), transparent 60%),
+			var(--panel);
+		border: 1px solid var(--border);
 		border-radius: 18px;
 		padding: 14px 18px 18px;
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 	}
 	.topline {
 		display: flex;
@@ -225,7 +222,7 @@
 		gap: 12px;
 		font-size: 12px;
 		letter-spacing: 0.06em;
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 	.badge {
 		display: inline-flex;
@@ -233,7 +230,7 @@
 		gap: 6px;
 		padding: 3px 8px;
 		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.08);
+		background: var(--sunk);
 		font-weight: 700;
 	}
 	.badge.on {
@@ -265,7 +262,7 @@
 		align-items: center;
 		gap: 16px;
 		padding-bottom: 12px;
-		border-bottom: 1px solid var(--line);
+		border-bottom: 1px solid var(--border);
 	}
 	.trainer {
 		display: flex;
@@ -297,7 +294,7 @@
 	}
 	.tname {
 		font-size: 13px;
-		color: var(--ver);
+		color: color-mix(in srgb, var(--ver) 65%, var(--text)); /* readable on either theme's panel */
 		display: inline-flex;
 		align-items: center;
 		gap: 8px;
@@ -312,18 +309,18 @@
 		letter-spacing: 0.04em;
 		padding: 1px 7px;
 		border-radius: 999px;
-		color: #12151a;
+		color: #1d1f1c; /* dark on every cartridge colour */
 		background: var(--ver);
 	}
 	.facts {
 		font-size: 13px;
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 	.w {
-		color: #7ed37f;
+		color: var(--hp-ok);
 	}
 	.l {
-		color: #ff7b6b;
+		color: var(--danger);
 	}
 	.vs {
 		display: flex;
@@ -334,16 +331,16 @@
 	}
 	.big {
 		font-size: 14px;
-		color: #e0b13a;
+		color: var(--accent-text);
 		letter-spacing: 0.2em;
 	}
 	.score {
 		font-size: 40px;
 		line-height: 1.1;
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 	.score .lead {
-		color: var(--ink);
+		color: var(--text);
 	}
 	.dash {
 		padding: 0 6px;
@@ -351,7 +348,7 @@
 	}
 	.sub {
 		font-size: 12px;
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 
 	.arena {
@@ -381,8 +378,8 @@
 		gap: 8px;
 		padding: 6px 8px;
 		border-radius: 10px;
-		background: rgba(255, 255, 255, 0.05);
-		border: 1px solid var(--line);
+		background: var(--sunk);
+		border: 1px solid var(--border);
 	}
 	.party.b li {
 		flex-direction: row-reverse;
@@ -392,7 +389,7 @@
 		opacity: 0.45;
 	}
 	.party li.empty {
-		color: var(--ink-dim);
+		color: var(--muted);
 		font-size: 13px;
 		justify-content: center;
 	}
@@ -424,19 +421,19 @@
 		white-space: nowrap;
 	}
 	.lv {
-		color: var(--ink-dim);
+		color: var(--muted);
 		font-size: 12px;
 		white-space: nowrap;
 	}
 	.species {
 		font-size: 11px;
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 	.hp {
 		display: block;
 		height: 4px;
 		border-radius: 2px;
-		background: rgba(255, 255, 255, 0.12);
+		background: var(--border);
 		overflow: hidden;
 	}
 	.party.b .hp {
@@ -481,7 +478,7 @@
 		font-size: 11px;
 		letter-spacing: 0.1em;
 		text-transform: uppercase;
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 	.results ol {
 		list-style: none;
@@ -497,23 +494,23 @@
 		flex-direction: column;
 		padding: 5px 8px;
 		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.05);
+		background: var(--sunk);
 		font-size: 12px;
 	}
 	.results li span {
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 	.results li.to-a {
-		border-left: 3px solid #e0b13a;
+		border-left: 3px solid var(--accent-text);
 		text-align: left;
 	}
 	.results li.to-b {
-		border-right: 3px solid #e0b13a;
+		border-right: 3px solid var(--accent-text);
 		text-align: right;
 	}
 	.first {
 		font-size: 12px;
-		color: var(--ink-dim);
+		color: var(--muted);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
