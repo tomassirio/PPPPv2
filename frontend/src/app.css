@@ -158,6 +158,23 @@ button {
 	background: var(--hp-low);
 }
 
+/* Podium metals (the scoreboard's top three): --m-hi light, --m-lo dark, --m-glow for shadows. */
+.metal-gold {
+	--m-hi: #f7d774;
+	--m-lo: #b8860b;
+	--m-glow: rgb(247 200 80 / 0.45);
+}
+.metal-silver {
+	--m-hi: #e3e8ec;
+	--m-lo: #8a959e;
+	--m-glow: rgb(200 210 220 / 0.35);
+}
+.metal-bronze {
+	--m-hi: #e3a26b;
+	--m-lo: #8a4b22;
+	--m-glow: rgb(220 140 80 / 0.35);
+}
+
 /* A version's name in its cartridge's colour, pulled toward the text so it reads on either theme. */
 .ver-Gold {
 	color: color-mix(in srgb, var(--cart-gold) 75%, var(--text));

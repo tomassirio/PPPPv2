@@ -37,7 +37,7 @@
 				{@const where = st.kind === 'linked' ? 'Trade Center' : place(r.location).city}
 				<!-- Higher ranks paint on top, so a player climbing slides over the ones they pass. -->
 				<li animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={shown.length - i}>
-					<a class="standing" class:you href="/pib/{encodeURIComponent(r.userId)}">
+					<a class="standing {i < 3 ? `podium p${i + 1} metal-${['gold', 'silver', 'bronze'][i]}` : ''}" class:you href="/pib/{encodeURIComponent(r.userId)}">
 						{#key score(r)}<span class="flash" aria-hidden="true" in:glow></span>{/key}
 						<span class="rank" aria-hidden="true"><RankNumber rank={i + 1} total={board.rows.length} medal /></span>
 						<Avatar user={r.userId} size={32} />
@@ -132,6 +132,28 @@
 	.standing.you {
 		background: var(--accent-tint);
 		box-shadow: inset 3px 0 0 var(--accent);
+	}
+	/* The podium: the metal's sheen across the row and an edge in it, #1 the strongest (as /scoreboard's podium). */
+	.standing.podium {
+		background:
+			linear-gradient(90deg, color-mix(in srgb, var(--m-hi) 16%, transparent), transparent 75%),
+			var(--panel);
+		box-shadow: inset 3px 0 0 var(--m-lo);
+	}
+	.standing.p1 {
+		background:
+			linear-gradient(90deg, color-mix(in srgb, var(--m-hi) 30%, transparent), color-mix(in srgb, var(--m-hi) 6%, transparent) 80%),
+			var(--panel);
+		box-shadow:
+			inset 3px 0 0 var(--m-hi),
+			inset 0 0 0 1px color-mix(in srgb, var(--m-lo) 60%, transparent),
+			0 0 14px var(--m-glow);
+	}
+	.standing.p1 :global(.pib-name) {
+		font-size: 1.06em;
+	}
+	.standing.podium:hover {
+		filter: brightness(1.06);
 	}
 	.standing:focus-visible {
 		outline: 3px solid var(--accent-text);
