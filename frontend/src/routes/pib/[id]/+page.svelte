@@ -98,9 +98,12 @@
 	// Achievements in pages of three rows: the grid's width says how many fit in a row (180px cards, 10px gaps).
 	let achWidth = $state(0);
 	let achPage = $state(0);
+	// A rarity tier picked in the legend shows only that tier's achievements; picking it again shows all.
+	let tierFilter = $state<string | null>(null);
+	const shownAch = $derived(tierFilter ? achievements.filter((a) => a.rarity === tierFilter) : achievements);
 	const perPage = $derived(Math.max(4, Math.floor((achWidth + 10) / 190) * 3));
-	const achPages = $derived(Math.max(1, Math.ceil(achievements.length / perPage)));
-	const pageAch = $derived(achievements.slice(achPage * perPage, achPage * perPage + perPage));
+	const achPages = $derived(Math.max(1, Math.ceil(shownAch.length / perPage)));
+	const pageAch = $derived(shownAch.slice(achPage * perPage, achPage * perPage + perPage));
 	$effect(() => {
 		if (achPage >= achPages) achPage = achPages - 1;
 	});
@@ -113,6 +116,7 @@
 		const at = achievements.findIndex((x) => x.name === want);
 		if (at < 0) return;
 		const a = achievements[at];
+		tierFilter = null;
 		achPage = Math.floor(at / perPage);
 		requestAnimationFrame(() => {
 			const el = document.getElementById(`ach-${a.id}`);
@@ -340,7 +344,7 @@
 					<div class="between">
 						<h2 id="ach-h">Achievements</h2>
 						<span class="pager">
-							<span class="muted small">{got} of {achievements.length}</span>
+							<span class="muted small">{tierFilter ? `${shownAch.filter((a) => a.unlocked).length} of ${shownAch.length} ${tierFilter}` : `${got} of ${achievements.length}`}</span>
 							{#if achPages > 1}
 								<button type="button" class="pg" onclick={() => (achPage = Math.max(0, achPage - 1))} disabled={achPage === 0} aria-label="Previous achievements">‹</button>
 								<span class="muted xs" aria-live="polite">{achPage + 1} / {achPages}</span>
@@ -351,7 +355,19 @@
 					{#if achievements.length}
 						<ul class="legend" aria-label="Rarity tiers">
 							{#each tiers as t (t.rarity)}
-								<li class="r-{t.rarity}"><RarityBall rarity={t.rarity} size={18} /><span class="tier">{t.rarity}</span><span class="muted">{t.got} of {t.of}</span></li>
+								<li class="r-{t.rarity}">
+									<button
+										type="button"
+										class:on={tierFilter === t.rarity}
+										class:off={tierFilter !== null && tierFilter !== t.rarity}
+										aria-pressed={tierFilter === t.rarity}
+										title={tierFilter === t.rarity ? 'Show every tier' : `Show only ${t.rarity}`}
+										onclick={() => {
+											tierFilter = tierFilter === t.rarity ? null : t.rarity;
+											achPage = 0;
+										}}><RarityBall rarity={t.rarity} size={18} /><span class="tier">{t.rarity}</span><span class="muted">{t.got} of {t.of}</span></button
+									>
+								</li>
 							{/each}
 						</ul>
 						<ul class="ach" bind:clientWidth={achWidth}>
@@ -1064,10 +1080,32 @@
 		gap: 6px 16px;
 		font-size: 12px;
 	}
-	.legend li {
+	.legend button {
 		display: flex;
 		align-items: center;
 		gap: 6px;
+		padding: 3px 10px 3px 4px;
+		border-radius: 999px;
+		border: 1px solid transparent;
+		background: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		transition: opacity 150ms, background 150ms;
+	}
+	.legend button:hover {
+		border-color: var(--border-strong);
+	}
+	.legend button.on {
+		border-color: var(--r);
+		background: color-mix(in srgb, var(--r) 14%, transparent);
+	}
+	.legend button.off {
+		opacity: 0.45;
+	}
+	.legend button:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
 	}
 	.tier {
 		font-weight: 700;
