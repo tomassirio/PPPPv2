@@ -152,7 +152,7 @@
 		<div class="line">
 			<span class="muted">Link cable</span>
 			<span class="link-rec" title="Link battles won and lost, Pokémon traded"
-				><b class="win">{l?.wins ?? 0}</b> W · <b class="loss">{l?.losses ?? 0}</b> L{#if rate !== null}<span class="muted"> ({rate}%)</span>{/if}
+				><b class="win">{l?.wins ?? 0}</b> W · <b class="loss">{l?.losses ?? 0}</b> L{#if rate !== null}{" "}<span class="muted">({rate}%)</span>{/if}
 				· <b>{l?.trades ?? 0}</b> {l?.trades === 1 ? 'trade' : 'trades'}</span
 			>
 		</div>
