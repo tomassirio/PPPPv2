@@ -31,6 +31,8 @@ public class LinkService {
     private Duration challengeTtl = Duration.ofSeconds(60);
     /** How long a linked player may have no page open (a closed browser) before their session ends. */
     private Duration awayLimit = Duration.ofSeconds(60);
+    /** How long a player may stand in a link room with no cable before their Game Boy is reset. */
+    private Duration strandedLimit = Duration.ofSeconds(60);
     /** How long after accepting the dig may take before A is no longer pressed for the player. */
     private static final Duration TALK_WITHIN = Duration.ofSeconds(20);
     /** Whether the player has a page open; the app plugs in the events socket's presence. */
@@ -48,6 +50,8 @@ public class LinkService {
     private final Set<String> visited = new java.util.HashSet<>();
     /** Linked players about to talk to their receptionist: userId -> give up after (epoch ms). */
     private final Map<String, Long> talk = new HashMap<>();
+    /** Players in a link room with no cable plugged in (it came out mid-battle): userId -> since when. */
+    private final Map<String, Long> stranded = new HashMap<>();
     /** Linked players with no page open: userId -> since when. */
     private final Map<String, Long> away = new HashMap<>();
 
@@ -200,6 +204,23 @@ public class LinkService {
         for (String id : List.copyOf(sessions.keySet())) {
             if (online.test(id)) away.remove(id);
             else if (now - away.computeIfAbsent(id, k -> now) >= awayLimit.toMillis()) end(id, "LEFT");
+        }
+        // A cable that came out mid-battle (a restart, a crash) leaves both games waiting forever in the link room, as
+        // a real Game Boy would: after strandedLimit their console is reset, back to the save the receptionist made.
+        for (String id : consoles.running()) {
+            if (sessions.containsKey(id) || !consoles.isAwake(id)) {
+                stranded.remove(id);
+                continue;
+            }
+            String map = dig.map(id);
+            if (map == null) continue; // cannot tell this second (another WRAM bank is in)
+            if (!PokecenterDig.LINK_ROOMS.contains(map)) {
+                stranded.remove(id);
+            } else if (now - stranded.computeIfAbsent(id, k -> now) >= strandedLimit.toMillis()) {
+                stranded.remove(id);
+                consoles.reset(id);
+                chat.postSystem(name(id) + "'s Game Boy was reset: the link cable came out mid-link, so it was stuck waiting");
+            }
         }
         for (var t : List.copyOf(talk.entrySet())) {
             SessionEvent s = sessions.get(t.getKey());

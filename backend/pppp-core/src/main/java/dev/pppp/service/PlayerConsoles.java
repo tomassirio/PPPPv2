@@ -89,13 +89,7 @@ public class PlayerConsoles {
 
     /** The player left: tell the listeners, pull their link cable, then pause and park the state on disk. */
     public void idle(String userId) {
-        for (Consumer<String> l : idleListeners) {
-            try {
-                l.accept(userId);
-            } catch (RuntimeException e) {
-                log.warn("Idle listener failed for {}", userId, e);
-            }
-        }
+        left(userId);
         releaseAll(userId);
         ghosts.leave(userId);
         unlink(userId); // before pausing: a paused driver would freeze the other player's console too
@@ -104,6 +98,31 @@ public class PlayerConsoles {
             park(id, c);
             return c;
         });
+    }
+
+    /**
+     * Presses the reset button: the listeners hear the player left (their link session ends), the cable comes out,
+     * and the console boots the cartridge again from its battery save, as a real one does: whatever was not saved in
+     * the game is gone. IllegalStateException when their console is not running.
+     */
+    public void reset(String userId) {
+        Console c = consoles.get(userId);
+        if (c == null) throw new IllegalStateException("Your console is not running");
+        left(userId);
+        unlink(userId);
+        releaseAll(userId);
+        c.host().reset();
+        log.info("Console reset: {}", userId);
+    }
+
+    private void left(String userId) {
+        for (Consumer<String> l : idleListeners) {
+            try {
+                l.accept(userId);
+            } catch (RuntimeException e) {
+                log.warn("Idle listener failed for {}", userId, e);
+            }
+        }
     }
 
     /** Leaves (listeners, link cable, park) and then shuts the player's console down for good. No-op without one. */
@@ -170,7 +189,7 @@ public class PlayerConsoles {
     }
 
 
-    /** Called with the player's id when they leave, before their console pauses. */
+    /** Called with the player's id when they leave (before their console pauses) or reset it. */
     public void onIdle(Consumer<String> listener) {
         idleListeners.add(listener);
     }

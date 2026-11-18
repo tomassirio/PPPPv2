@@ -78,6 +78,13 @@ public class PlayerController {
     }
 
     /** Admin: wipes the player's pick, saves, progress, points and activity, so they pick a game again. */
+    /** The reset button on the player's own Game Boy: boots it again from the game's own save (unplugs a link). */
+    @PostMapping("/api/v1/me/reset")
+    public ResponseEntity<Void> reset(Authentication auth) {
+        consoles.reset(CurrentUser.id(auth));
+        return ResponseEntity.accepted().build();
+    }
+
     @DeleteMapping("/api/v1/admin/players/{userId}")
     public ResponseEntity<Void> reset(@PathVariable String userId, Authentication auth) {
         resets.reset(CurrentUser.id(auth), userId.toLowerCase(java.util.Locale.ROOT));

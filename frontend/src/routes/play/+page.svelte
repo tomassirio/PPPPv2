@@ -12,6 +12,7 @@
 	import { inkFor } from '#lib/shells.ts';
 	import Chat from '#lib/components/Chat.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
+	import ResetControl from '#lib/components/ResetControl.svelte';
 	import SpeedControl from '#lib/components/SpeedControl.svelte';
 	import GameStatus from '#lib/components/GameStatus.svelte';
 	import GameToasts from '#lib/components/GameToasts.svelte';
@@ -290,7 +291,7 @@
 				{/if}
 				<div class="screen-slot" bind:this={screenSlot}>
 					<GameScreen>
-						{#snippet leading()}<SpeedControl speed={myGame?.speed} />{/snippet}
+						{#snippet leading()}<SpeedControl speed={myGame?.speed} /><ResetControl />{/snippet}
 						{#snippet controls()}<span class="bezel-controls"><ChatOverlayToggle /><SoundControl /></span>{/snippet}
 					</GameScreen>
 					<GameToasts />

@@ -262,4 +262,36 @@ class LinkApiTest {
             ReflectionTestUtils.setField(link, "dig", real);
         }
     }
+
+    @Autowired dev.pppp.service.ChatService chat;
+
+    /** The reset button pulls the cable and ends the session. */
+    @Test
+    void resettingTheGameBoyEndsTheLink() throws Exception {
+        linkAshAndSam();
+        as(SAM, post("/api/v1/me/reset"), null).andExpect(status().isAccepted());
+        assertThat(consoles.linkedWith(ASH)).isNull();
+        as(ASH, get("/api/v1/link"), null).andExpect(jsonPath("$.session").doesNotExist());
+        // (with no screen open here, ending the session puts both to sleep; on /play the one who pressed stays on)
+    }
+
+    /** Left in the Colosseum without a cable (a restart mid-battle): the Game Boy is reset after the limit. */
+    @Test
+    void aStrandedGameBoyIsReset() throws Exception {
+        var real = ReflectionTestUtils.getField(link, "dig");
+        var dig = org.mockito.Mockito.mock(dev.pppp.service.game.PokecenterDig.class);
+        ReflectionTestUtils.setField(link, "dig", dig);
+        try {
+            org.mockito.Mockito.when(dig.map(GARY)).thenReturn("COLOSSEUM");
+            link.sweep(); // the clock starts
+            assertThat(chat.history(null, 20, false)).noneMatch(m -> m.text().contains("Game Boy was reset"));
+            ReflectionTestUtils.setField(link, "strandedLimit", Duration.ZERO);
+            link.sweep();
+            assertThat(chat.history(null, 20, false)).anyMatch(m -> m.text().startsWith("gary's Game Boy was reset"));
+            assertThat(consoles.isAwake(GARY)).isTrue();
+        } finally {
+            ReflectionTestUtils.setField(link, "dig", real);
+            ReflectionTestUtils.setField(link, "strandedLimit", Duration.ofSeconds(60));
+        }
+    }
 }
