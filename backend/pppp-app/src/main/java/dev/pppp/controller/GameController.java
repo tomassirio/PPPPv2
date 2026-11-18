@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** The signed-in player's own game as read from their console's RAM: the status panel (party, badges, Pokédex). */
@@ -35,10 +36,13 @@ class GameController {
         return png(tracker.playerSprite(CurrentUser.id(auth)), "No player sprite");
     }
 
-    /** A sprite of the caller's game (a party member, a Pokédex entry), drawn from their ROM. */
+    /**
+     * A sprite of the caller's game (a party member, a Pokédex entry), drawn from their ROM; with of, from that Pib's
+     * (a spectator draws each side's party from its own game).
+     */
     @GetMapping("/game/icons/{id}.png")
-    ResponseEntity<byte[]> icon(@PathVariable int id, Authentication auth) {
-        return png(tracker.icon(CurrentUser.id(auth), id), "No icon " + id);
+    ResponseEntity<byte[]> icon(@PathVariable int id, @RequestParam(required = false) String of, Authentication auth) {
+        return png(tracker.icon(of == null || of.isBlank() ? CurrentUser.id(auth) : of.toLowerCase(), id), "No icon " + id);
     }
 
     /** Pokédex number n as the caller's own Pokédex shows it (unseen: the number only; seen: more; caught: all). */

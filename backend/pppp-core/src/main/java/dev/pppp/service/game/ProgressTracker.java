@@ -559,10 +559,18 @@ public class ProgressTracker {
         return confirmed != null ? confirmed : profile.summary(null);
     }
 
-    /** PNG for an icon id of the player's summary, drawn from their cartridge, or null. */
+    /**
+     * PNG for an icon id of the player's summary, drawn from their cartridge; for a Pib with no game yet (a spectator),
+     * from the first installed cartridge that draws one. Null when none does.
+     */
     public byte[] icon(String userId, int id) {
         GameProfile<?> profile = profile(userId);
-        return profile == null ? null : profile.icon(id);
+        if (profile != null) return profile.icon(id);
+        for (var c : cartridges.list()) {
+            byte[] png = iconOf(c.id(), id);
+            if (png != null) return png;
+        }
+        return null;
     }
 
     /** PNG of a badge of the player's summary (by its index), drawn from their cartridge, or null. */
