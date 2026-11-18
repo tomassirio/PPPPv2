@@ -8,6 +8,7 @@ import dev.pppp.security.CurrentUser;
 import dev.pppp.service.game.ProgressTracker;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,6 +46,13 @@ class ScoreboardController {
     @GetMapping("/players/{userId}/achievements")
     PlayerAchievements achievementsOf(@PathVariable String userId) {
         return tracker.achievementsOf(userId.toLowerCase(Locale.ROOT));
+    }
+
+    /** Where a Pib is on the Pokégear town map (the location's hover); 204 when off the map. */
+    @GetMapping("/players/{userId}/pin")
+    ResponseEntity<dev.pppp.model.MapPin> pin(@PathVariable String userId) {
+        var pin = tracker.pin(userId.toLowerCase(Locale.ROOT));
+        return pin == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(pin);
     }
 
     /** A Pib's page: scoreboard row, party, achievements with progress, stats, newest activity; 404 for anyone else. */

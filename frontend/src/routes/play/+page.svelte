@@ -3,6 +3,7 @@
      board underneath on tablets; phone = Play / Scores / Chat tabs under the header, a challenge comes up as a bottom
      sheet and a linked session as a banner over the screen. Held sideways, Link / Scores / Chat are sheets. -->
 <script lang="ts">
+	import LocationMap from '#lib/components/LocationMap.svelte';
 	import Name from '#lib/components/Name.svelte';
 	import { goto } from '$app/navigation';
 	import { dexBanners } from '#lib/dex.svelte.ts';
@@ -287,7 +288,11 @@
 							><path d="M10 1a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 10 4.5a2.5 2.5 0 0 1 0 5z" /></svg
 						>
 						<span class="sr-only">You are at </span>
-						<span class="place pixel">{ls ? 'TRADE CENTER' : where.city.toUpperCase()}</span>
+						{#if ls || !me}
+							<span class="place pixel">{ls ? 'TRADE CENTER' : where.city.toUpperCase()}</span>
+						{:else}
+							<LocationMap user={me.id} label={where.city}><span class="place pixel">{where.city.toUpperCase()}</span></LocationMap>
+						{/if}
 						{#if ls || where.spot}<span class="sub">{ls ? `Cable Club · with ${nameOf(ls.peer)}` : where.spot}</span>{/if}
 					</p>
 				{/if}

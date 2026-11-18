@@ -1,30 +1,39 @@
 <!-- A location you can hover (or focus): the Pokégear town map of the region they are in (GET
      /public/townmap/{region}.png, drawn from Crystal), two pixels per Game Boy pixel, with a marker where they are.
-     Without a pin (link rooms, the ship, before their first reading), just the text. -->
+     Without a pin (link rooms, the ship, before their first reading), just the text. user instead of pin: asks
+     where that Pib is (GET /players/{id}/pin) each time it opens, for places that move (the Play screen's sign). -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { api } from '#lib/api.ts';
 
 	type Pin = { region: 'johto' | 'kanto'; x: number; y: number };
-	let { pin, label, children }: { pin: Pin | null | undefined; label: string; children: Snippet } = $props();
+	let { pin: given, user, label, children }: { pin?: Pin | null; user?: string; label: string; children: Snippet } = $props();
 
 	const SCALE = 2;
 	let open = $state(false);
+	let fetched = $state<Pin | null>(null);
+	const pin = $derived(given ?? fetched);
+
+	async function show() {
+		open = true;
+		if (user && !given) fetched = (await api<Pin | null>('GET', `/players/${encodeURIComponent(user)}/pin`).catch(() => null)) || null;
+	}
 </script>
 
-{#if pin}
+{#if given || user}
 	<span
 		class="where"
 		role="button"
 		tabindex="0"
-		aria-label="{label}: show it on the {pin.region === 'kanto' ? 'Kanto' : 'Johto'} map"
+		aria-label="{label}: show it on the town map"
 		aria-expanded={open}
-		onpointerenter={() => (open = true)}
+		onpointerenter={show}
 		onpointerleave={() => (open = false)}
-		onfocus={() => (open = true)}
+		onfocus={show}
 		onblur={() => (open = false)}
 	>
 		{@render children()}
-		{#if open}
+		{#if open && pin}
 			<span class="pop" role="tooltip">
 				<span class="screen" style:width="{160 * SCALE}px" style:height="{144 * SCALE}px">
 					<img src="/api/v1/public/townmap/{pin.region}.png" alt="" width={160 * SCALE} height={144 * SCALE} />

@@ -547,6 +547,12 @@ public class ProgressTracker {
      * A player's page: their scoreboard row, party, achievements, stats and newest activity; NotFoundException
      * when they are not on the scoreboard. Progress towards an achievement only where the stored counts give it.
      */
+    /** Where a player on the scoreboard is on the Pokégear town map, or null (off the map, no reading yet); 404 for anyone else. */
+    public dev.pppp.model.MapPin pin(String userId) {
+        if (!repo.ranking().contains(userId)) throw new NotFoundException("No player " + userId);
+        return cards.computeIfAbsent(userId, repo::card).pin();
+    }
+
     public PlayerProfile playerProfile(String userId) {
         ScoreRow row = scoreboard().stream().filter(r -> r.userId().equals(userId)).findFirst()
                 .orElseThrow(() -> new NotFoundException("No player " + userId));

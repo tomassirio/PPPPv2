@@ -36,8 +36,8 @@
 		</a>
 		<nav aria-label="Main">
 			{#each [['/play', 'Play'], ['/scoreboard', 'Scoreboard'], ['/watch', 'Live'], [mine, 'My profile']] as [href, label] (href)}
-				<a {href} aria-current={current === href ? 'page' : undefined} title={href === mine ? `My profile · ${usernameOf(me.id)}` : undefined}
-					>{href === mine ? nameOf(me.id) : label}{#if href === '/watch' && live}<span class="live-dot" aria-hidden="true"></span><span class="sr">, {live} running</span>{/if}</a
+				<a {href} class:play={href === '/play'} aria-current={current === href ? 'page' : undefined} title={href === mine ? `My profile · ${usernameOf(me.id)}` : undefined}
+					>{#if href === '/play'}<svg class="play-icon" viewBox="0 0 12 12" width="11" height="11" fill="currentColor" aria-hidden="true"><path d="M3 1.5v9l7.5-4.5z" /></svg>{/if}{href === mine ? nameOf(me.id) : label}{#if href === '/watch' && live}<span class="live-dot" aria-hidden="true"></span><span class="sr">, {live} running</span>{/if}</a
 				>
 			{/each}
 		</nav>
@@ -136,6 +136,37 @@
 	nav a[aria-current='page'] {
 		color: var(--accent-text);
 		background: var(--accent-tint);
+	}
+	/* Play: the way back into your game, a button of its own. */
+	nav a.play {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		margin-right: 6px;
+		color: var(--ink);
+		background: var(--accent);
+		font-weight: 800;
+		box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 55%, #000), 0 4px 14px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+		transition: transform 0.12s, box-shadow 0.12s;
+	}
+	nav a.play:hover {
+		color: var(--ink);
+		background: color-mix(in srgb, var(--accent) 88%, #fff);
+		transform: translateY(-1px);
+	}
+	nav a.play:active {
+		transform: translateY(1px);
+		box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, #000);
+	}
+	nav a.play[aria-current='page'] {
+		color: var(--ink);
+		background: var(--accent);
+		box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent), 0 4px 14px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		nav a.play {
+			transition: none;
+		}
 	}
 	a:focus-visible {
 		outline: 3px solid var(--accent-text);

@@ -116,10 +116,26 @@
 	}
 	.g-splus {
 		--g-ink: #1d1f1c;
-		/* One 80px period that starts and ends on the same gold, so scrolling it by one period loops seamlessly. */
-		--g-bg: repeating-linear-gradient(110deg, #f7d774 0, #fff6d0 14px, #e0a923 28px, #f29bd1 44px, #9bd3f2 60px, #f7d774 80px);
+		--g-bg: linear-gradient(110deg, #f7d774, #fff6d0, #e0a923, #f29bd1, #9bd3f2);
 		--g-edge: rgb(150 105 0 / 0.6);
 		--g-fx: #f29bd1;
+	}
+	/* S+ shimmer: a strip twice the chip's width holding the gold, cream, fuchsia and turquoise sweep twice (each copy
+	   starts and ends on gold), slid left by one copy and round again: no seam. A transform, not background-position,
+	   so it glides at sub-pixel steps instead of jumping a pixel at a time on so small a chip. */
+	.grade.g-splus {
+		position: relative;
+		overflow: hidden;
+		isolation: isolate;
+		background: #f7d774;
+	}
+	.grade.g-splus::before {
+		content: '';
+		position: absolute;
+		inset: 0 auto 0 0;
+		width: 200%;
+		z-index: -1;
+		background: linear-gradient(100deg, #f7d774 0%, #fff6d0 12%, #e0a923 24%, #f29bd1 34%, #9bd3f2 43%, #f7d774 50%, #fff6d0 62%, #e0a923 74%, #f29bd1 84%, #9bd3f2 93%, #f7d774 100%);
 	}
 	/* Darker theme: the light hues read better a step brighter. */
 	:global(:root[data-theme='dark']) .g-f { --g-ink: #a9aeab; }
@@ -137,16 +153,13 @@
 		:global(:root:not([data-theme='light'])) .g-a { --g-ink: #b48cf2; }
 	}
 	@media (prefers-reduced-motion: no-preference) {
-		.g-splus {
-			animation: shimmer 3s linear infinite;
+		.grade.g-splus::before {
+			animation: shimmer 4s linear infinite;
+			will-change: transform;
 		}
-		/* One period along x: 80px across the stripes is 80 / sin(110deg) = 85.13px sideways. */
 		@keyframes shimmer {
-			from {
-				background-position: 0 0;
-			}
 			to {
-				background-position: -85.13px 0;
+				transform: translateX(-50%);
 			}
 		}
 
@@ -170,7 +183,7 @@
 			animation: big 1.8s ease-out, glow 1.8s ease-out;
 		}
 		.up.g-splus {
-			animation: big 2.4s ease-out, glow 2.4s ease-out, shimmer 3s linear infinite;
+			animation: big 2.4s ease-out, glow 2.4s ease-out;
 		}
 		@keyframes pop {
 			from {
