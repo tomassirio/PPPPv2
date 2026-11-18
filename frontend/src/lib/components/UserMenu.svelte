@@ -1,7 +1,7 @@
 <!-- The avatar in the top bar opens this menu: who you are, light/dark (Solrock/Lunatone, with a reveal animation), Pokédex banners (wide desktops), My profile (not on it already),
      Settings (key bindings), Admin (admins only), Play (on /admin only: elsewhere the top bar's tabs have it), Sign out. -->
 <script lang="ts">
-	import { nameOf, usernameOf } from '#lib/pictures.svelte.ts';
+	import { initialsOf, nameOf, usernameOf } from '#lib/pictures.svelte.ts';
 	import { page } from '$app/state';
 	import { isAdmin, logout, type Me } from '#lib/session.svelte.ts';
 	import { pending, watchRequests } from '#lib/requests.svelte.ts';
@@ -21,14 +21,7 @@
 	let pictureFailed = $state(false);
 	let settingsOpen = $state(false);
 
-	const initials = $derived(
-		nameOf(me.id)
-			.split(/[\s@.]+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((w) => w[0].toUpperCase())
-			.join('')
-	);
+	const initials = $derived(initialsOf(me.id));
 
 	// Auto follows the OS until the player picks one; the toggle shows whichever is in effect.
 	let osDark = $state(typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches);

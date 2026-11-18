@@ -37,10 +37,16 @@ export const nameOf = (user: string): string => pictures.names[user] ?? shortUse
 /** "@" and the local part of the player's e-mail. */
 export const usernameOf = (user: string): string => `@${shortUser(user)}`;
 
-/** Two letters for an avatar: first and last name's initials, or the start of the e-mail. */
+/** Two letters for an avatar: the first and last word's initials, or the start of one word or the e-mail. */
 export function initialsOf(user: string): string {
-	const words = (pictures.names[user] ?? '').split(/\s+/).filter(Boolean);
-	return (words.length > 1 ? words[0][0] + words.at(-1)![0] : (words[0] ?? shortUser(user)).slice(0, 2)).toUpperCase();
+	return initials(pictures.names[user] ?? '') || [...shortUser(user)].slice(0, 2).join('').toUpperCase();
+}
+
+/** Initials of a name, letters only (a nickname may hold emoji or symbols, whose halves would show as boxes). */
+export function initials(name: string): string {
+	const words = name.split(/[\s@.]+/).filter((w) => /^\p{L}/u.test(w));
+	const letter = (w: string) => [...w][0];
+	return (words.length > 1 ? letter(words[0]) + letter(words.at(-1)!) : words[0] ? [...words[0]].slice(0, 2).join('') : '').toUpperCase();
 }
 
 // Holds live state and event subscriptions: hot-swapping it in dev would leave a fresh copy with no listeners

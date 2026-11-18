@@ -1,6 +1,6 @@
 <!-- "N online" in the top bar; hover, focus or tap shows who. Live via PRESENCE events. -->
 <script lang="ts">
-	import { nameOf } from '#lib/pictures.svelte.ts';
+	import { initialsOf } from '#lib/pictures.svelte.ts';
 	import Name from '#lib/components/Name.svelte';
 	import { api } from '#lib/api.ts';
 	import { on, onOpen } from '#lib/events.ts';
@@ -29,13 +29,6 @@
 		return () => offs.forEach((off) => off());
 	});
 
-	const initials = (name: string) =>
-		name
-			.split(/[\s@.]+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((w) => w[0].toUpperCase())
-			.join('');
 </script>
 
 <div class="presence" class:open role="presentation" onmouseleave={() => (open = false)}>
@@ -56,7 +49,7 @@
 				{#if v.picture && !broken.has(v.id)}
 					<img src={v.picture} alt="" referrerpolicy="no-referrer" onerror={() => (broken = new Set(broken).add(v.id))} />
 				{:else}
-					<span class="initials" aria-hidden="true">{initials(nameOf(v.id))}</span>
+					<span class="initials" aria-hidden="true">{initialsOf(v.id)}</span>
 				{/if}
 				<span class="name"><Name user={v.id} /></span>
 			</li>
