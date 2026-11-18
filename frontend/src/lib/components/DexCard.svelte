@@ -45,14 +45,14 @@
 	}
 </script>
 
-<div class="card {state}" class:left={side === 'left'} class:above={side === 'above'} style:left="{x / zoom}px" style:top="{y / zoom}px" role="tooltip" use:portal>
+<div class="card {state} {tier && tier !== 'F' ? `t-${tier}` : ''}" class:left={side === 'left'} class:above={side === 'above'} style:left="{x / zoom}px" style:top="{y / zoom}px" role="tooltip" use:portal>
 	<div class="card-head">
 		<span class="no pixel">No.{pad(n)}</span>
 		<span class="name">{state === 'unseen' ? '???' : (entry?.name ?? name ?? '…')}</span>
 	</div>
 	{#if note}<div class="note">{note}</div>{/if}
 	<div class="card-body">
-		<div class="pic {tier ? `tier-card tier-${tier}` : ''}">
+		<div class="pic">
 			{#if tier}<span class="tier-tag tier-{tier}">{tier}</span>{/if}
 			{#if state === 'unseen'}
 				<span class="shape" style:--src="url(/api/v1/game/icons/{n}.png)"></span>
@@ -198,10 +198,45 @@
 		color: var(--muted);
 		font-style: italic;
 	}
-	/* The picture in its tier's frame (.tier-card in app.css). The card floats over the page, so it keeps its own tag. */
-	.pic.tier-card {
-		--frame-bg: color-mix(in srgb, var(--text) 5%, var(--panel));
-		border: 1px solid transparent;
+	/* The card's frame and header in its tier's colours (F, and anything not seen yet: the Pokédex red): E green, D blue, C violet;
+	   B silver, A gold, S gold with a glow, M a turning holographic rainbow, as the party cards (.tier-card). */
+	.card.t-E {
+		--edge: #4caf50;
+	}
+	.card.t-D {
+		--edge: #3d8bfd;
+	}
+	.card.t-C {
+		--edge: #9b5de5;
+	}
+	.card.t-B {
+		--edge: linear-gradient(135deg, #8a959e, #eef2f5 45%, #a7b1b9 60%, #e3e8ec);
+		--head-ink: #1d1f1c;
+	}
+	.card.t-A {
+		--edge: linear-gradient(135deg, #b8860b, #f7d774 45%, #d9a520 60%, #fff0b3);
+		--head-ink: #1d1f1c;
+	}
+	.card.t-S {
+		--edge: linear-gradient(135deg, #b8860b, #f7d774 30%, #fff6c9 50%, #f7d774 70%, #b8860b);
+		--head-ink: #1d1f1c;
+		box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.55), 0 0 22px -2px rgb(247 200 80 / 0.7);
+	}
+	.card.t-M {
+		--edge: conic-gradient(from var(--tier-turn), #ff6fb5, #ffd36f, #7dffb0, #6fd8ff, #b58cff, #ff6fb5);
+		--head-ink: #1d1f1c;
+		box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.55), 0 0 22px -2px rgb(181 140 255 / 0.7);
+		animation: pop 120ms ease-out, tier-turn 6s linear infinite;
+	}
+	.card[class*=' t-'] {
+		border-color: transparent;
+		background:
+			linear-gradient(var(--panel), var(--panel)) padding-box,
+			var(--edge) border-box;
+	}
+	.card[class*=' t-'] .card-head {
+		background: var(--edge);
+		color: var(--head-ink, #fff);
 	}
 	.pic .tier-tag {
 		top: 4px;
