@@ -268,6 +268,7 @@
 		gap: 12px;
 	}
 	.live {
+		white-space: nowrap;
 		font-size: 11px;
 		font-weight: 600;
 		letter-spacing: 0.08em;
