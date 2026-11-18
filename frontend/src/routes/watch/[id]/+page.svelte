@@ -48,7 +48,8 @@
 
 <style>
 	.watch {
-		max-width: 1200px;
+		width: 100%;
+		max-width: 1400px;
 		margin: 0 auto;
 		padding: 16px;
 		display: flex;
@@ -71,6 +72,10 @@
 		gap: 16px;
 	}
 	figure {
+		/* As wide as fits the window's height under the header and title (the bezel adds 32px and a status strip). */
+		width: 100%;
+		max-width: calc((100vh - 420px) * 160 / 144 + 32px);
+		justify-self: center;
 		margin: 0;
 		display: flex;
 		flex-direction: column;
@@ -80,9 +85,6 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-	}
-	.screen {
-		height: min(60vh, 520px);
 	}
 	.muted {
 		color: var(--muted);
