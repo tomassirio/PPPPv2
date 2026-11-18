@@ -48,7 +48,7 @@
 							</span>
 							<span class="sub">
 								<span class="status status-{st.kind}"><span class="status-dot"></span>{st.kind === 'linked' ? 'Linked' : st.label}{#if where}<span class="muted">&nbsp;· {where}</span>{/if}</span>
-								{#if r.party?.length}<PartyIcons party={r.party} size={18} hp={false} />{/if}
+								{#if r.party?.length}<PartyIcons party={r.party} size={18} hp={false} dexOf={r.userId} />{/if}
 							</span>
 						</span>
 						<span class="score">
