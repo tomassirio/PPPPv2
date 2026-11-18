@@ -1,31 +1,22 @@
-<!-- A location you can hover (or focus): a window on the real map where the player stands, as Pokémon Crystal draws
-     it (GET /public/maps/{MAP}.png, the map with MARGIN border blocks round it), two pixels per Game Boy pixel and a
-     Game Boy screen across (160x120), centred on them with a marker. Without a spot, just the text. -->
+<!-- A location you can hover (or focus): the Pokégear town map of the region they are in (GET
+     /public/townmap/{region}.png, drawn from Crystal), two pixels per Game Boy pixel, with a marker where they are.
+     Without a pin (link rooms, the ship, before their first reading), just the text. -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	type Spot = { map: string; x: number; y: number; facing?: string };
-	let { spot, label, children }: { spot: Spot | null | undefined; label: string; children: Snippet } = $props();
+	type Pin = { region: 'johto' | 'kanto'; x: number; y: number };
+	let { pin, label, children }: { pin: Pin | null | undefined; label: string; children: Snippet } = $props();
 
-	const MARGIN = 20; // border blocks round each map image (PublicController.MAP_MARGIN)
-	const BLOCK = 32; // px per block; a step is half a block
 	const SCALE = 2;
-	const W = 320;
-	const H = 240;
 	let open = $state(false);
-	let failed = $state(false);
-	// The player's middle on the map image, then the image shifted so that point sits in the window's middle.
-	const at = $derived(spot ? { x: MARGIN * BLOCK + spot.x * 16 + 8, y: MARGIN * BLOCK + spot.y * 16 + 8 } : null);
-	const hour = new Date().getHours();
-	const time = hour >= 4 && hour < 10 ? 'morn' : hour >= 10 && hour < 18 ? 'day' : 'nite'; // the games' clock bands
 </script>
 
-{#if spot}
+{#if pin}
 	<span
 		class="where"
 		role="button"
 		tabindex="0"
-		aria-label="{label}: show it on the map"
+		aria-label="{label}: show it on the {pin.region === 'kanto' ? 'Kanto' : 'Johto'} map"
 		aria-expanded={open}
 		onpointerenter={() => (open = true)}
 		onpointerleave={() => (open = false)}
@@ -33,22 +24,13 @@
 		onblur={() => (open = false)}
 	>
 		{@render children()}
-		{#if open && at}
-			<span class="pop" role="tooltip" style:width="{W}px">
-				<span class="screen" style:height="{H}px">
-					{#if failed}
-						<span class="none">No map for this place</span>
-					{:else}
-						<img
-							src="/api/v1/public/maps/{spot.map}.png?time={time}&m={MARGIN}"
-							alt=""
-							style:transform="translate({W / 2 - at.x * SCALE}px, {H / 2 - at.y * SCALE}px) scale({SCALE})"
-							onerror={() => (failed = true)}
-						/>
-						<span class="marker" aria-hidden="true"></span>
-					{/if}
+		{#if open}
+			<span class="pop" role="tooltip">
+				<span class="screen" style:width="{160 * SCALE}px" style:height="{144 * SCALE}px">
+					<img src="/api/v1/public/townmap/{pin.region}.png" alt="" width={160 * SCALE} height={144 * SCALE} />
+					<span class="marker" aria-hidden="true" style:left="{pin.x * SCALE}px" style:top="{pin.y * SCALE}px"></span>
 				</span>
-				<span class="cap">{label}</span>
+				<span class="cap">{label}<span class="region">{pin.region === 'kanto' ? 'Kanto' : 'Johto'}</span></span>
 			</span>
 		{/if}
 	</span>
@@ -92,57 +74,56 @@
 	}
 	.screen {
 		position: relative;
-		overflow: hidden;
-		background: #000;
+		display: block;
 	}
 	.screen img {
-		position: absolute;
-		top: 0;
-		left: 0;
-		max-width: none;
-		transform-origin: 0 0;
+		display: block;
 		image-rendering: pixelated;
 	}
-	/* Where they stand: a ring pulsing round their tile. */
+	/* Where they are: a red dot with a ring pulsing out of it. */
 	.marker {
 		position: absolute;
-		left: 50%;
-		top: 50%;
-		width: 36px;
-		height: 36px;
+		width: 14px;
+		height: 14px;
 		translate: -50% -50%;
 		border-radius: 50%;
+		background: #ff3b30;
+		box-shadow: 0 0 0 2px #fff;
+	}
+	.marker::after {
+		content: '';
+		position: absolute;
+		inset: -6px;
+		border-radius: 50%;
 		border: 3px solid #ff3b30;
-		box-shadow: 0 0 0 2px rgb(255 255 255 / 0.85), 0 0 14px rgb(255 59 48 / 0.7);
 		animation: ping 1.4s ease-out infinite;
 	}
 	@keyframes ping {
 		0% {
-			scale: 0.7;
+			scale: 0.5;
 			opacity: 1;
 		}
 		100% {
-			scale: 1.25;
-			opacity: 0.35;
+			scale: 1.6;
+			opacity: 0;
 		}
 	}
-	.none {
-		position: absolute;
-		inset: 0;
-		display: grid;
-		place-items: center;
-		color: #ccc;
-		font-size: 13px;
-	}
 	.cap {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
 		padding: 8px 12px;
 		font-size: 13px;
 		font-weight: 700;
 		color: var(--text);
 	}
+	.region {
+		font-weight: 600;
+		color: var(--muted);
+	}
 	@media (prefers-reduced-motion: reduce) {
 		.pop,
-		.marker {
+		.marker::after {
 			animation: none;
 		}
 	}

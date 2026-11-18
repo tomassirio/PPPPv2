@@ -326,6 +326,37 @@ final class Gen2MapArt {
         return pals;
     }
 
+    /**
+     * The Pokégear's town map of Johto or Kanto as a 160x144 PNG, as Pokegear_LoadGFX and _TownMap draw it
+     * (engine/pokegear/pokegear.asm): TownMapGFX at tile 0 and PokegearGFX at tile $30 (both LZ), the screen's tiles
+     * from JohtoMap or KantoMap (20x18 ids, $ff-terminated; FillTownMap), each tile's palette from TownMapPals.PalMap
+     * (a nybble per tile id, low nybble first; $60 and up palette 0), colours from MalePokegearPals. Addresses from
+     * pokecrystal11.sym. Null when the bytes are not what pret has there.
+     */
+    byte[] townMap(boolean kanto) {
+        int map = rom(0x24, kanto ? 0x6168 : 0x5FFF), palMap = rom(0x24, 0x5F4B), pals = rom(0x02, 0x7729);
+        byte[] tiles = new byte[0x80 * 16];
+        byte[] townMap = Gen2Pic.decompress(rom, rom(0x3E, 0x4BA0)), pokegear = Gen2Pic.decompress(rom, rom(0x77, 0x62E4));
+        System.arraycopy(townMap, 0, tiles, 0, Math.min(townMap.length, 0x30 * 16));
+        System.arraycopy(pokegear, 0, tiles, 0x30 * 16, Math.min(pokegear.length, tiles.length - 0x30 * 16));
+        if ((rom[map + 20 * 18] & 0xFF) != 0xFF) return null; // FillTownMap's terminator right after the screen
+        var img = new BufferedImage(160, 144, BufferedImage.TYPE_INT_ARGB);
+        for (int i = 0; i < 20 * 18; i++) {
+            int t = rom[map + i] & 0xFF;
+            int pal = t >= 0x60 ? 0 : (rom[palMap + t / 2] >> (t % 2 == 1 ? 4 : 0)) & 7;
+            int[] colors = new int[4];
+            for (int c = 0; c < 4; c++) colors[c] = Gen2Pic.rgb(rom, pals + pal * 8 + c * 2);
+            tile(img, tiles, t, colors, i % 20 * 8, i / 20 * 8);
+        }
+        var out = new java.io.ByteArrayOutputStream();
+        try {
+            javax.imageio.ImageIO.write(img, "png", out);
+        } catch (java.io.IOException e) {
+            return null;
+        }
+        return out.toByteArray();
+    }
+
     private static void tile(BufferedImage img, byte[] tiles, int idx, int[] pal, int x, int y) {
         if (idx * 16 + 16 > tiles.length) return;
         for (int row = 0; row < 8; row++) {

@@ -270,8 +270,8 @@ export type Profile = {
 	achievements: ProfileAchievement[];
 	stats: { caught: number; seen: number; trades?: number | null; linkWins?: number | null; linkLosses?: number | null; partners?: string[]; playTime: string | null };
 	recent: ScoreEvent[];
-	/** Where they stand in their game (pret map constant, x/y in 16 px steps), for the location's map; null unknown. */
-	spot?: { map: string; x: number; y: number; facing: string } | null;
+	/** Where they are on the Pokégear town map (x, y in its 160x144 screen), for the location's hover; null unknown. */
+	pin?: { region: 'johto' | 'kanto'; x: number; y: number } | null;
 };
 /** GET /players/{userId}/achievements (Achievement.java): the older backend's catalogue with unlock times. */
 export type CatalogueEntry = { id: string; name: string; description: string; points: number; unlockedAt: number | null };

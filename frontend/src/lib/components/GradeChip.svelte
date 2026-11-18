@@ -116,10 +116,10 @@
 	}
 	.g-splus {
 		--g-ink: #1d1f1c;
-		--g-bg: linear-gradient(110deg, #f7d774 0%, #fff6d0 35%, #e0a923 50%, #f29bd1 75%, #9bd3f2 100%);
+		/* One 80px period that starts and ends on the same gold, so scrolling it by one period loops seamlessly. */
+		--g-bg: repeating-linear-gradient(110deg, #f7d774 0, #fff6d0 14px, #e0a923 28px, #f29bd1 44px, #9bd3f2 60px, #f7d774 80px);
 		--g-edge: rgb(150 105 0 / 0.6);
 		--g-fx: #f29bd1;
-		background-size: 220% 100%;
 	}
 	/* Darker theme: the light hues read better a step brighter. */
 	:global(:root[data-theme='dark']) .g-f { --g-ink: #a9aeab; }
@@ -140,9 +140,13 @@
 		.g-splus {
 			animation: shimmer 3s linear infinite;
 		}
+		/* One period along x: 80px across the stripes is 80 / sin(110deg) = 85.13px sideways. */
 		@keyframes shimmer {
+			from {
+				background-position: 0 0;
+			}
 			to {
-				background-position: -220% 0;
+				background-position: -85.13px 0;
 			}
 		}
 

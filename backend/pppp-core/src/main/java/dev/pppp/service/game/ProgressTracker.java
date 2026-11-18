@@ -455,6 +455,12 @@ public class ProgressTracker {
         return art == null ? null : art.png(map, time, margin);
     }
 
+    /** The Pokégear town map of Johto or Kanto (Gen2MapArt#townMap) as a PNG; or null. */
+    public byte[] townMap(boolean kanto) {
+        Gen2MapArt art = art();
+        return art == null ? null : art.townMap(kanto);
+    }
+
     /** Neighbours, NPCs, tall grass and wild Pokémon of a Crystal map at a time of day (Gen2MapArt.Info); or null. */
     public Object mapInfo(String map, int time, int margin) {
         Gen2MapArt art = art();
@@ -567,7 +573,7 @@ public class ProgressTracker {
         }).toList();
         return new PlayerProfile(row, card.party(), entries, new PlayerProfile.Stats(row.caught(), row.seen(),
                 card.playTime(), log.trades(), log.linkWins(), log.linkLosses(), List.copyOf(log.partners())), repo.newest(userId, 10),
-                card.spot());
+                card.pin());
     }
 
     /** The activity feed, newest first. */

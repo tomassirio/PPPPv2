@@ -158,6 +158,13 @@ class PublicController {
         return png(ok ? tracker.mapArt(map, t, MAP_MARGIN) : null);
     }
 
+    /** The Pokégear town map of a region ("johto" or "kanto"), drawn from Crystal. */
+    @GetMapping("/townmap/{region}.png")
+    ResponseEntity<byte[]> townMap(@PathVariable String region) {
+        boolean ok = region.equals("johto") || region.equals("kanto");
+        return png(ok ? tracker.townMap(region.equals("kanto")) : null);
+    }
+
     /** What stands on that map image at a time of day: neighbours, NPCs, tall grass, wild Pokémon (Gen2MapArt.Info). */
     @GetMapping("/maps/{map}.json")
     ResponseEntity<Object> mapInfo(@PathVariable String map,

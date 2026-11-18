@@ -193,7 +193,7 @@
 						{#if version}<span class="chip g-{version}"><span class="cart-dot"></span>{version}</span>{/if}
 						<span class="chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
 						{#if row.location}
-							<LocationMap spot={profile.spot} label={row.location}>
+							<LocationMap pin={profile.pin} label={row.location}>
 								<span class="row tight"
 									><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true" class="pin"
 										><path d="M10 1a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 10 4.5a2.5 2.5 0 0 1 0 5z" /></svg
