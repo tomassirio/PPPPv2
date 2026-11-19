@@ -1,6 +1,6 @@
 <!-- A location you can hover (or focus): the Pokégear town map of the region they are in (GET
      /public/townmap/{region}.png, drawn from Crystal), two pixels per Game Boy pixel, with a marker where they are.
-     Without a pin (link rooms, the ship, before their first reading), just the text. user instead of pin: asks
+     Without a pin, show an unmarked reference map. user instead of pin: asks
      where that Pib is (GET /players/{id}/pin) each time it opens, for places that move (the Play screen's sign). -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -33,13 +33,13 @@
 		onblur={() => (open = false)}
 	>
 		{@render children()}
-		{#if open && pin}
+		{#if open}
 			<span class="pop" role="tooltip">
 				<span class="screen" style:width="{160 * SCALE}px" style:height="{144 * SCALE}px">
-					<img src="/api/v1/public/townmap/{pin.region}.png" alt="" width={160 * SCALE} height={144 * SCALE} />
-					<span class="marker" aria-hidden="true" style:left="{pin.x * SCALE}px" style:top="{pin.y * SCALE}px"></span>
+					<img src="/api/v1/public/townmap/{pin?.region ?? 'johto'}.png" alt="" width={160 * SCALE} height={144 * SCALE} />
+					{#if pin}<span class="marker" aria-hidden="true" style:left="{pin.x * SCALE}px" style:top="{pin.y * SCALE}px"></span>{/if}
 				</span>
-				<span class="cap">{label}<span class="region">{pin.region === 'kanto' ? 'Kanto' : 'Johto'}</span></span>
+				<span class="cap">{label}<span class="region">{pin ? (pin.region === 'kanto' ? 'Kanto' : 'Johto') : 'Location not plotted'}</span></span>
 			</span>
 		{/if}
 	</span>

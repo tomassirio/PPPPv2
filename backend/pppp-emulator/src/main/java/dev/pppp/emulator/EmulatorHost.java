@@ -132,6 +132,16 @@ public class EmulatorHost {
         batterySave = null;
     }
 
+    /** Changes bytes of this running cartridge between frames, without touching its file or save. */
+    public void patchRom(Map<Integer, Integer> bytes) {
+        if (bytes.isEmpty()) return;
+        call(() -> {
+            int[] image = rom.getRom();
+            bytes.forEach((offset, value) -> image[offset] = value);
+            return null;
+        });
+    }
+
     /** Needs a cartridge. Loads the battery save, if any. */
     public synchronized void powerOn() {
         requireOff("power on");

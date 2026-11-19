@@ -283,17 +283,16 @@
 				{/if}
 				{#if link.state?.session || where.city}
 					{@const ls = link.state?.session}
+					{@const label = ls ? (ls.kind === 'TRADE' ? 'Trade Center' : 'Colosseum') : where.city}
 					<p class="sign" class:linked={!!ls}>
+						<LocationMap user={me.id} {label}>
 						<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"
 							><path d="M10 1a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6zm0 8.5A2.5 2.5 0 1 1 10 4.5a2.5 2.5 0 0 1 0 5z" /></svg
 						>
 						<span class="sr-only">You are at </span>
-						{#if ls || !me}
-							<span class="place pixel">{ls ? 'TRADE CENTER' : where.city.toUpperCase()}</span>
-						{:else}
-							<LocationMap user={me.id} label={where.city}><span class="place pixel">{where.city.toUpperCase()}</span></LocationMap>
-						{/if}
+						<span class="place pixel">{label.toUpperCase()}</span>
 						{#if ls || where.spot}<span class="sub">{ls ? `Cable Club · with ${nameOf(ls.peer)}` : where.spot}</span>{/if}
+						</LocationMap>
 					</p>
 				{/if}
 				<div class="screen-slot" bind:this={screenSlot}>
@@ -391,12 +390,16 @@
 		box-sizing: border-box;
 		display: flex;
 		align-items: center;
-		gap: 10px;
-		padding: 8px 10px;
 		border-radius: 8px;
 		border: 2px solid var(--border-strong);
 		background: var(--sunk);
 		min-width: 0;
+	}
+	.sign :global(.where) {
+		flex: 1;
+		min-width: 0;
+		padding: 8px 10px;
+		gap: 10px;
 	}
 	.sign svg {
 		flex: none;

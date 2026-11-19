@@ -7,6 +7,7 @@ import dev.pppp.emulator.Button;
 import dev.pppp.emulator.EmulatorHost;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -16,6 +17,34 @@ import org.junit.jupiter.params.provider.CsvSource;
  */
 class PlayerSpritesTest {
     private static final Path DATA = Path.of("../../data");
+
+    @ParameterizedTest
+    @CsvSource({"pokemon-crystal-version-usa-europe-rev-1, KRIS, 96",
+            "pokemon-gold-version-usa-europe-sgb-enhanced-gb-compatible, KRIS, 1",
+            "pokemon-silver-version-usa-europe-sgb-enhanced-gb-compatible, LASS, 40"})
+    void runningCartridgeLoadsThePeerForEitherSeat(String cart, String peer, int expected, @TempDir Path temp) throws Exception {
+        Path rom = DATA.resolve("roms/" + cart + ".gbc");
+        assumeTrue(Files.exists(rom), "no ROM");
+        byte[] bytes = Files.readAllBytes(rom);
+        var host = new EmulatorHost();
+        host.insert(cart, rom, temp.resolve("player.sav"));
+        host.powerOn();
+        try {
+            host.pause();
+            var patch = PlayerSprites.cableFriend(bytes, peer);
+            assertThat(patch).hasSize(4);
+            host.patchRom(patch);
+            for (int offset : patch.keySet()) {
+                int sprite = host.withBus(bus -> {
+                    bus.setByte(0x2000, offset / 0x4000);
+                    return bus.getByte(0x4000 + offset % 0x4000);
+                });
+                assertThat(sprite).isEqualTo(expected);
+            }
+        } finally {
+            host.shutdown();
+        }
+    }
 
     @ParameterizedTest
     @CsvSource({"tomassirio@gmail.com, pokemon-crystal-version-usa-europe-rev-1, 0xD4D6",

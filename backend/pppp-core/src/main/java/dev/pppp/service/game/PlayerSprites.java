@@ -3,7 +3,9 @@ package dev.pppp.service.game;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.imageio.ImageIO;
 
 /**
@@ -77,6 +79,30 @@ public final class PlayerSprites {
     /** The choice for key in this ROM, or null when it has no such trainer. */
     public static Choice choice(byte[] rom, String key) {
         return key == null ? null : choices(rom).stream().filter(c -> c.key.equals(key)).findFirst().orElse(null);
+    }
+
+    /** Sprite bytes of the two possible friend objects in TradeCenter and Colosseum. The map callback hides
+     * one according to the cable end; neither object is the local player. Resolve the choice in the viewing ROM. */
+    public static Map<Integer, Integer> cableFriend(byte[] rom, String key) {
+        Layout at = layout(rom);
+        if (at == null) return Map.of();
+        int[] rooms = at == CRYSTAL ? new int[]{0x193443, 0x1934D1} : new int[]{0x1714ED, 0x17156E};
+        for (int offset : rooms) {
+            if (offset + 26 > rom.length || rom[offset - 1] != 2) return Map.of();
+            for (int side = 0; side < 2; side++) {
+                int obj = offset + 13 * side;
+                if (rom[obj] != SPRITE_CHRIS || rom[obj + 1] != 8 || rom[obj + 2] != 7 + 3 * side
+                        || rom[obj + 3] != 9 - side || rom[obj + 11] != side) return Map.of();
+            }
+        }
+        Choice c = key == null || DEFAULT.equals(key) ? null : choice(rom, key);
+        int sprite = c == null ? SPRITE_CHRIS : c.id;
+        var result = new HashMap<Integer, Integer>();
+        for (int offset : rooms) {
+            result.put(offset, sprite);
+            result.put(offset + 13, sprite);
+        }
+        return result;
     }
 
     /**

@@ -205,7 +205,12 @@ public class PlayerConsoles {
     public void link(String userA, String userB) {
         synchronized (links) {
             if (!isAwake(userA) || !isAwake(userB)) throw new IllegalStateException("Both consoles must be open to link");
-            EmulatorHost.link(consoles.get(userA).host(), consoles.get(userB).host());
+            Console a = consoles.get(userA), b = consoles.get(userB);
+            var friendA = PlayerSprites.cableFriend(rom(a.cartridgeId()), players.sprite(userB));
+            var friendB = PlayerSprites.cableFriend(rom(b.cartridgeId()), players.sprite(userA));
+            EmulatorHost.link(a.host(), b.host());
+            a.host().patchRom(friendA);
+            b.host().patchRom(friendB);
             links.put(userA, userB);
             links.put(userB, userA);
         }
@@ -304,6 +309,10 @@ public class PlayerConsoles {
             links.remove(peer);
             Console c = consoles.get(userId);
             if (c != null) EmulatorHost.unlink(c.host());
+            for (String id : List.of(userId, peer)) {
+                Console end = consoles.get(id);
+                if (end != null) end.host().patchRom(PlayerSprites.cableFriend(rom(end.cartridgeId()), null));
+            }
         }
         for (String id : List.of(userId, peer)) {
             Console c = consoles.get(id);

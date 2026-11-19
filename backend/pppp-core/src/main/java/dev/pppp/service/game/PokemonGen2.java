@@ -604,8 +604,18 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                 PokemonRed.text(ram.slice(name, NAME_LENGTH), 0, NAME_LENGTH), at.crystal,
                 onMap ? mapIds[group][number] : null, ram.u8(at.curBox), Set.copyOf(contacts), List.copyOf(slots),
                 money, momsMoney, tms, ram.u8(at.unownDex + NUM_UNOWN), Set.copyOf(flags),
-                onMap ? pins[group][number] : null,
+                onMap ? townPin(ram, group, number) : null,
                 onMap ? spot(ram, group, number) : null);
+    }
+
+    dev.pppp.model.MapPin townPin(Ram ram, int group, int number) {
+        String map = mapIds[group][number];
+        if ("POKECENTER_2F".equals(map) || PokecenterDig.LINK_ROOMS.contains(map)) {
+            // These rooms are shared by all Centers. wBackupMapGroup/Number name the 1F at the foot of the stairs.
+            int g = ram.u8(at.digWarp + 4), n = ram.u8(at.digWarp + 5);
+            if (pokecenter(g, n)) return pins[g][n];
+        }
+        return pins[group][number];
     }
 
     /** wPlayerDirection holds the facing in bits 2-3 (constants/map_object_constants.asm: OW_DOWN .. OW_RIGHT). */

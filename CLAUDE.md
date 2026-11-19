@@ -35,6 +35,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   the link sweep (a chat line says so).
   `PokecenterDig.patientReceptionist` (a frame hook per console) stretches the receptionist's "Please wait" from 8.5 s
   to about a minute while linked (`LinkWaitTest`).
+  The friend in TradeCenter/Colosseum walks as the peer's chosen sprite: `PlayerConsoles.link` patches both friend
+  objects' sprite bytes in each running ROM (`PlayerSprites.cableFriend`, `EmulatorHost.patchRom`); unlink puts Chris back.
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs
   the real ROMs and parked states in `data/` (skipped without them).
 - Done: progress + scoreboard. `ProgressTracker` (core, `service/game`) samples every running console once a second

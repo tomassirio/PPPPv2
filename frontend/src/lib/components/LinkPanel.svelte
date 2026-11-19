@@ -238,11 +238,37 @@
 			border-top: none;
 		}
 	}
-	.card,
-	.card.linked {
+	.card {
 		--kind: var(--link);
 		border-color: var(--kind);
 		box-shadow: inset 0 3px 0 var(--kind);
+	}
+	.card.linked {
+		background-color: color-mix(in oklab, var(--kind) 7%, var(--panel));
+		box-shadow: inset 0 5px 0 var(--kind);
+	}
+	.card {
+		position: relative;
+	}
+	.card::after {
+		content: '';
+		position: absolute;
+		inset: auto 12px 0;
+		height: 3px;
+		background: var(--kind);
+		transform: scaleX(0);
+		transform-origin: left;
+	}
+	.card.linked::after {
+		transform: scaleX(1);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.card::after {
+			transition: transform 450ms ease-in-out;
+		}
+		.card {
+			transition: background-color 280ms ease-out, border-color 280ms ease-out, box-shadow 280ms ease-out;
+		}
 	}
 	.title {
 		display: inline-flex;

@@ -8,9 +8,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /** The Pokégear town maps drawn from a real Crystal ROM (skipped without one): 160x144, Johto and Kanto differ. */
 class TownMapTest {
+    @ParameterizedTest
+    @CsvSource({"pokemon-crystal-version-usa-europe-rev-1, 0xDCAD",
+            "pokemon-gold-version-usa-europe-sgb-enhanced-gb-compatible, 0xD9F6"})
+    void cableClubUsesTheCenterAtTheFootOfTheStairs(String cart, int backupGroup) throws Exception {
+        Path file = Path.of(System.getenv().getOrDefault("PPPP_ROMS", "../../data/roms"), cart + ".gbc");
+        assumeTrue(Files.exists(file), "no ROM");
+        var game = PokemonGen2.forRom(Files.readAllBytes(file));
+        int[] center = game.map("VIOLET_POKECENTER_1F"), room = game.map("TRADE_CENTER");
+        var ram = new Ram(backupGroup, new byte[]{(byte) center[0], (byte) center[1]});
+        assertThat(game.townPin(ram, room[0], room[1])).isNotNull().isEqualTo(game.townPin(ram, center[0], center[1]));
+        assertThat(game.townPin(new Ram(backupGroup, new byte[2]), room[0], room[1])).isNull();
+    }
+
     @Test
     void drawsJohtoAndKanto() throws Exception {
         Path dir = Path.of(System.getenv().getOrDefault("PPPP_ROMS", "../../data/roms"));
