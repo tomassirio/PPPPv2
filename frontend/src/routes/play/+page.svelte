@@ -9,6 +9,7 @@
 	import { dexBanners } from '#lib/dex.svelte.ts';
 	import { api } from '#lib/api.ts';
 	import { on } from '#lib/events.ts';
+	import { isEmote } from '#lib/chat/bubble.ts';
 	import { loadMe, session } from '#lib/session.svelte.ts';
 	import { currentShell } from '#lib/shell.svelte.ts';
 	import { inkFor } from '#lib/shells.ts';
@@ -163,8 +164,8 @@
 	});
 	$effect(() => {
 		const offs = [
-			on('CHAT_MESSAGE', (m: { kind: string }) => {
-				if (!chatShown && m.kind === 'USER') unreadChat++; // only people's messages, not system lines
+			on('CHAT_MESSAGE', (m: { kind: string; text: string }) => {
+				if (!chatShown && m.kind === 'USER' && !isEmote(m.text)) unreadChat++; // people's messages, not system lines or emotes
 			}),
 			// An admin reset this player's run: back to the game picker.
 			on('PLAYER_RESET', (e: { user: string }) => {

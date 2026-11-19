@@ -5,6 +5,7 @@
 	import { chatOverlay } from '#lib/chatOverlay.svelte.ts';
 	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
 	import { on } from '#lib/events.ts';
+	import { isEmote } from '#lib/chat/bubble.ts';
 
 	let { hidden = false }: { hidden?: boolean } = $props();
 
@@ -13,7 +14,7 @@
 
 	$effect(() =>
 		on('CHAT_MESSAGE', (m: ChatMessage) => {
-			if (m.kind !== 'USER' || hidden || !chatOverlay.on) return;
+			if (m.kind !== 'USER' || isEmote(m.text) || hidden || !chatOverlay.on) return; // emotes play over heads only
 			lines = [...lines, m].slice(-3);
 			setTimeout(() => (lines = lines.filter((l) => l.id !== m.id)), SHOW_MS);
 		})

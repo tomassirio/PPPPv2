@@ -111,6 +111,18 @@ function parse(text: string, ctx: BubbleContext): BubbleSeg[] {
 	return segs;
 }
 
+/**
+ * An emote rather than something said: a lone swap (ok, gg, <3, :youlost: ...), :shrug: alone, or a line with an effect
+ * (**rainbow**, !!shout!! ...). These show over the player's head only; the chat list and overlay leave them out
+ * (unless the reader turns emotes on), so the chat is not flooded with them.
+ */
+export function isEmote(text: string): boolean {
+	const b = bubble(text);
+	if (!('segs' in b)) return true;
+	if (/^\s*:shrug:\s*$/i.test(text)) return true;
+	return b.segs.some((s) => s.kind !== 'text' && s.kind !== 'mention' && s.kind !== 'mon');
+}
+
 /** Whether a chat line mentions this player (any of their handles). */
 export function mentions(text: string, handles: string[]): boolean {
 	const lower = handles.map((h) => h.toLowerCase());

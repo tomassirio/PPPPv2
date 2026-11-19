@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bubble, letters, mentions, type BubbleContext } from './bubble';
+import { bubble, isEmote, letters, mentions, type BubbleContext } from './bubble';
 
 const ctx: BubbleContext = {
 	players: [{ id: 'ash@x.y', handles: ['ash', 'Ashy'] }],
@@ -68,6 +68,11 @@ describe('chat bubbles', () => {
 		expect(mentions('yo @ashy.', ['ash', 'ashy'])).toBe(true);
 		expect(mentions('mail me a@ash.com', ['ash'])).toBe(false);
 		expect(mentions('hi @ashley', ['ash'])).toBe(false);
+	});
+
+	it('tells emotes from things said', () => {
+		for (const t of ['ok', ':youlost:', '<3', ':shrug:', '**tuvi**', 'so !!mad!!', '((psst))', ':fucku:']) expect(isEmote(t)).toBe(true);
+		for (const t of ['ok then', 'hi @ash', 'my pikachu', 'idk :shrug: maybe', '2 ** 3']) expect(isEmote(t)).toBe(false);
 	});
 
 	it('splits letters without breaking emoji', () => {

@@ -1,6 +1,7 @@
 <!-- CONTRACT: self-contained chat panel, no props. Fills its container's height; the play page decides placement. -->
 <script lang="ts">
 	import { nameOf } from '#lib/pictures.svelte.ts';
+	import { isEmote } from '#lib/chat/bubble.ts';
 	import Name from '#lib/components/Name.svelte';
 	import { onMount, tick } from 'svelte';
 	import { api, ApiError } from '../api';
@@ -50,7 +51,25 @@
 		}
 	});
 	const isSystem = (m: ChatMessage) => m.kind === 'SYSTEM' || m.kind === 'ADMIN';
-	const shown = $derived(showSystem ? messages : messages.filter((m) => !isSystem(m)));
+	// Emotes (formatted lines, ok, <3, :youlost: ...) play over the speaker's head; the list leaves them out unless
+	// the reader turns them on, like system lines.
+	let showEmotes = $state(readKey('chat.showEmotes') === '1');
+	function readKey(key: string) {
+		try {
+			return localStorage.getItem(key);
+		} catch {
+			return null;
+		}
+	}
+	$effect(() => {
+		try {
+			localStorage.setItem('chat.showEmotes', showEmotes ? '1' : '0');
+		} catch {
+			// storage blocked: preference lasts this page only
+		}
+	});
+	const emote = (m: ChatMessage) => m.kind === 'USER' && isEmote(m.text);
+	const shown = $derived(messages.filter((m) => (showSystem || !isSystem(m)) && (showEmotes || !emote(m))));
 
 	const nearBottom = () => list.scrollHeight - list.scrollTop - list.clientHeight < 60;
 	/** True while the reader sits at the bottom; only their own scrolling changes it. */
@@ -201,6 +220,7 @@
 	<header>
 		<h2>Chat</h2>
 		<label class="toggle"><input type="checkbox" bind:checked={showSystem} /> System messages</label>
+		<label class="toggle"><input type="checkbox" bind:checked={showEmotes} /> Emotes</label>
 		{#if admin}
 			<label class="mute-pick">
 				Mute for
