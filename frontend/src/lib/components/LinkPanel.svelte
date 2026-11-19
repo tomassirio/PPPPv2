@@ -32,6 +32,19 @@
 	$effect(() => {
 		if (s?.session) finding = false;
 	});
+	// Briefly keeps the unplugged cable on screen after a session ends.
+	let parting = $state<{ peer: string; kind: 'TRADE' | 'BATTLE' } | null>(null);
+	let last: { peer: string; kind: 'TRADE' | 'BATTLE' } | null = null;
+	$effect(() => {
+		const cur = s?.session;
+		if (cur) last = { peer: cur.peer, kind: cur.kind };
+		else if (last) {
+			parting = last;
+			last = null;
+			const t = setTimeout(() => (parting = null), 1600);
+			return () => clearTimeout(t);
+		}
+	});
 	const gameOf = (user: string) => {
 		const g = rowOf(user)?.game;
 		return g ? board.names[g] : undefined;
@@ -52,12 +65,12 @@
 			<h2 id="link-h" class="kind-title">{@render kindIcon(ss.kind, 18)}{ss.kind === 'TRADE' ? 'Trading' : 'Battling'}</h2>
 			<span class="pixel timer" title="Linked for"><span class="sr">Linked for </span>{clock(since(ss.since))}</span>
 		</div>
-		<div class="cable-row" aria-hidden="true">
-			{#if me}<Avatar user={me} size={44} />{/if}
-			<span class="cable"></span>
-			<span class="chip"><span class="dot"></span>connected</span>
-			<span class="cable"></span>
-			<Avatar user={ss.peer} size={44} />
+		<div class="cable-row {ss.kind === 'TRADE' ? 'r-trade' : 'r-battle'}" aria-hidden="true">
+			<span class="av left">{#if me}<Avatar user={me} size={44} />{/if}</span>
+			<span class="cable l"><i class="packet"></i></span>
+			<span class="chip"><span class="dot"></span>{@render kindIcon(ss.kind, 14)}connected</span>
+			<span class="cable r"><i class="packet"></i></span>
+			<span class="av right"><Avatar user={ss.peer} size={44} /></span>
 		</div>
 		<div class="names">
 			<div class="side">
@@ -113,6 +126,15 @@
 				<span><b>{mine?.trades ?? 0}</b> {mine?.trades === 1 ? 'trade' : 'trades'}</span>
 			</span>
 		</div>
+		{#if parting}
+			<div class="cable-row parting" role="status">
+				<span class="av left">{#if me}<Avatar user={me} size={44} />{/if}</span>
+				<span class="cable l"></span>
+				<span class="chip off"><span class="dot"></span>unplugged</span>
+				<span class="cable r"></span>
+				<span class="av right"><Avatar user={parting.peer} size={44} /></span>
+			</div>
+		{/if}
 		<div class="controls" class:split={!others.length}>
 		<div class="ups">
 		<div class="toggles-head"><span class="label">I'm up for</span><span class="muted xs">others can offer me one</span></div>
@@ -487,10 +509,203 @@
 		gap: 10px;
 	}
 	.cable {
+		position: relative;
 		flex: 1;
 		min-width: 16px;
 		height: 2px;
 		background: repeating-linear-gradient(90deg, var(--link) 0 8px, transparent 8px 14px);
+	}
+	.cable.l {
+		transform-origin: left;
+	}
+	.cable.r {
+		transform-origin: right;
+	}
+	.av {
+		display: inline-flex;
+	}
+	.packet {
+		display: none;
+	}
+	.chip svg {
+		flex: none;
+	}
+	.chip.off {
+		background: color-mix(in oklab, var(--danger) 12%, transparent);
+		color: var(--danger);
+	}
+	.chip.off .dot {
+		background: var(--danger);
+	}
+	.parting .cable {
+		background: repeating-linear-gradient(90deg, var(--danger) 0 8px, transparent 8px 14px);
+		transform: scaleX(0);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.linked .cable {
+			animation: draw 520ms cubic-bezier(0.3, 0.8, 0.3, 1) both;
+		}
+		.linked .chip {
+			animation: plug 520ms 420ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+		}
+		.linked .av.left {
+			animation: in-left 420ms ease-out both;
+		}
+		.linked .av.right {
+			animation: in-right 420ms ease-out both;
+		}
+		.linked .dot {
+			animation: pulse 1.6s 1s ease-in-out infinite;
+		}
+		/* Trade: a packet each way along the cable. Battle: the swords clash and the row shakes. */
+		.r-trade .packet {
+			display: block;
+			position: absolute;
+			top: -3px;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--kind);
+			opacity: 0;
+		}
+		.r-trade .l .packet,
+		.r-trade .r .packet {
+			animation: swap-right 1.8s 1s ease-in-out infinite;
+		}
+		.r-trade .r .packet {
+			animation-name: swap-left;
+		}
+		.r-battle .chip svg {
+			animation: clash 1.4s 1s ease-in-out infinite;
+		}
+		.r-battle {
+			animation: shake 420ms 480ms ease-in-out both;
+		}
+		.parting .av.left {
+			animation: out-left 600ms ease-in both;
+		}
+		.parting .av.right {
+			animation: out-right 600ms ease-in both;
+		}
+		.parting .cable {
+			animation: snap 600ms ease-in both;
+		}
+		.parting .chip {
+			animation: pop-out 1.4s ease-out both;
+		}
+		.parting {
+			animation: fade-out 1.6s ease-in both;
+		}
+	}
+	@keyframes draw {
+		from {
+			transform: scaleX(0);
+		}
+	}
+	@keyframes plug {
+		from {
+			transform: scale(0.2);
+			opacity: 0;
+		}
+	}
+	@keyframes in-left {
+		from {
+			transform: translateX(-12px);
+			opacity: 0;
+		}
+	}
+	@keyframes in-right {
+		from {
+			transform: translateX(12px);
+			opacity: 0;
+		}
+	}
+	@keyframes pulse {
+		50% {
+			opacity: 0.35;
+			transform: scale(0.7);
+		}
+	}
+	@keyframes swap-right {
+		0% {
+			left: 0;
+			opacity: 0;
+		}
+		15%,
+		85% {
+			opacity: 1;
+		}
+		100% {
+			left: calc(100% - 8px);
+			opacity: 0;
+		}
+	}
+	@keyframes swap-left {
+		0% {
+			left: calc(100% - 8px);
+			opacity: 0;
+		}
+		15%,
+		85% {
+			opacity: 1;
+		}
+		100% {
+			left: 0;
+			opacity: 0;
+		}
+	}
+	@keyframes clash {
+		0%,
+		60%,
+		100% {
+			transform: none;
+		}
+		70% {
+			transform: scale(1.5) rotate(-12deg);
+		}
+		80% {
+			transform: scale(1.2) rotate(10deg);
+		}
+	}
+	@keyframes shake {
+		25% {
+			transform: translateX(-3px);
+		}
+		75% {
+			transform: translateX(3px);
+		}
+	}
+	@keyframes snap {
+		from {
+			transform: scaleX(1);
+		}
+		to {
+			transform: scaleX(0);
+		}
+	}
+	@keyframes out-left {
+		to {
+			transform: translateX(-10px);
+		}
+	}
+	@keyframes out-right {
+		to {
+			transform: translateX(10px);
+		}
+	}
+	@keyframes pop-out {
+		from {
+			transform: scale(1.25);
+		}
+	}
+	@keyframes fade-out {
+		0%,
+		70% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
 	}
 	.chip {
 		display: inline-flex;
