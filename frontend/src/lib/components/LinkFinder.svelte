@@ -4,6 +4,7 @@
 	import Name from '#lib/components/Name.svelte';
 	import { api } from '#lib/api.ts';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import KindIcon from '#lib/components/KindIcon.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { on, onOpen } from '#lib/events.ts';
 	import { act, left, link, verb, watchLink } from '#lib/link.svelte.ts';
@@ -113,8 +114,8 @@
 							>
 						{:else if row}
 							<div class="offers">
-								<button type="button" class="btn primary" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'TRADE' })}>Offer trade</button>
-								<button type="button" class="btn battle" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'BATTLE' })}>Challenge</button>
+								<button type="button" class="btn primary" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'TRADE' })} ><KindIcon kind="TRADE" />Offer trade</button>
+								<button type="button" class="btn battle" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'BATTLE' })} ><KindIcon kind="BATTLE" />Challenge</button>
 							</div>
 						{:else}
 							<span class="muted xs">Hasn't picked a game yet</span>
@@ -135,6 +136,7 @@
 
 <style>
 	dialog {
+		text-align: left; /* not the centring of whatever opened it (the Live page's empty state) */
 		position: fixed;
 		inset: 0;
 		margin: auto;
@@ -297,6 +299,10 @@
 		flex: none;
 	}
 	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
 		box-sizing: border-box;
 		height: 34px;
 		padding: 0 12px;

@@ -12,8 +12,9 @@
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, clock, desk, left, link, roomName, since, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
-	import { clubClosed } from '#lib/play.ts';
+	import { clubClosed, place } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
+	import { cubicOut } from 'svelte/easing';
 
 	$effect(() => watchLink());
 	$effect(() => watchBoard());
@@ -35,6 +36,22 @@
 		if (s?.session) finding = false;
 	});
 	const parting = $derived(link.parting);
+	// In a link room (the scoreboard row's location is the room alone there): the walk-in hint has done its job.
+	const inLinkRoom = $derived(['Trade Center', 'Colosseum', 'Time Capsule'].includes(place(me ? rowOf(me)?.location : null).city));
+	// The walk-in hint folds away (fades and closes up, the card's 14px gap with it) once they are inside.
+	function fold(node: HTMLElement) {
+		const h = node.offsetHeight;
+		const cs = getComputedStyle(node);
+		const pt = parseFloat(cs.paddingTop);
+		const pb = parseFloat(cs.paddingBottom);
+		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		return {
+			duration: reduce ? 0 : 380,
+			easing: cubicOut,
+			css: (t: number) =>
+				`box-sizing: border-box; overflow: hidden; opacity: ${t}; height: ${t * h}px; padding-top: ${t * pt}px; padding-bottom: ${t * pb}px; margin-bottom: ${(t - 1) * 14}px; transform: scale(${0.96 + 0.04 * t});`
+		};
+	}
 	const gameOf = (user: string) => {
 		const g = rowOf(user)?.game;
 		return g ? board.names[g] : undefined;
@@ -73,10 +90,15 @@
 				<PartyIcons party={rowOf(ss.peer)?.party} />
 			</div>
 		</div>
-		<p class="where">
-			You're in front of the <b>{d.side}</b> receptionist ({d.room}) and she's talking to you: answer her, save, and wait
-			for your friend. Arrow keys are locked until you're inside or unplug.
-		</p>
+		{#if !inLinkRoom && !ss.wrongRoom}
+			<!-- Only until they are inside: answer the receptionist, save, walk in (arrows are locked meanwhile). -->
+			<p class="where" transition:fold>
+				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"
+					><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg
+				>
+				<span><b>Answer the {d.side} receptionist and save.</b> Arrows unlock in the {d.room}.</span>
+			</p>
+		{/if}
 		{#if ss.wrongRoom}
 			<p class="error" role="alert">
 				You walked into the {roomName(ss.wrongRoom)}, but this link is a {verb(ss.kind)}. Walk back out and talk to the {d.side} receptionist.
@@ -86,8 +108,9 @@
 				<Name user={ss.peer} /> walked into the {roomName(ss.peerWrongRoom)}, but this link is a {verb(ss.kind)}. They need the {d.side} receptionist.
 			</p>
 		{/if}
-		<p class="muted">Both consoles run in step until someone unplugs, with no time limit. Closing the browser for a minute unplugs too.</p>
-		<button class="ghost stop" onclick={() => act('DELETE', '/link/session')}>Unplug cable</button>
+		<button class="ghost stop" title="The link has no time limit. Closing the browser for a minute unplugs too." onclick={() => act('DELETE', '/link/session')}
+			>Unplug cable</button
+		>
 	{:else if closed}
 		<div class="head">
 			<h2 id="link-h" class="blue title">
@@ -179,7 +202,7 @@
 							disabled={!!s?.outgoing || !!s?.incoming}
 							onclick={() => act('POST', '/link/challenges', { userId: p.userId, kind: p.kind })}
 						>
-							{p.kind === 'TRADE' ? 'Trade' : 'Challenge'}<span class="sr"> {nameOf(p.userId)}</span>
+							{@render kindIcon(p.kind, 14)}{p.kind === 'TRADE' ? 'Trade' : 'Challenge'}<span class="sr"> {nameOf(p.userId)}</span>
 						</button>
 					</li>
 				{/each}
@@ -434,10 +457,23 @@
 	}
 	.where {
 		margin: 0;
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
 		padding: 8px 12px;
 		border-radius: 10px;
-		border-left: 3px solid var(--kind);
 		background: color-mix(in oklab, var(--kind) 10%, transparent);
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--muted);
+	}
+	.where svg {
+		flex: none;
+		margin-top: 1px;
+		color: var(--kind);
+	}
+	.where b {
+		color: var(--text);
 	}
 	.sub {
 		display: flex;
@@ -789,19 +825,18 @@
 		border-radius: 50%;
 		background: var(--link);
 	}
+	/* One line each: who, then their party on the right. */
 	.names {
 		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
+		flex-direction: column;
 		gap: 8px;
 	}
 	.side {
 		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-	.side.end {
-		align-items: flex-end;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		min-width: 0;
 	}
 	ul {
 		margin: 0;
@@ -848,6 +883,9 @@
 		white-space: nowrap;
 	}
 	button.small {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
 		flex: none;
 		height: 32px;
 		padding: 0 12px;

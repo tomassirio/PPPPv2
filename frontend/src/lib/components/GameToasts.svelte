@@ -1,9 +1,12 @@
 <!-- The player's own scored progress (their PROGRESS events) as a banner over the top of the game screen, one at a
-     time, so it is seen on any tab. Text only (never HTML). Place inside a positioned container. -->
+     time, so it is seen on any tab; and a ping when someone @mentions them in the chat. Text only (never HTML).
+     Place inside a positioned container. -->
 <script lang="ts">
 	import { on } from '#lib/events.ts';
 	import { activityText, type ScoreEvent } from '#lib/play.ts';
-	import { nameOf } from '#lib/pictures.svelte.ts';
+	import { nameOf, usernameOf } from '#lib/pictures.svelte.ts';
+	import { mentions } from '#lib/chat/bubble.ts';
+	import type { ChatMessage } from '#lib/chat/messages.ts';
 	import { session } from '#lib/session.svelte.ts';
 
 	const SHOW_MS = 3500;
@@ -16,15 +19,26 @@
 			if (e.user === session.me?.id) queue = [...queue, e].slice(-5);
 		})
 	);
+	// @mentions: their username or their nickname without spaces, as the bubbles read them.
+	$effect(() =>
+		on('CHAT_MESSAGE', (m: ChatMessage) => {
+			const me = session.me?.id;
+			if (!me || m.kind !== 'USER' || m.user === me) return;
+			if (!mentions(m.text, [usernameOf(me).slice(1), nameOf(me).replace(/\s+/g, '')])) return;
+			queue = [...queue, { user: m.user, type: 'MENTION', detail: m.text, points: 0, at: m.at }].slice(-5);
+			navigator.vibrate?.([30, 40, 30]);
+		})
+	);
 	$effect(() => {
 		if (!current) return;
 		const t = setTimeout(() => (queue = queue.slice(1)), SHOW_MS);
 		return () => clearTimeout(t);
 	});
 
-	const tone = (type: string) => (type === 'SEEN' || type === 'LEVEL' ? 'info' : 'great');
+	const tone = (type: string) => (type === 'MENTION' ? 'ping' : type === 'SEEN' || type === 'LEVEL' ? 'info' : 'great');
 	// "You is now Gym Leader (C)" reads wrong; titles get their own sentence, and 0-point lines no "+0".
-	const text = (e: ScoreEvent) => (e.type === 'TITLE' ? `New title: ${e.detail}` : activityText(e, 'You', nameOf));
+	const text = (e: ScoreEvent) =>
+		e.type === 'MENTION' ? `${nameOf(e.user)}: ${e.detail}` : e.type === 'TITLE' ? `New title: ${e.detail}` : activityText(e, 'You', nameOf);
 </script>
 
 <div class="toasts" role="status" aria-live="polite">
@@ -59,6 +73,13 @@
 		box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
 		border: 2px solid #8f9dff;
 		animation: drop 0.25s ease-out;
+	}
+	/* Someone @mentioned you: link blue, with a bell. */
+	.toast.ping {
+		border-color: var(--link);
+	}
+	.toast.ping::before {
+		content: '🔔 ';
 	}
 	.toast.great {
 		border-color: #f5c542;

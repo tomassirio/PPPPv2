@@ -7,15 +7,18 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import LiveStage from '#lib/components/LiveStage.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
+	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { clock, link, since, watchLink } from '#lib/link.svelte.ts';
-	import { versionOf } from '#lib/play.ts';
+	import { clubClosed, versionOf } from '#lib/play.ts';
+	import { session } from '#lib/session.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
 
 	$effect(() => watchLink());
 	$effect(() => watchBoard());
 
 	const links = $derived(link.state?.links ?? []);
+	let finding = $state(false); // the Find someone to link with dialog, as on /play
 	// The one being watched (it stays on screen, saying it ended, once the cable comes out).
 	const selected = $derived((page.url.searchParams.get('u') ?? '').toLowerCase());
 	const who = (user: string) => {
@@ -70,7 +73,17 @@
 					</span>
 					<h2>No battles right now</h2>
 					<p class="muted">When two Pibs plug in a link cable, you can watch both Game Boys here, live.</p>
-					<a class="btn primary" href="/play">Find someone to battle</a>
+					{#if clubClosed(board.rows.find((r) => r.userId === session.me?.id))}
+						<!-- They can't link yet: no button to a battle they can't have, and why. -->
+						<span class="locked-note"
+							><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"
+								><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg
+							>Your Cable Club isn't open yet: bring Mr. Pokémon's Mystery Egg back to Prof. Elm first.</span
+						>
+					{:else}
+						<button type="button" class="btn find" onclick={() => (finding = true)}>Find someone online</button>
+						<LinkFinder bind:open={finding} />
+					{/if}
 				</section>
 			{/if}
 		{/if}
@@ -228,13 +241,14 @@
 	.btn:hover {
 		border-color: var(--accent-text);
 	}
-	.btn.primary {
-		background: var(--accent);
-		border-color: var(--accent);
-		color: var(--ink);
+	/* Find someone: the link cable blue, as on /play's Link cable card. */
+	.btn.find {
+		border: 1px solid var(--link);
+		background: var(--link-tint, transparent);
+		color: var(--link);
 	}
-	.btn.primary:hover {
-		background: var(--accent-hover);
+	.btn.find:hover {
+		background: color-mix(in oklab, var(--link) 18%, transparent);
 	}
 	.btn:focus-visible {
 		outline: 3px solid var(--accent-text);
@@ -261,5 +275,16 @@
 	.empty p {
 		margin: 0 0 8px;
 		max-width: 420px;
+	}
+	.locked-note {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 12px;
+		border-radius: 999px;
+		border: 1px dashed var(--border-strong);
+		color: var(--muted);
+		font-size: 13px;
+		font-weight: 600;
 	}
 </style>

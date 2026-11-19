@@ -1,8 +1,9 @@
 <!-- The Link cable card before the Cable Club opens (Gold/Silver/Crystal: its receptionists turn you away until Prof.
      Elm has Mr. Pokémon's Mystery Egg, ScoreRow.cableClub < 3): the Mystery Egg, wobbling now and then, and the
-     story steps with the ones done ticked. step: 0 nothing yet, 1 got a Pokémon from Elm, 2 got the egg. -->
+     story steps with the ones done ticked. step: 0 nothing yet, 1 got a Pokémon from Elm, 2 got the egg.
+     who: another Pib's name (their profile), to word it about them. -->
 <script lang="ts">
-	let { step }: { step: number } = $props();
+	let { step, who }: { step: number; who?: string } = $props();
 
 	// The egg as 14x14 pixels: o outline, w shell, s shade, g spots.
 	const EGG = [
@@ -40,8 +41,13 @@
 			<span class="q pixel">?</span>
 		</div>
 		<div class="text">
-			<h3>The Cable Club is closed</h3>
-			<p class="muted">It opens once Prof. Elm has Mr. Pokémon's Mystery Egg.</p>
+			{#if who}
+				<h3>Not available for the Cable Club yet</h3>
+				<p class="muted">{who} can link once Prof. Elm has Mr. Pokémon's Mystery Egg.</p>
+			{:else}
+				<h3>The Cable Club is closed</h3>
+				<p class="muted">It opens once Prof. Elm has Mr. Pokémon's Mystery Egg.</p>
+			{/if}
 		</div>
 	</div>
 	<ol class="steps">

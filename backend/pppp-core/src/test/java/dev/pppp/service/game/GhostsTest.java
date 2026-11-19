@@ -17,6 +17,25 @@ class GhostsTest {
         assertThat(Ghosts.world(6, 16, anchor)).isEqualTo(96); // and a step right
     }
 
+    /** Crystal swaps WRAM banks many times a second: a frame that cannot be read shows the last frame's ghosts. */
+    @Test
+    void anUnreadableFrameKeepsTheLastGhosts() {
+        var ghosts = new Ghosts(null);
+        int[] sprite = new int[16 * 16];
+        sprite[0] = 0xFFFFFFFF;
+        ghosts.drawAll("me", new int[160 * 144], java.util.List.of(new Ghosts.Drawn(sprite, 40, 20)));
+        int[] next = new int[160 * 144];
+        ghosts.drawLast("me", next);
+        assertThat(next[20 * 160 + 40]).isNotZero();
+        int[] other = new int[160 * 144];
+        ghosts.drawLast("someone-else", other); // nothing drawn for them yet
+        assertThat(other).containsOnly(0);
+        ghosts.leave("me");
+        int[] after = new int[160 * 144];
+        ghosts.drawLast("me", after);
+        assertThat(after).containsOnly(0);
+    }
+
     @Test
     void drawBlendsAndClipsAtTheEdge() {
         int[] screen = new int[160 * 144], sprite = new int[16 * 16];

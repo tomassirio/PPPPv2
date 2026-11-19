@@ -64,6 +64,9 @@ public class Ghosts {
 
     private record Game(Layout at, byte[] rom, String[][] maps, Map<Integer, int[][]> sprites) {}
 
+    /** A ghost as drawn into a frame: its 16x16 sprite and the screen pixel of its top left. */
+    record Drawn(int[] sprite, int x, int y) {}
+
     /** The scroll's anchor: scroll = anchor + 16 * tile while standing still. Per player, owned by their console's thread. */
     private static final class Camera {
         int anchorX, anchorY;
@@ -76,6 +79,8 @@ public class Ghosts {
     private final Map<String, Camera> cameras = new ConcurrentHashMap<>();
     private final Map<String, Spot> spots = new ConcurrentHashMap<>();
     private final Map<String, List<OnScreen>> onScreen = new ConcurrentHashMap<>();
+    /** The ghosts each player's last readable frame showed, for the frames whose RAM cannot be read. */
+    private final Map<String, List<Drawn>> drawn = new ConcurrentHashMap<>();
 
     public Ghosts(CartridgeService cartridges) {
         this.cartridges = cartridges;
@@ -92,11 +97,17 @@ public class Ghosts {
         byte[] map = host.readBytes(at.mapGroup, 4), player = host.readBytes(at.playerStruct, OBJECT_DIRECTION + 1),
                 mode = host.readBytes(at.scriptMode, 1), battle = host.readBytes(at.battleMode, 1),
                 windows = host.readBytes(at.windowStackSize, 1), scroll = host.readBytes(at.scroll, 2);
-        if (map == null || player == null || mode == null || battle == null || windows == null) return; // another WRAM bank is in
+        // Another WRAM bank is in (Crystal swaps them many times a second): nothing can be read this frame, so the
+        // ghosts stay where the last frame had them instead of blinking out (onScreen keeps the last list too).
+        if (map == null || player == null || mode == null || battle == null || windows == null) {
+            drawLast(userId, pixels);
+            return;
+        }
         // In a menu, a text box, a cutscene or a battle the scroll means something else: others keep seeing
         // the player where they last stood, and the player sees no one.
         if (mode[0] == SCRIPT_READ || battle[0] != 0 || windows[0] != 0) {
             onScreen.put(userId, List.of());
+            drawn.remove(userId);
             return;
         }
         String here = mapId(game, map[0] & 0xFF, map[1] & 0xFF);
@@ -111,17 +122,20 @@ public class Ghosts {
         if (!camera.anchored || here == null || !here.equals(camera.map) || LINK_ROOMS.contains(here)) {
             spots.remove(userId); // a new map not redrawn yet, or a link room
             onScreen.put(userId, List.of());
+            drawn.remove(userId);
             return;
         }
         int x = world(tileX, scrollX, camera.anchorX), y = world(tileY, scrollY, camera.anchorY);
         spots.put(userId, new Spot(here, x, y, sprite(game, player[0] & 0xFF, player[OBJECT_DIRECTION] >> 2 & 3, x, y)));
         List<OnScreen> seen = new ArrayList<>(List.of(new OnScreen(userId, SCREEN_X, SCREEN_Y))); // the player, first
+        List<Drawn> ghosts = new ArrayList<>();
         spots.forEach((other, s) -> {
             int sx = SCREEN_X + s.x - x, sy = SCREEN_Y + s.y - y;
             if (other.equals(userId) || !here.equals(s.map) || sx <= -SIZE || sx >= SCREEN_W || sy <= -SIZE || sy >= SCREEN_H) return;
-            draw(pixels, s.sprite, sx, sy);
+            ghosts.add(new Drawn(s.sprite, sx, sy));
             seen.add(new OnScreen(other, sx, sy));
         });
+        drawAll(userId, pixels, ghosts);
         onScreen.put(userId, List.copyOf(seen));
     }
 
@@ -138,6 +152,18 @@ public class Ghosts {
         spots.remove(userId);
         cameras.remove(userId);
         onScreen.remove(userId);
+        drawn.remove(userId);
+    }
+
+    /** Draws these ghosts into the player's frame and remembers them for drawLast. */
+    void drawAll(String userId, int[] pixels, List<Drawn> ghosts) {
+        for (Drawn g : ghosts) draw(pixels, g.sprite, g.x, g.y);
+        drawn.put(userId, List.copyOf(ghosts));
+    }
+
+    /** Draws the ghosts of the player's last readable frame again. */
+    void drawLast(String userId, int[] pixels) {
+        for (Drawn g : drawn.getOrDefault(userId, List.of())) draw(pixels, g.sprite, g.x, g.y);
     }
 
     /**

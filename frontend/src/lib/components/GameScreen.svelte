@@ -8,8 +8,11 @@
 	import type { Snippet } from 'svelte';
 	import { backoff, nearbyPlayers, type ScreenPlayer } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
-	import { nameOf, needPicture } from '#lib/pictures.svelte.ts';
+	import { nameOf, needPicture, usernameOf } from '#lib/pictures.svelte.ts';
 	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
+	import { bubble, letters, type BubbleContext } from '#lib/chat/bubble.ts';
+	import { board } from '#lib/board.svelte.ts';
+	import { game } from '#lib/game.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
 	const BUBBLE_MS = 5000;
@@ -28,6 +31,12 @@
 		return nearbyPlayers(ghosts);
 	}
 	let said = $state<Record<string, { id: string; text: string }>>({});
+	// Who @mentions can name (their username, or their nickname without spaces) and the Pokémon names of the
+	// player's own game, for the bubbles.
+	const bubbleCtx = $derived<BubbleContext>({
+		players: board.rows.map((r) => ({ id: r.userId, handles: [usernameOf(r.userId).slice(1), nameOf(r.userId).replace(/\s+/g, '')] })),
+		species: (game.summary?.collection?.names ?? []).map((n) => n ?? '')
+	});
 
 	$effect(() =>
 		on('CHAT_MESSAGE', (m: ChatMessage) => {
@@ -110,9 +119,40 @@
 					{@const left = `${((g.x + 8) / 160) * 100}%`}
 					{#if said[g.user]}
 						{#key said[g.user].id}
-							<div class="tag above" style:left style:top="{(g.y / 144) * 100}%" aria-hidden="true">
-								<p class="said">{said[g.user].text}</p>
-							</div>
+							{@const b = bubble(said[g.user].text, bubbleCtx)}
+							{#if 'special' in b && b.special === 'youlost'}
+								<!-- The circle game: an upside-down OK sign held on the sprite's right thigh (facing us: our left,
+								     about 5 px in and 13.5 down of its 16x16). -->
+								<div class="tag leg" class:ghost={g.user !== (watch ?? session.me?.id)} style:left="{((g.x + 5) / 160) * 100}%" style:top="{((g.y + 13.5) / 144) * 100}%" aria-hidden="true">
+									<span class="youlost">👌</span>
+								</div>
+							{:else}
+								<div class="tag above" class:ghost={g.user !== (watch ?? session.me?.id)} style:left style:top="{(g.y / 144) * 100}%" aria-hidden="true">
+									{#if 'emoji' in b}
+										<p class="said-emoji">{b.emoji}</p>
+									{:else if 'special' in b}
+										{#if b.special === 'heart'}
+											<svg class="heart" viewBox="0 0 7 6" shape-rendering="crispEdges"
+												><path fill="#e0403f" d="M1 0h2v1h1V0h2v1h1v2H6v1H5v1H4v1H3V5H2V4H1V3H0V1h1z" /><path fill="#fff" d="M1 1h1v1H1z" /></svg
+											>
+										{:else if b.special === 'notice'}
+											<span class="notice pixel">!</span>
+										{:else}
+											<span class="zzz pixel"><i>Z</i><i>Z</i><i>Z</i></span>
+										{/if}
+									{:else}
+										<p class="said" class:whisper={b.whisper}>
+											<span class="text"
+												>{#each b.segs as seg, k (k)}{#if seg.kind === 'text'}{seg.text}{:else if seg.kind === 'mention'}<b class="mention" style:color={nameColor(seg.user)}>{seg.text}</b
+														>{:else if seg.kind === 'mon'}<img class="mon" src="/api/v1/game/icons/{seg.species}.png" alt={seg.text} title={seg.text} />{:else if seg.kind === 'whisper' || seg.kind === 'glitch'}<span
+															class={seg.kind}
+															data-text={seg.text}>{seg.text}</span
+														>{:else}<span class={seg.kind}>{#each letters(seg.text) as ch, i (i)}<span style:--i={i}>{ch}</span>{/each}</span>{/if}{/each}</span
+											>
+										</p>
+									{/if}
+								</div>
+							{/if}
 						{/key}
 					{/if}
 					{#if g.user !== (watch ?? session.me?.id)}
@@ -192,6 +232,11 @@
 		pointer-events: none;
 		max-width: 45%;
 	}
+	/* Another player's bubble: see-through like the ghost under it (Ghosts.ALPHA, 192 of 256). Opacity on the
+	   wrapper, so bubble and tail fade as one. */
+	.above.ghost {
+		opacity: 0.75;
+	}
 	.above {
 		transform: translate(-50%, -100%);
 		padding-bottom: 0.4cqw;
@@ -212,42 +257,398 @@
 		text-overflow: ellipsis;
 		max-width: 100%;
 	}
+	/* A speech bubble in the game's own text-box style: white, a dark rounded frame, a tail down to the speaker. */
 	.said {
-		margin: 0;
-		font-size: max(10px, 2.4cqw);
+		position: relative;
+		margin: 0 0 0.9cqw;
+		font-size: max(11px, 2.6cqw);
+		font-weight: 600;
 		line-height: 1.3;
-		padding: 0.3em 0.6em;
-		border-radius: 0.6em;
+		padding: 0.35em 0.7em;
+		border-radius: 0.7em;
 		background: #fff;
-		color: #111;
-		box-shadow: 0 1px 0 rgb(0 0 0 / 0.35);
+		color: #1d1f1c;
+		border: max(2px, 0.4cqw) solid #283038;
+		box-shadow: 0 0.3cqw 0 rgb(0 0 0 / 0.25);
 		overflow-wrap: anywhere;
 		text-align: center;
+		width: max-content;
+		max-width: 100%;
+		animation: said 5s linear forwards; /* BUBBLE_MS */
+		transform-origin: 50% 100%;
+	}
+	/* The tail: the frame's colour behind, white in front, so it joins the bubble's border. */
+	.said::before,
+	.said::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 100%;
+		translate: -50% 0;
+		border-style: solid;
+		border-color: transparent;
+	}
+	.said::before {
+		border-width: max(6px, 1.2cqw) max(5px, 1cqw) 0;
+		border-top-color: #283038;
+	}
+	.said::after {
+		margin-top: calc(-1 * max(3px, 0.65cqw));
+		border-width: max(4px, 0.8cqw) max(3px, 0.6cqw) 0;
+		border-top-color: #fff;
+	}
+	.said .text {
 		display: -webkit-box;
 		-webkit-line-clamp: 3;
 		line-clamp: 3;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
-		width: max-content;
-		max-width: 100%;
-		animation: said 5s linear forwards; /* BUBBLE_MS */
 	}
-	/* Pops in, stays, fades out over the last second. */
-	@keyframes said {
+	/* Effects inside a bubble (lib/chat/bubble.ts): one element per letter where letters move on their own. */
+	.rainbow span,
+	.shout span,
+	.wobble span {
+		display: inline-block;
+		white-space: pre;
+	}
+	/* **rainbow**: every letter its own colour, the colours flowing along and the letters riding a wave. */
+	.rainbow span {
+		color: hsl(calc(var(--i) * 32deg) 85% 45%);
+		animation:
+			rainbow-wave 1.1s ease-in-out infinite,
+			rainbow-hue 2.4s linear infinite;
+		animation-delay: calc(var(--i) * -0.09s), calc(var(--i) * -0.12s);
+	}
+	/* !!shout!!: big, heavy and shaking, each letter out of step. */
+	.shout {
+		font-size: 1.3em;
+		font-weight: 900;
+		color: #d62f2f;
+		letter-spacing: 0.02em;
+	}
+	.shout span {
+		animation: shout 0.18s steps(2) infinite;
+		animation-delay: calc(var(--i) * -0.05s);
+	}
+	@keyframes shout {
+		0% {
+			transform: translate(-0.06em, 0.05em) rotate(-4deg);
+		}
+		50% {
+			transform: translate(0.06em, -0.05em) rotate(4deg);
+		}
+	}
+	/* ~~wobble~~: letters sway like a Poké Ball about to break open. */
+	.wobble span {
+		transform-origin: 50% 100%;
+		animation: wobble-letter 1.4s ease-in-out infinite;
+		animation-delay: calc(var(--i) * -0.1s);
+	}
+	@keyframes wobble-letter {
+		0%,
+		100% {
+			transform: rotate(0);
+		}
+		25% {
+			transform: rotate(-14deg);
+		}
+		75% {
+			transform: rotate(14deg);
+		}
+	}
+	/* _glitch_: MissingNo. — red and cyan copies split off it now and then, and it flickers. */
+	.glitch {
+		position: relative;
+		display: inline-block;
+		animation: glitch-flicker 2.2s steps(1) infinite;
+	}
+	.glitch::before,
+	.glitch::after {
+		content: attr(data-text);
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		mix-blend-mode: multiply;
+	}
+	.glitch::before {
+		color: #ff2a6d;
+		animation: glitch-a 1.6s steps(1) infinite;
+	}
+	.glitch::after {
+		color: #05d9e8;
+		animation: glitch-b 1.6s steps(1) infinite;
+	}
+	@keyframes glitch-a {
+		0%,
+		100% {
+			transform: none;
+			clip-path: inset(0 0 100% 0);
+		}
+		10% {
+			transform: translate(-0.12em, 0);
+			clip-path: inset(10% 0 50% 0);
+		}
+		40% {
+			transform: translate(0.1em, 0);
+			clip-path: inset(55% 0 5% 0);
+		}
+		70% {
+			transform: none;
+			clip-path: inset(0 0 100% 0);
+		}
+	}
+	@keyframes glitch-b {
+		0%,
+		100% {
+			transform: none;
+			clip-path: inset(100% 0 0 0);
+		}
+		20% {
+			transform: translate(0.12em, 0);
+			clip-path: inset(40% 0 20% 0);
+		}
+		55% {
+			transform: translate(-0.1em, 0);
+			clip-path: inset(5% 0 70% 0);
+		}
+		80% {
+			transform: none;
+			clip-path: inset(100% 0 0 0);
+		}
+	}
+	@keyframes glitch-flicker {
+		0%,
+		100% {
+			opacity: 1;
+		}
+		46% {
+			opacity: 0.35;
+		}
+		48% {
+			opacity: 1;
+		}
+		90% {
+			opacity: 0.6;
+		}
+	}
+	/* ((whisper)): small, faded italics; a whole whispered line gets a dashed bubble. */
+	.whisper {
+		font-size: 0.85em;
+		font-style: italic;
+		font-weight: 500;
+		color: #6b7177;
+	}
+	.said.whisper {
+		border-style: dashed;
+		background: rgb(255 255 255 / 0.82);
+		font-size: max(10px, 2.2cqw);
+	}
+	.said.whisper::before,
+	.said.whisper::after {
+		display: none;
+	}
+	/* @name: in that player's colour. */
+	.mention {
+		font-weight: 800;
+		filter: saturate(1.3) brightness(0.8);
+	}
+	/* A Pokémon's name: its little icon instead. */
+	.mon {
+		display: inline-block;
+		height: 1.7em;
+		width: auto;
+		margin: -0.35em 0;
+		vertical-align: middle;
+		image-rendering: pixelated;
+	}
+	/* <3: a pixel heart beating. */
+	.heart {
+		display: block;
+		width: max(16px, 4.4cqw);
+		height: auto;
+		margin-bottom: 0.6cqw;
+		filter: drop-shadow(0 0.3cqw 0 rgb(0 0 0 / 0.3));
+		animation:
+			thumbs 5s ease-out forwards,
+			beat 0.7s ease-in-out infinite;
+	}
+	@keyframes beat {
+		0%,
+		60%,
+		100% {
+			scale: 1;
+		}
+		20% {
+			scale: 1.25;
+		}
+		40% {
+			scale: 0.95;
+		}
+	}
+	/* ?: the red "!" an NPC gets when they spot you. */
+	.notice {
+		display: grid;
+		place-items: center;
+		width: max(14px, 3.6cqw);
+		height: max(16px, 4.2cqw);
+		margin-bottom: 0.8cqw;
+		border: max(2px, 0.4cqw) solid #283038;
+		border-radius: 3px;
+		background: #fff;
+		color: #e0403f;
+		font-size: max(9px, 2.4cqw);
+		animation: notice 5s ease-out forwards;
+	}
+	@keyframes notice {
 		0% {
 			opacity: 0;
+			transform: translateY(6px);
 		}
-		4%,
+		4% {
+			opacity: 1;
+			transform: translateY(-4px);
+		}
+		8%,
 		80% {
 			opacity: 1;
+			transform: none;
 		}
 		100% {
 			opacity: 0;
 		}
 	}
+	/* zzz: three Z's drifting up and away, one after another. */
+	.zzz {
+		position: relative;
+		display: block;
+		width: max(24px, 6cqw);
+		height: max(26px, 7cqw);
+		color: #fff;
+		font-size: max(8px, 2.2cqw);
+		text-shadow: 0 0 2px #283038, 0 0 2px #283038;
+	}
+	.zzz i {
+		position: absolute;
+		left: 20%;
+		bottom: 0;
+		font-style: normal;
+		opacity: 0;
+		animation: zzz 2.4s ease-out infinite;
+	}
+	.zzz i:nth-child(2) {
+		animation-delay: 0.8s;
+		font-size: 1.25em;
+	}
+	.zzz i:nth-child(3) {
+		animation-delay: 1.6s;
+		font-size: 1.5em;
+	}
+	@keyframes zzz {
+		0% {
+			opacity: 0;
+			transform: translate(0, 0);
+		}
+		20% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: translate(1.6em, -2.2em);
+		}
+	}
+	/* :youlost: the circle game: an OK sign upside down, low on the right leg. */
+	.leg {
+		transform: translate(-50%, -50%);
+	}
+	.youlost {
+		display: block;
+		font-size: max(9px, 2.6cqw);
+		line-height: 1;
+		rotate: 180deg;
+		filter: drop-shadow(0 0 1px rgb(0 0 0 / 0.6));
+		animation: thumbs 5s ease-out forwards;
+	}
+	@keyframes rainbow-hue {
+		to {
+			filter: hue-rotate(360deg);
+		}
+	}
+	/* A lone "ok": a thumbs up pops up instead of a bubble. */
+	.said-emoji {
+		margin: 0 0 0.6cqw;
+		font-size: max(18px, 5cqw);
+		line-height: 1;
+		filter: drop-shadow(0 0.3cqw 0 rgb(0 0 0 / 0.3));
+		animation: thumbs 5s ease-out forwards; /* BUBBLE_MS */
+		transform-origin: 50% 100%;
+	}
+	@keyframes thumbs {
+		0% {
+			opacity: 0;
+			transform: translateY(6px) scale(0.3) rotate(-25deg);
+		}
+		6% {
+			opacity: 1;
+			transform: translateY(-2px) scale(1.25) rotate(8deg);
+		}
+		10%,
+		80% {
+			opacity: 1;
+			transform: none;
+		}
+		100% {
+			opacity: 0;
+			transform: translateY(-4px);
+		}
+	}
+	/* Pops up from the speaker's head, stays, fades out over the last second. */
+	@keyframes said {
+		0% {
+			opacity: 0;
+			transform: translateY(4px) scale(0.6);
+		}
+		5% {
+			opacity: 1;
+			transform: translateY(-1px) scale(1.06);
+		}
+		8%,
+		80% {
+			opacity: 1;
+			transform: none;
+		}
+		100% {
+			opacity: 0;
+			transform: translateY(-2px);
+		}
+	}
 	@media (prefers-reduced-motion: reduce) {
+		.rainbow span,
+		.shout span,
+		.wobble span,
+		.glitch,
+		.glitch::before,
+		.glitch::after,
+		.heart,
+		.notice,
+		.zzz i,
+		.youlost,
+		.said-emoji,
 		.said {
 			animation: none;
+		}
+		/* Still pictures instead: the Z's stacked, no colour split. */
+		.zzz i {
+			opacity: 1;
+		}
+		.zzz i:nth-child(2) {
+			transform: translate(0.8em, -1em);
+		}
+		.zzz i:nth-child(3) {
+			transform: translate(1.6em, -2.1em);
+		}
+		.glitch::before,
+		.glitch::after {
+			display: none;
 		}
 	}
 	.sr-only {

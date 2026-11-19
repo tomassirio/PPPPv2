@@ -7,6 +7,8 @@
 	import Name from '#lib/components/Name.svelte';
 	import RunSummary from '#lib/components/RunSummary.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
+	import KindIcon from '#lib/components/KindIcon.svelte';
+	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
 	import { page } from '$app/state';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -24,6 +26,7 @@
 	import {
 		badgeMasks,
 		bitCount,
+		clubClosed,
 		hpColor,
 		JOHTO,
 		KANTO,
@@ -150,6 +153,9 @@
 	const ready = $derived(link.state?.lobby.find((p) => p.userId === id)?.kind);
 	const busy = $derived(!!(link.state?.session || link.state?.outgoing || link.state?.incoming));
 	const waiting = $derived(link.state?.outgoing?.to === id ? link.state.outgoing : null);
+	// Gold/Silver/Crystal before the Mystery Egg is back with Elm: no link for them (or for you, viewing someone).
+	const closed = $derived(clubClosed(row));
+	const meClosed = $derived(!you && clubClosed(board.rows.find((r) => r.userId === me)));
 	// They are in a link session with someone (anyone can be offered a link otherwise).
 	const theyBusy = $derived(!!link.state?.links?.some((l) => l.a === id || l.b === id));
 
@@ -294,8 +300,19 @@
 										><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h8" /></svg
 									>Link cable
 								</h2>
-								<span class="chip small-chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
+								{#if closed}
+									<span class="chip small-chip lock-chip"
+										><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"
+											><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg
+										>Locked</span
+									>
+								{:else}
+									<span class="chip small-chip status-{status.kind}"><span class="status-dot"></span>{status.label}</span>
+								{/if}
 							</div>
+							{#if closed}
+								<CableClubLocked step={row?.cableClub ?? 0} who={you ? undefined : nameOf(id)} />
+							{:else}
 							<!-- Three numbers in one panel, like the points/rank/rating summary. -->
 							<dl class="linkstats">
 								<div><dt>Won</dt><dd class="w">{lr.wins}</dd></div>
@@ -335,24 +352,26 @@
 									<button
 										type="button"
 										class="btn primary grow"
-										disabled={busy || theyBusy}
-										onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'TRADE' })}>Offer trade</button
+										disabled={busy || theyBusy || meClosed}
+										onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'TRADE' })}><KindIcon kind="TRADE" />Offer trade</button
 									>
 									<button
 										type="button"
-										class="btn grow"
-										disabled={busy || theyBusy}
-										onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}>Offer battle</button
+										class="btn grow battle"
+										disabled={busy || theyBusy || meClosed}
+										onclick={() => act('POST', '/link/challenges', { userId: id, kind: 'BATTLE' })}><KindIcon kind="BATTLE" />Challenge</button
 									>
 								</div>
 								{#if waiting}<span class="muted xs" role="status">Waiting for <Name user={id} /> to answer… {left(waiting.expiresAt)} s</span>{/if}
-								{#if theyBusy}<span class="muted xs"><Name user={id} /> is linked with someone right now.</span>
+								{#if meClosed}<span class="muted xs">Your Cable Club isn't open yet: bring Mr. Pokémon's Mystery Egg back to Prof. Elm first.</span>
+								{:else if theyBusy}<span class="muted xs"><Name user={id} /> is linked with someone right now.</span>
 								{:else if ready}<span class="muted xs"><Name user={id} /> is ready to {ready === 'TRADE' ? 'trade' : 'battle'}.</span>
 								{:else if !busy}<span class="muted xs"><Name user={id} /> sees your offer wherever they are, for a minute.</span>{/if}
 								{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
 							{:else}
-								<button type="button" class="btn primary wide" onclick={() => (finding = true)}>Find someone to link with</button>
+								<button type="button" class="btn find wide" onclick={() => (finding = true)}>Find someone online</button>
 								<LinkFinder bind:open={finding} />
+							{/if}
 							{/if}
 						</section>
 					</div>
@@ -700,6 +719,10 @@
 		background: var(--cart-crystal);
 	}
 	.btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
 		box-sizing: border-box; /* full-width buttons stay inside their card */
 		height: 38px;
 		padding: 0 14px;
@@ -709,6 +732,15 @@
 		color: var(--text);
 		font-weight: 600;
 		white-space: nowrap;
+	}
+	/* Find someone: the link cable blue, as on /play's Link cable card. */
+	.btn.find {
+		border: 1px solid var(--link);
+		background: var(--link-tint, transparent);
+		color: var(--link);
+	}
+	.btn.find:hover {
+		background: color-mix(in oklab, var(--link) 18%, transparent);
 	}
 	.btn.primary {
 		background: var(--accent);
@@ -906,6 +938,18 @@
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 8px;
+	}
+	/* Challenge in the battle red, as in the Link cable card and Find someone. */
+	.offers .btn.battle {
+		background: var(--danger);
+		border-color: var(--danger);
+		color: #fff;
+	}
+	.lock-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		color: var(--muted);
 	}
 	.offers .btn {
 		min-width: 0;
