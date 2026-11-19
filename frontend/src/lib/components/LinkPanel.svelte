@@ -7,6 +7,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
 	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
+	import LinkError from '#lib/components/LinkError.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
@@ -127,13 +128,16 @@
 		{/if}
 		<div class="controls" class:split={!others.length}>
 		<div class="ups">
-		<div class="toggles-head"><span class="label">I'm up for</span><span class="muted xs">others can offer me one</span></div>
+		<div class="toggles-head"><span class="label">I'm up for</span></div>
 		<div class="toggles" role="group" aria-label="I'm up for">
 			{#each ['TRADE', 'BATTLE'] as const as kind (kind)}
 				{@const on = s?.ready === kind}
 				<button class="toggle {kind === 'TRADE' ? 't-trade' : 't-battle'}" class:on aria-pressed={on} title="Let others offer you a {verb(kind)}" onclick={() => act('PUT', '/link/ready', { kind: on ? null : kind })}>
-					{@render kindIcon(kind, 20)}
-					<span class="tl"><b>{on ? '✓ ' : ''}{kind === 'TRADE' ? 'Trade' : 'Battle'}</b><span class="sr"> ready</span></span>
+					<span class="ico">{@render kindIcon(kind, 18)}</span>
+					<span class="tl"
+						><b>{kind === 'TRADE' ? 'Trade' : 'Battle'}<span class="sr"> ready</span></b><span class="hint">{on ? 'Ready' : kind === 'TRADE' ? 'Swap Pokémon' : 'Link battle'}</span></span
+					>
+					<span class="tick" aria-hidden="true">{#if on}<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10" /></svg>{/if}</span>
 				</button>
 			{/each}
 		</div>
@@ -146,9 +150,6 @@
 			</div>
 		{/if}
 		</div>
-		{#if s?.ready}
-			<p class="muted">When someone accepts, you both Dig to your last Pokémon Center, so be free to leave: outdoors or in a cave, no battle, menu or dialog open.</p>
-		{/if}
 
 		{#if s?.outgoing}
 			<p class="waiting" role="status">
@@ -207,7 +208,8 @@
 		{/if}
 		<LinkFinder bind:open={finding} />
 	{/if}
-	{#if link.error}<p class="error" role="alert">{link.error}</p>{/if}
+	<!-- An incoming challenge shows the error in its own card (LinkChallenge): once is enough. -->
+	{#if !(s?.incoming && !s.session)}<LinkError />{/if}
 </section>
 
 <style>
@@ -331,26 +333,41 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 8px;
 	}
+	/* Trade / Battle: a kind-coloured icon tile, the name and a hint; picked, the card takes the kind's colour and a tick. */
 	button.toggle {
-		height: 44px;
+		--t: var(--accent-text);
+		position: relative;
+		height: 56px;
 		min-width: 0;
 		display: flex;
 		align-items: center;
-		justify-content: center;
 		gap: 10px;
-		padding: 0 12px;
+		padding: 0 12px 0 8px;
 		border-radius: 12px;
-		border: 1px solid var(--border-strong);
+		border: 1px solid var(--border);
 		background: var(--sunk);
 		color: var(--text);
-		text-align: center;
+		text-align: left;
 		cursor: pointer;
 	}
-	.toggle svg {
+	button.toggle.t-battle {
+		--t: var(--danger);
+	}
+	button.toggle:hover {
+		border-color: color-mix(in oklab, var(--t) 55%, var(--border));
+	}
+	.ico {
 		flex: none;
-		color: var(--muted);
+		width: 38px;
+		height: 38px;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		background: color-mix(in oklab, var(--t) 16%, transparent);
+		color: var(--t);
 	}
 	.tl {
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 		gap: 1px;
@@ -358,7 +375,49 @@
 	}
 	.tl b {
 		font-size: 14px;
+		line-height: 18px;
 		white-space: nowrap;
+	}
+	.hint {
+		font-size: 12px;
+		line-height: 16px;
+		color: var(--muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.tick {
+		flex: none;
+		width: 18px;
+		height: 18px;
+		display: grid;
+		place-items: center;
+		border-radius: 50%;
+		border: 1.5px solid var(--border-strong);
+		color: var(--panel);
+	}
+	button.toggle.on {
+		border-color: var(--t);
+		background: color-mix(in oklab, var(--t) 12%, var(--sunk));
+		box-shadow: 0 0 0 1px var(--t) inset;
+	}
+	button.toggle.on .ico {
+		background: var(--t);
+		color: var(--panel);
+	}
+	button.toggle.on .tick {
+		border-color: var(--t);
+		background: var(--t);
+	}
+	button.toggle.on .hint {
+		color: var(--t);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		button.toggle,
+		.ico,
+		.tick {
+			transition: background-color 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
+		}
 	}
 	.card.k-trade {
 		--kind: var(--accent-text);
@@ -378,22 +437,6 @@
 		border-radius: 10px;
 		border-left: 3px solid var(--kind);
 		background: color-mix(in oklab, var(--kind) 10%, transparent);
-	}
-	.toggle.t-trade.on {
-		border-color: var(--accent-text);
-		background: var(--accent-tint);
-	}
-	.toggle.t-trade.on svg,
-	.toggle.t-trade.on b {
-		color: var(--accent-text);
-	}
-	.toggle.t-battle.on {
-		border-color: var(--danger);
-		background: color-mix(in oklab, var(--danger) 12%, transparent);
-	}
-	.toggle.t-battle.on svg,
-	.toggle.t-battle.on b {
-		color: var(--danger);
 	}
 	.sub {
 		display: flex;

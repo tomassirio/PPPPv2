@@ -5,6 +5,7 @@
 	import Name from '#lib/components/Name.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
+	import LinkError from '#lib/components/LinkError.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, CHALLENGE_MS, desk, left, link, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
@@ -48,7 +49,7 @@
 				<button class="primary" onclick={() => act('POST', '/link/challenges/accept')}>Accept {verb(c.kind)}</button>
 				<button class="ghost" onclick={() => act('POST', '/link/challenges/decline')}>Decline</button>
 			</div>
-			{#if link.error}<p class="error" role="alert">{link.error}</p>{/if}
+			<LinkError />
 			<div class="expiry" aria-live="off">
 				<span class="bar"><span style:width="{Math.min(100, (left(c.expiresAt) * 100_000) / CHALLENGE_MS)}%"></span></span>
 				<span class="muted">Expires in {left(c.expiresAt)} s</span>
@@ -154,11 +155,6 @@
 		flex-direction: column;
 		gap: 6px;
 		text-align: center;
-	}
-	.error {
-		margin: 0;
-		font-size: 13px;
-		color: var(--danger);
 	}
 	.expiry .muted {
 		font-size: 12px;

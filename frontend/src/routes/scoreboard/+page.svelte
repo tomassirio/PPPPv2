@@ -1,4 +1,4 @@
-<!-- /scoreboard (frontend/design/PlayV2.mock.html, #scoreboard): the top three on a podium, then every Pib in a table
+<!-- /scoreboard (frontend/design/PlayV2.mock.html, #scoreboard): the top three on a podium, then everyone else (#4 on) in a table
      (rank, avatar, name, status · where · game, party, badges, Pokédex, Trainer Score), filtered by version and sorted
      by a column, a page at a time (?page=, from 1; ?size= rows a page, 25 by default). Rows open the Pib's profile.
      Live from board.svelte.ts; paged here, since every row is already on the page for the live updates. -->
@@ -39,12 +39,15 @@
 	];
 	const rows = $derived(boardRows(board.rows, version, sort, board.names));
 
+	// The top three stand on the podium only; the table carries on from #4.
+	const PODIUM = 3;
+	const rest = $derived(rows.slice(PODIUM));
 	// Paging: the page and its size live in the URL, so a page can be linked and Back goes to the previous one.
 	const size = $derived(Math.min(100, Math.max(1, Number(page.url.searchParams.get('size')) || 25)));
-	const pages = $derived(Math.max(1, Math.ceil(rows.length / size)));
+	const pages = $derived(Math.max(1, Math.ceil(rest.length / size)));
 	const current = $derived(Math.min(pages, Math.max(1, Number(page.url.searchParams.get('page')) || 1)));
-	const first = $derived((current - 1) * size); // rank offset of this page
-	const pageRows = $derived(rows.slice(first, first + size));
+	const first = $derived(PODIUM + (current - 1) * size); // rank offset of this page
+	const pageRows = $derived(rest.slice(first - PODIUM, first - PODIUM + size));
 	function go(to: number) {
 		const url = new URL(page.url.href);
 		if (to === 1) url.searchParams.delete('page');
@@ -87,7 +90,7 @@
 		{#if current === 1}
 		<!-- In the DOM 1, 2, 3 (read in order); on a wide screen placed 2 · 1 · 3, #1 standing tallest. -->
 		<ol class="podium" aria-label="Top three">
-			{#each rows.slice(0, 3) as r, i (r.userId)}
+			{#each rows.slice(0, PODIUM) as r, i (r.userId)}
 				{@const v = versionOf(r.game, board.names)}
 				{@const metal = ['gold', 'silver', 'bronze'][i]}
 				<li class="spot p{i + 1} metal-{metal}">
@@ -142,6 +145,7 @@
 		{#if dexHover.card}<DexCard {...dexHover.card} />{/if}
 		{/if}
 
+		{#if pageRows.length}
 		<div class="tablewrap">
 			<div class="tbl">
 				<div class="tr th" aria-hidden="true">
@@ -176,11 +180,12 @@
 				{/each}
 			</div>
 		</div>
+		{/if}
 		{#if pages > 1}
 			<nav class="pager" aria-label="Scoreboard pages">
 				<button type="button" disabled={current === 1} onclick={() => go(current - 1)}>← Previous</button>
 				<span class="small">
-					Page <b>{current}</b> of {pages}<span class="muted">&nbsp;· {first + 1}–{first + pageRows.length} of {rows.length}</span>
+					Page <b>{current}</b> of {pages}<span class="muted">&nbsp;· #{first + 1}–#{first + pageRows.length} of {rows.length}</span>
 				</span>
 				<button type="button" disabled={current === pages} onclick={() => go(current + 1)}>Next →</button>
 			</nav>

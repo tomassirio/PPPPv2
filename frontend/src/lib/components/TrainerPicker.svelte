@@ -16,6 +16,12 @@
 	let busy = $state('');
 	let message = $state('');
 	let error = $state('');
+	// The confirmation sits in the card for a few seconds, then the description comes back.
+	$effect(() => {
+		if (!message) return;
+		const t = setTimeout(() => (message = ''), 6000);
+		return () => clearTimeout(t);
+	});
 
 	$effect(() => {
 		api<State>('GET', '/me/sprite')
@@ -33,7 +39,7 @@
 		message = '';
 		try {
 			picked = await api<State>('PUT', '/me/sprite', { key: c.key });
-			message = `You walk as ${c.name} from the next door you go through.`;
+			message = `Saved. You walk as ${c.name} from the next door you go through.`;
 			open = false;
 		} catch (e) {
 			error = e instanceof ApiError ? e.detail : 'Could not change your trainer';
@@ -65,11 +71,15 @@
 			{#if current}<span class="walk big" style:background-image="url({sheet(current.key)})" role="img" aria-label={current.name}></span>{/if}
 			<div class="mini-text">
 				<b>{current?.name ?? picked.current}</b>
-				<span class="muted desc">Who you walk as in your game, seen by everyone on their screens and the town map.</span>
+				{#if error}
+					<span class="error desc" role="alert">{error}</span>
+				{:else if message}
+					<span class="ok desc saved" role="status"><span class="check" aria-hidden="true">✓</span>{message}</span>
+				{:else}
+					<span class="muted desc">Who you walk as in your game, seen by everyone on their screens and the town map.</span>
+				{/if}
 			</div>
 		</div>
-		{#if message}<p class="ok tip" role="status">{message}</p>{/if}
-		{#if error}<p class="error tip" role="alert">{error}</p>{/if}
 		{#if open}
 			<div class="pop" role="dialog" aria-label="Pick your trainer">
 				<p class="muted">Who you walk around as in your game. Others see it too, on their screen and on the town map.</p>
@@ -133,7 +143,7 @@
 		line-height: 1.25;
 		min-width: 0;
 	}
-	.desc {
+	.mini-text .desc {
 		font-size: 12px;
 	}
 	.mini .change {
@@ -147,12 +157,35 @@
 		text-transform: uppercase;
 		color: var(--muted);
 	}
-	.tip {
-		position: absolute;
-		top: calc(100% + 6px);
-		left: 0;
-		right: 0;
-		font-size: 12px !important;
+	/* The change confirmed inside the card, in place of the description. */
+	.saved {
+		display: flex;
+		align-items: flex-start;
+		gap: 6px;
+	}
+	.check {
+		flex: none;
+		display: inline-grid;
+		place-items: center;
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		background: var(--hp-ok);
+		color: var(--ink);
+		font-size: 10px;
+		font-weight: 800;
+		line-height: 1;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.saved {
+			animation: saved-in 0.25s ease-out;
+		}
+	}
+	@keyframes saved-in {
+		from {
+			opacity: 0;
+			transform: translateY(3px);
+		}
 	}
 	.pop {
 		position: absolute;
@@ -218,9 +251,10 @@
 	.muted {
 		color: var(--muted);
 	}
-	/* One 16x16 frame of the 16x96 sheet, scaled with hard pixels; walking down in place. */
+	/* One 16x16 frame of the 16x96 sheet, scaled with hard pixels (always 3x, so every trainer's pixels are the
+	   same size); walking down in place. */
 	.walk {
-		--s: 32px;
+		--s: 48px;
 		display: block;
 		flex: none;
 		width: var(--s);
@@ -231,7 +265,6 @@
 		image-rendering: pixelated;
 	}
 	.walk.big {
-		--s: 48px;
 		animation: walk 0.6s steps(1) infinite;
 	}
 	button:hover .walk,
@@ -265,6 +298,7 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 		align-items: center;
 		gap: 4px;
 		padding: 8px 4px;
@@ -290,10 +324,14 @@
 		outline: 3px solid var(--accent-text);
 		outline-offset: 2px;
 	}
+	/* Two lines kept for every name ("Rocket Grunt ♂" needs them), so every tile is the same height. */
 	.name {
 		font-size: 11px;
 		text-align: center;
 		line-height: 1.2;
+		min-height: 2.4em;
+		display: flex;
+		align-items: center;
 	}
 	.ok {
 		margin: 0;

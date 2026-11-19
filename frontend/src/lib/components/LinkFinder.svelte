@@ -63,6 +63,13 @@
 			</button>
 		</header>
 
+		<p class="heads-up">
+			<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+				><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg
+			>
+			<span>When someone accepts, you both Dig to your last Pokémon Center, so be free to leave: outdoors or in a cave, no battle, menu or dialog open.</span>
+		</p>
+
 		{#if outgoing}
 			<p class="waiting" role="status">
 				Offered to {verb(outgoing.kind)} with <b><Name user={outgoing.to} /></b>. Waiting for an answer… {left(outgoing.expiresAt)} s
@@ -87,7 +94,11 @@
 							</span>
 						</a>
 						{#if row && clubClosed(row)}
-							<span class="muted xs closed">Cable Club not open yet</span>
+							<span class="closed" title="{nameOf(v.id)} has to bring Mr. Pokémon's Mystery Egg back to Prof. Elm before they can link."
+								><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"
+									><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg
+								>Not available for the Cable Club yet</span
+							>
 						{:else if row}
 							<div class="offers">
 								<button type="button" class="btn primary" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'TRADE' })}>Offer trade</button>
@@ -154,6 +165,37 @@
 	.error {
 		color: var(--danger);
 		font-weight: 600;
+	}
+	.heads-up {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		padding: 10px 12px;
+		border-radius: 10px;
+		background: var(--sunk);
+		border: 1px solid var(--border);
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--muted);
+	}
+	.heads-up svg {
+		flex: none;
+		margin-top: 1px;
+		color: var(--link);
+	}
+	/* Their Cable Club is still shut (no Mystery Egg back to Elm): no offers, a lock and why on hover. */
+	.closed {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 5px 10px;
+		border-radius: 999px;
+		border: 1px dashed var(--border-strong);
+		color: var(--muted);
+		font-size: 12px;
+		font-weight: 600;
+		white-space: nowrap;
+		cursor: help;
 	}
 	.waiting {
 		padding: 10px 12px;
