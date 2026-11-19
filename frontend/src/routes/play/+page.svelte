@@ -363,7 +363,8 @@
 		</div>
 		{#if page.url.searchParams.has('debug')}<ViewportDebug />{/if}
 	</div>
-	<LinkChallenge sheet />
+	<!-- An incoming challenge: a card in the bottom-right corner on desktop (as on every other page), a sheet on phones. -->
+	<LinkChallenge sheet floating />
 	{#if talking}
 		<LinkFinder bind:open={talking} nearby={screen?.nearby() ?? []} />
 	{/if}
@@ -652,12 +653,17 @@
 			flex: 1 1 0;
 			min-width: 340px;
 		}
-		/* Your run stretches to the bottom edge, level with the controller and the board. */
+		/* Your run takes exactly the height the Link cable card leaves, down to the bottom edge (level with the
+		   controller and the board), and fits its contents to it (GameStatus's height queries): no scrollbar. */
 		.mid > .slot.run {
-			flex: 1 0 auto;
+			flex: 1 1 0;
+			min-height: 0;
 		}
 		.mid > .slot.run > :global(.card) {
-			flex: 1 0 auto;
+			flex: 1 1 0;
+			min-height: 60px;
+			container-type: size;
+			overflow: hidden;
 		}
 		.board {
 			flex: 1 1 0;

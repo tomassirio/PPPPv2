@@ -1,12 +1,11 @@
 <!-- Link cable card: your link record, ready to trade/battle toggles, everyone else who is ready (avatar, name, what they want, their game and
-     party), the incoming challenge and the running session (two avatars joined by the cable, both parties, time left,
+     party), the running session (two avatars joined by the cable, both parties, time left,
      Unplug), and Find someone to link with (LinkFinder: anyone online).
      State lives in link.svelte.ts. -->
 <script lang="ts">
 	import Name from '#lib/components/Name.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
 	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
-	import LinkChallenge from '#lib/components/LinkChallenge.svelte';
 	import LinkError from '#lib/components/LinkError.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
@@ -24,6 +23,8 @@
 	const others = $derived(s?.lobby.filter((p) => p.userId !== me) ?? []);
 	// Other Pibs' running links, to spectate.
 	const live = $derived(s?.links.filter((p) => p.a !== me && p.b !== me) ?? []);
+	// The card never makes its column scroll: a couple of each here, the rest one click away (Find someone, Live).
+	const SHOWN = 2;
 	const rowOf = (user: string) => board.rows.find((r) => r.userId === user);
 	const mine = $derived(me ? rowOf(me)?.link : undefined);
 	// Gold/Silver/Crystal before the Mystery Egg is back with Elm: nothing to link yet.
@@ -134,10 +135,8 @@
 				{@const on = s?.ready === kind}
 				<button class="toggle {kind === 'TRADE' ? 't-trade' : 't-battle'}" class:on aria-pressed={on} title="Let others offer you a {verb(kind)}" onclick={() => act('PUT', '/link/ready', { kind: on ? null : kind })}>
 					<span class="ico">{@render kindIcon(kind, 18)}</span>
-					<span class="tl"
-						><b>{kind === 'TRADE' ? 'Trade' : 'Battle'}<span class="sr"> ready</span></b><span class="hint">{on ? 'Ready' : kind === 'TRADE' ? 'Swap Pokémon' : 'Link battle'}</span></span
-					>
-					<span class="tick" aria-hidden="true">{#if on}<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10" /></svg>{/if}</span>
+					<b class="tl">{kind === 'TRADE' ? 'Trade' : 'Battle'}</b>
+					{#if on}<span class="ready"><span class="live-dot" aria-hidden="true"></span>Ready</span>{/if}
 				</button>
 			{/each}
 		</div>
@@ -157,7 +156,6 @@
 			</p>
 		{/if}
 
-		<LinkChallenge />
 
 		{#if others.length}
 			<div class="sub">
@@ -165,7 +163,7 @@
 				<span class="muted xs">{others.length === 1 ? '1 Pib' : `${others.length} Pibs`}</span>
 			</div>
 			<ul>
-				{#each others as p (p.userId)}
+				{#each others.slice(0, SHOWN) as p (p.userId)}
 					{@const g = gameOf(p.userId)}
 					<li>
 						<Avatar user={p.userId} />
@@ -177,24 +175,26 @@
 						<button
 							class="small"
 							class:primary={p.kind === 'TRADE'}
-							class:ghost={p.kind !== 'TRADE'}
+							class:battle={p.kind !== 'TRADE'}
 							disabled={!!s?.outgoing || !!s?.incoming}
 							onclick={() => act('POST', '/link/challenges', { userId: p.userId, kind: p.kind })}
 						>
-							{p.kind === 'TRADE' ? 'Trade' : 'Battle'}<span class="sr"> with {nameOf(p.userId)}</span>
+							{p.kind === 'TRADE' ? 'Trade' : 'Challenge'}<span class="sr"> {nameOf(p.userId)}</span>
 						</button>
 					</li>
 				{/each}
 			</ul>
-			<button class="find" onclick={() => (finding = true)}>Find someone else online</button>
+			<button class="find" onclick={() => (finding = true)}
+				>{others.length > SHOWN ? `See all ${others.length} ready · find someone online` : 'Find someone else online'}</button
+			>
 		{/if}
 		{#if live.length}
 			<div class="sub">
 				<span class="label">Live now</span>
-				<span class="muted xs">watch, read only</span>
+				{#if live.length > SHOWN}<a class="xs more" href="/watch">All {live.length} on Live →</a>{:else}<span class="muted xs">watch, read only</span>{/if}
 			</div>
 			<ul>
-				{#each live as p (p.a)}
+				{#each live.slice(0, SHOWN) as p (p.a)}
 					<li>
 						<Avatar user={p.a} />
 						<div class="who">
@@ -208,7 +208,7 @@
 		{/if}
 		<LinkFinder bind:open={finding} />
 	{/if}
-	<!-- An incoming challenge shows the error in its own card (LinkChallenge): once is enough. -->
+	<!-- An incoming challenge shows the error in its own card (LinkChallenge, in the corner): once is enough. -->
 	{#if !(s?.incoming && !s.session)}<LinkError />{/if}
 </section>
 
@@ -337,7 +337,7 @@
 	button.toggle {
 		--t: var(--accent-text);
 		position: relative;
-		height: 56px;
+		height: 52px;
 		min-width: 0;
 		display: flex;
 		align-items: center;
@@ -368,33 +368,39 @@
 	}
 	.tl {
 		flex: 1;
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
 		min-width: 0;
-	}
-	.tl b {
 		font-size: 14px;
 		line-height: 18px;
-		white-space: nowrap;
-	}
-	.hint {
-		font-size: 12px;
-		line-height: 16px;
-		color: var(--muted);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.tick {
+	/* Ready: a pill with a dot breathing in the kind's colour. */
+	.ready {
 		flex: none;
-		width: 18px;
-		height: 18px;
-		display: grid;
-		place-items: center;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 3px 8px;
+		border-radius: 999px;
+		background: color-mix(in oklab, var(--t) 18%, transparent);
+		color: var(--t);
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
+	.live-dot {
+		flex: none;
+		width: 7px;
+		height: 7px;
 		border-radius: 50%;
-		border: 1.5px solid var(--border-strong);
-		color: var(--panel);
+		background: var(--t);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.live-dot {
+			animation: pulse 1.6s ease-in-out infinite;
+		}
 	}
 	button.toggle.on {
 		border-color: var(--t);
@@ -405,17 +411,12 @@
 		background: var(--t);
 		color: var(--panel);
 	}
-	button.toggle.on .tick {
-		border-color: var(--t);
-		background: var(--t);
-	}
-	button.toggle.on .hint {
+	button.toggle.on .tl {
 		color: var(--t);
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		button.toggle,
-		.ico,
-		.tick {
+		.ico {
 			transition: background-color 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s;
 		}
 	}
@@ -520,7 +521,16 @@
 		text-decoration: none;
 		white-space: nowrap;
 	}
-	.watch:focus-visible {
+	.more {
+		color: var(--link);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.more:hover {
+		text-decoration: underline;
+	}
+	.watch:focus-visible,
+	.more:focus-visible {
 		outline: 2px solid var(--link);
 		outline-offset: 2px;
 	}
@@ -864,6 +874,11 @@
 		border: 1px solid var(--accent);
 		background: var(--accent);
 		color: var(--ink);
+	}
+	button.battle {
+		border: 1px solid var(--danger);
+		background: var(--danger);
+		color: #fff;
 	}
 	.primary:hover {
 		background: var(--accent-hover);

@@ -116,7 +116,7 @@
 	{/if}
 	{#if summary}
 		{#each rows as row, r (row.label)}
-			<div class="line" class:later={r > 0 && !row.got}>
+			<div class="line" class:later={r > 0 && !row.got} class:kanto={r > 0}>
 				<span class="muted">{row.label}</span>
 				{#if named.length}
 					<ul class="badges" aria-label="{row.label}: {row.got} of 8 earned">
@@ -154,7 +154,7 @@
 			</div>
 		{/if}
 		{#if summary.playTime}
-			<div class="line"><span class="muted">Time played</span><span>{summary.playTime}</span></div>
+			<div class="line time"><span class="muted">Time played</span><span>{summary.playTime}</span></div>
 		{/if}
 	{:else}
 		<p class="muted">Badges and your Pokédex show up here once your game is past the title screen.</p>
@@ -419,6 +419,55 @@
 	@media (prefers-reduced-motion: reduce) {
 		.bar b {
 			transition: none;
+		}
+	}
+	/* On desktop /play the card gets exactly the height left in its column (container-type: size there), so nothing
+	   scrolls: as that height shrinks, the least needed lines go first, then the party turns into one row of icons.
+	   Height queries never match elsewhere (an inline-size container), where the card shows everything. */
+	@container (max-height: 600px) {
+		.time {
+			display: none;
+		}
+	}
+	@container (max-height: 560px) {
+		.kanto {
+			display: none;
+		}
+	}
+	@container (max-height: 500px) {
+		.cards {
+			grid-template-columns: repeat(6, minmax(0, 1fr));
+			gap: 6px;
+		}
+		.pslot {
+			justify-content: center;
+			padding: 6px 0;
+		}
+		.pslot .info,
+		.pslot.empty .xs {
+			display: none;
+		}
+	}
+	@container (max-height: 400px) {
+		.dex {
+			display: none;
+		}
+	}
+	@container (max-height: 340px) {
+		.line:has(.badges, .pips) {
+			display: none;
+		}
+	}
+	/* Squeezed by a challenge in the Link cable card: points and rank only, then the heading alone. */
+	@container (max-height: 260px) {
+		.cards,
+		.line {
+			display: none;
+		}
+	}
+	@container (max-height: 150px) {
+		.card > :not(.head) {
+			display: none;
 		}
 	}
 	@media (max-width: 760px), (orientation: landscape) and (max-height: 520px) {

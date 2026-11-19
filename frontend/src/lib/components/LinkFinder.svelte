@@ -41,6 +41,18 @@
 	const outgoing = $derived(link.state?.outgoing ?? null);
 	const rowOf = (id: string) => board.rows.find((r) => r.userId === id);
 	const meClosed = $derived(clubClosed(rowOf(session.me?.id ?? '')));
+
+	// Five Pibs a page; presence changes keep the page, unless it ran out of Pibs. Back to the first on reopening.
+	const PER_PAGE = 5;
+	let pageNo = $state(0);
+	const pages = $derived(Math.max(1, Math.ceil(others.length / PER_PAGE)));
+	const shown = $derived(others.slice(Math.min(pageNo, pages - 1) * PER_PAGE, (Math.min(pageNo, pages - 1) + 1) * PER_PAGE));
+	$effect(() => {
+		if (open) pageNo = 0;
+	});
+	$effect(() => {
+		if (pageNo > pages - 1) pageNo = pages - 1;
+	});
 </script>
 
 <dialog
@@ -79,7 +91,7 @@
 
 		{#if others.length}
 			<ul class="pibs">
-				{#each others as v (v.id)}
+				{#each shown as v (v.id)}
 					{@const row = rowOf(v.id)}
 					{@const st = playerStatus(v.id, true, me, link.state?.lobby ?? [], link.links)}
 					{@const linked = st.kind === 'linked'}
@@ -102,7 +114,7 @@
 						{:else if row}
 							<div class="offers">
 								<button type="button" class="btn primary" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'TRADE' })}>Offer trade</button>
-								<button type="button" class="btn" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'BATTLE' })}>Offer battle</button>
+								<button type="button" class="btn battle" disabled={busy || linked || meClosed} onclick={() => act('POST', '/link/challenges', { userId: v.id, kind: 'BATTLE' })}>Challenge</button>
 							</div>
 						{:else}
 							<span class="muted xs">Hasn't picked a game yet</span>
@@ -110,6 +122,13 @@
 					</li>
 				{/each}
 			</ul>
+			{#if pages > 1}
+				<nav class="pager" aria-label="Pibs online, pages">
+					<button type="button" class="btn" disabled={pageNo === 0} onclick={() => pageNo--}>← Previous</button>
+					<span class="muted small">{pageNo * PER_PAGE + 1}–{pageNo * PER_PAGE + shown.length} of {others.length}</span>
+					<button type="button" class="btn" disabled={pageNo >= pages - 1} onclick={() => pageNo++}>Next →</button>
+				</nav>
+			{/if}
 		{/if}
 	</div>
 </dialog>
@@ -196,6 +215,12 @@
 		font-weight: 600;
 		white-space: nowrap;
 		cursor: help;
+	}
+	.pager {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
 	}
 	.waiting {
 		padding: 10px 12px;
@@ -287,6 +312,12 @@
 		background: var(--accent);
 		border-color: var(--accent);
 		color: var(--ink);
+	}
+	/* Battle in the Link cable card's battle red. */
+	.btn.battle {
+		background: var(--danger);
+		border-color: var(--danger);
+		color: #fff;
 	}
 	.btn:disabled {
 		opacity: 0.45;

@@ -1,6 +1,6 @@
-<!-- An incoming link-cable challenge: who, the three steps, Accept/Decline and the time left. Inline in the Link
-     cable card on desktop; sheet: a bottom sheet over the game on phones (each shows only at its own size);
-     floating (pages besides /play): a card in the corner on desktop, the bottom sheet on phones. -->
+<!-- An incoming link-cable challenge: who, the three steps, Accept/Decline and the time left. Every page
+     (/play too) uses it as `sheet floating`: a card in the bottom-right corner on desktop, a bottom sheet over the
+     game on phones. Without either: inline. -->
 <script lang="ts">
 	import Name from '#lib/components/Name.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
