@@ -17,10 +17,14 @@ export type LinkState = {
 	links: { a: string; b: string; kind: LinkKind; since: number }[];
 	now: number;
 };
+export type Parting = { peer: string; kind: LinkKind };
 type SessionEvent = { a: string; b: string; status: 'STARTED' | 'ENDED' | 'ROOM' };
 
-export const link = $state<{ state: LinkState | null; links: Record<string, string>; now: number; error: string }>({
+export const PARTING_MS = 1600;
+
+export const link = $state<{ state: LinkState | null; parting: Parting | null; links: Record<string, string>; now: number; error: string }>({
 	state: null,
+	parting: null,
 	links: {},
 	now: Date.now(),
 	error: ''
@@ -40,11 +44,25 @@ export const since = (from: number) => Math.max(0, Math.floor((link.now - from) 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 let skew = 0; // server clock minus this browser's
+let partingTimer: ReturnType<typeof setTimeout> | undefined;
 
 function show(s: LinkState) {
+	const prev = link.state?.session;
 	skew = s.now - Date.now();
 	link.now = s.now;
 	link.state = s;
+	if (s.session) {
+		clearTimeout(partingTimer);
+		partingTimer = undefined;
+		link.parting = null;
+	} else if (prev) {
+		clearTimeout(partingTimer);
+		link.parting = { peer: prev.peer, kind: prev.kind };
+		partingTimer = setTimeout(() => {
+			link.parting = null;
+			partingTimer = undefined;
+		}, PARTING_MS);
+	}
 	// Every running session comes with the state, so other players' "Linked" shows even if it started before this page.
 	const links: Record<string, string> = {};
 	for (const p of s.links ?? []) Object.assign(links, { [p.a]: p.b, [p.b]: p.a });

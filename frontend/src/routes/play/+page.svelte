@@ -339,9 +339,6 @@
 				</nav>
 				<div class="pad" class:off={tab !== 'play'}>
 					<Gamepad {talk} />
-					{#if talking}
-						<LinkFinder bind:open={talking} nearby={screen?.nearby() ?? []} />
-					{/if}
 				</div>
 			</section>
 			<section class="mid" class:sheet-off={tab !== 'link'} aria-label="Link cable and your run">
@@ -367,6 +364,9 @@
 		{#if page.url.searchParams.has('debug')}<ViewportDebug />{/if}
 	</div>
 	<LinkChallenge sheet />
+	{#if talking}
+		<LinkFinder bind:open={talking} nearby={screen?.nearby() ?? []} />
+	{/if}
 	<PokeballRain />
 {:else if loadFailed}
 	<section class="load-error" role="alert">

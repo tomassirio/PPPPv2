@@ -105,6 +105,9 @@
 
 <style>
 	dialog {
+		position: fixed;
+		inset: 0;
+		margin: auto;
 		width: min(560px, calc(100vw - 32px));
 		max-height: calc(100dvh - 48px);
 		padding: 0;
@@ -113,6 +116,9 @@
 		background: var(--panel);
 		color: var(--text);
 		box-shadow: 0 16px 48px rgb(0 0 0 / 0.35);
+	}
+	dialog:not([open]) {
+		display: none;
 	}
 	dialog::backdrop {
 		background: rgb(8 11 13 / 0.55);

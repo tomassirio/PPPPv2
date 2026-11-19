@@ -32,19 +32,7 @@
 	$effect(() => {
 		if (s?.session) finding = false;
 	});
-	// Briefly keeps the unplugged cable on screen after a session ends.
-	let parting = $state<{ peer: string; kind: 'TRADE' | 'BATTLE' } | null>(null);
-	let last: { peer: string; kind: 'TRADE' | 'BATTLE' } | null = null;
-	$effect(() => {
-		const cur = s?.session;
-		if (cur) last = { peer: cur.peer, kind: cur.kind };
-		else if (last) {
-			parting = last;
-			last = null;
-			const t = setTimeout(() => (parting = null), 1600);
-			return () => clearTimeout(t);
-		}
-	});
+	const parting = $derived(link.parting);
 	const gameOf = (user: string) => {
 		const g = rowOf(user)?.game;
 		return g ? board.names[g] : undefined;
@@ -127,12 +115,14 @@
 			</span>
 		</div>
 		{#if parting}
-			<div class="cable-row parting" role="status">
-				<span class="av left">{#if me}<Avatar user={me} size={44} />{/if}</span>
-				<span class="cable l"></span>
-				<span class="chip off"><span class="dot"></span>unplugged</span>
-				<span class="cable r"></span>
-				<span class="av right"><Avatar user={parting.peer} size={44} /></span>
+			<div class="parting-slot">
+				<div class="cable-row parting" role="status">
+					<span class="av left">{#if me}<Avatar user={me} size={44} />{/if}</span>
+					<span class="cable l"></span>
+					<span class="chip off"><span class="dot"></span>unplugged</span>
+					<span class="cable r"></span>
+					<span class="av right"><Avatar user={parting.peer} size={44} /></span>
+				</div>
 			</div>
 		{/if}
 		<div class="controls" class:split={!others.length}>
@@ -537,6 +527,14 @@
 	.chip.off .dot {
 		background: var(--danger);
 	}
+	.parting-slot {
+		display: grid;
+		grid-template-rows: 1fr;
+	}
+	.parting-slot > .cable-row {
+		min-height: 0;
+		overflow: hidden;
+	}
 	.parting .cable {
 		background: repeating-linear-gradient(90deg, var(--danger) 0 8px, transparent 8px 14px);
 		transform: scaleX(0);
@@ -594,7 +592,10 @@
 			animation: pop-out 1.4s ease-out both;
 		}
 		.parting {
-			animation: fade-out 1.6s ease-in both;
+			animation: fade-out 1.2s ease-in both;
+		}
+		.parting-slot {
+			animation: collapse-row 420ms 1.15s cubic-bezier(0.4, 0, 0.2, 1) both;
 		}
 	}
 	@keyframes draw {
@@ -700,11 +701,21 @@
 	}
 	@keyframes fade-out {
 		0%,
-		70% {
+		65% {
 			opacity: 1;
 		}
 		100% {
 			opacity: 0;
+		}
+	}
+	@keyframes collapse-row {
+		from {
+			grid-template-rows: 1fr;
+			margin-bottom: 0;
+		}
+		to {
+			grid-template-rows: 0fr;
+			margin-bottom: -14px;
 		}
 	}
 	.chip {
