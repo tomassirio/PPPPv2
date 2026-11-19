@@ -2,6 +2,14 @@
 
 export type Button = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'start' | 'select';
 
+export type ScreenPlayer = { user: string; x: number; y: number };
+
+/** The screen stream lists the local sprite first. One overworld tile spans 16 pixels. */
+export function nearbyPlayers([self, ...ghosts]: ScreenPlayer[]): string[] {
+	if (!self) return [];
+	return ghosts.filter((g) => Math.abs(g.x - self.x) + Math.abs(g.y - self.y) <= 16).map((g) => g.user);
+}
+
 /** Which keyboard key presses each pad button: one key per button, as KeyboardEvent.key (letters lower-case). */
 export type Bindings = Record<Button, string>;
 

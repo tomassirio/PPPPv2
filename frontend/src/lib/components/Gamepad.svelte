@@ -15,6 +15,8 @@
 	import ShellPicker from './ShellPicker.svelte';
 	import { konamiPress } from '#lib/konami.svelte.ts';
 
+	let { talk }: { talk: () => boolean } = $props();
+
 	// The player's controller shell (colours), remembered in this browser.
 	const shell = $derived(currentShell.value);
 	const vars = $derived(shellVars(shell));
@@ -50,6 +52,10 @@
 
 	function press(b: Button) {
 		if (down.has(b)) return;
+		if (b === 'a' && talk()) {
+			releaseAll();
+			return;
+		}
 		down.add(b);
 		konamiPress(b);
 		if (!sendKey(b, true)) send(b); // socket not open yet: at least a tap
@@ -148,7 +154,7 @@
 			onpointercancel={() => release('a')}
 			onpointerleave={() => release('a')}
 			oncontextmenu={(e) => e.preventDefault()}
-			onclick={(e) => e.detail === 0 && send('a')}
+			onclick={(e) => e.detail === 0 && !talk() && send('a')}
 				>A</button
 			>
 		</div>

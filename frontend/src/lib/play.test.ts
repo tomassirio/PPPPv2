@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, winRate, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, tierOf, shownAchievements, versionOf, type ScoreRow } from './play';
+import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, nearbyPlayers, winRate, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, tierOf, shownAchievements, versionOf, type ScoreRow } from './play';
 
 describe('play helpers', () => {
+	it('finds ghosts on the same tile or one step away in any cardinal direction', () => {
+		const spot = (user: string, x = 64, y = 60) => ({ user, x, y });
+		expect(nearbyPlayers([spot('me'), spot('overlap'), spot('above', 64, 44), spot('below', 64, 76),
+			spot('left', 48), spot('right', 80), spot('diagonal', 80, 76), spot('far', 96)]))
+			.toEqual(['overlap', 'above', 'below', 'left', 'right']);
+		expect(nearbyPlayers([])).toEqual([]);
+		expect(nearbyPlayers([spot('me')])).toEqual([]);
+	});
+
 	it('maps keys, but not while typing or for held keys', () => {
 		expect(keyToButton({ key: 'ArrowLeft' })).toBe('left');
 		expect(keyToButton({ key: 'z' })).toBe('a');

@@ -11,7 +11,8 @@
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 
-	let { open = $bindable(false) }: { open?: boolean } = $props();
+	let { open = $bindable(false), nearby }: { open?: boolean; nearby?: string[] } = $props();
+	const headingId = $props.id();
 
 	type Viewer = { id: string; name: string; picture: string | null };
 	let viewers = $state<Viewer[]>([]);
@@ -35,7 +36,7 @@
 	});
 
 	const me = $derived(session.me?.id);
-	const others = $derived(viewers.filter((v) => v.id !== me));
+	const others = $derived(viewers.filter((v) => v.id !== me && (!nearby || nearby.includes(v.id))));
 	const busy = $derived(!!(link.state?.session || link.state?.outgoing));
 	const outgoing = $derived(link.state?.outgoing ?? null);
 	const rowOf = (id: string) => board.rows.find((r) => r.userId === id);
@@ -45,15 +46,15 @@
 <dialog
 	bind:this={dialog}
 	class="panel"
-	aria-labelledby="finder-h"
+	aria-labelledby={headingId}
 	onclose={() => (open = false)}
 	onclick={(e) => e.target === dialog && dialog.close()}
 >
 	<div class="body">
 		<header>
 			<div>
-				<h2 id="finder-h">Find someone to link with</h2>
-				<p class="muted small">{others.length ? `${others.length} ${others.length === 1 ? 'Pib' : 'Pibs'} online` : 'Nobody else is online right now.'}</p>
+				<h2 id={headingId}>{nearby ? 'Link with a nearby player' : 'Find someone to link with'}</h2>
+				<p class="muted small">{others.length ? `${others.length} ${others.length === 1 ? 'Pib' : 'Pibs'} ${nearby ? 'nearby' : 'online'}` : nearby ? 'Nobody else is nearby right now.' : 'Nobody else is online right now.'}</p>
 			</div>
 			<button type="button" class="close" aria-label="Close" onclick={() => dialog?.close()}>
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"

@@ -25,6 +25,7 @@
 	import GamePicker from '#lib/components/GamePicker.svelte';
 	import type { Cartridge } from '#lib/cartridges.ts';
 	import LinkPanel from '#lib/components/LinkPanel.svelte';
+	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import Scoreboard from '#lib/components/Scoreboard.svelte';
 	import Activity from '#lib/components/Activity.svelte';
 	import Avatar from '#lib/components/Avatar.svelte';
@@ -42,6 +43,16 @@
 
 	type Tab = 'play' | 'link' | 'scores' | 'chat';
 	let tab = $state<Tab>('play');
+	let screen = $state<ReturnType<typeof GameScreen>>();
+	let talking = $state(false);
+	function talk() {
+		if (link.state?.session || !screen?.nearby().length) return false;
+		talking = true;
+		return true;
+	}
+	$effect(() => {
+		if (link.state?.session) talking = false;
+	});
 	// The desktop's right-hand card.
 	type SideTab = 'scores' | 'activity' | 'chat';
 	let sideTab = $state<SideTab>('scores');
@@ -296,7 +307,7 @@
 					</p>
 				{/if}
 				<div class="screen-slot" bind:this={screenSlot}>
-					<GameScreen>
+					<GameScreen bind:this={screen}>
 						{#snippet leading()}<SpeedControl speed={myGame?.speed} /><ResetControl />{/snippet}
 						{#snippet controls()}<span class="bezel-controls"><ChatOverlayToggle /><SoundControl /></span>{/snippet}
 					</GameScreen>
@@ -327,7 +338,10 @@
 					<span class="rail-picker"><ShellPicker up /></span>
 				</nav>
 				<div class="pad" class:off={tab !== 'play'}>
-					<Gamepad />
+					<Gamepad {talk} />
+					{#if talking}
+						<LinkFinder bind:open={talking} nearby={screen?.nearby() ?? []} />
+					{/if}
 				</div>
 			</section>
 			<section class="mid" class:sheet-off={tab !== 'link'} aria-label="Link cable and your run">

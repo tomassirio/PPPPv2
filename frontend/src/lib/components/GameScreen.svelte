@@ -6,13 +6,12 @@
 <script lang="ts">
 	import Name from '#lib/components/Name.svelte';
 	import type { Snippet } from 'svelte';
-	import { backoff } from '#lib/play.ts';
+	import { backoff, nearbyPlayers, type ScreenPlayer } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
 	import { nameOf, needPicture } from '#lib/pictures.svelte.ts';
 	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
 	import { session } from '#lib/session.svelte.ts';
 
-	type Ghost = { user: string; x: number; y: number };
 	const BUBBLE_MS = 5000;
 
 	// `controls` renders at the right of the bezel's status strip (e.g. the sound control); `leading` right after LIVE.
@@ -24,7 +23,10 @@
 
 	const overlay = $derived(ended ? 'Not linked' : connected ? null : 'Reconnecting…');
 	// Who is on screen this frame (sprite top left, screen pixels; the player first, then ghosts), and their latest chat line.
-	let ghosts = $state<Ghost[]>([]);
+	let ghosts = $state<ScreenPlayer[]>([]);
+	export function nearby() {
+		return nearbyPlayers(ghosts);
+	}
 	let said = $state<Record<string, { id: string; text: string }>>({});
 
 	$effect(() =>
