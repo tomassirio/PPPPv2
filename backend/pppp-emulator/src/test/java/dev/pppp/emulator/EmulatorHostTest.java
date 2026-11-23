@@ -139,6 +139,21 @@ class EmulatorHostTest {
     }
 
     @Test
+    void sendsAboutThirtyPicturesASecondAtAnySpeed() throws Exception {
+        var count = new java.util.concurrent.atomic.AtomicInteger();
+        host.onFrame(px -> count.incrementAndGet());
+        host.insert("test", TestRom.write(dir), dir.resolve("test.sav"));
+        host.powerOn();
+        for (double speed : new double[] {1, 4}) {
+            host.setSpeed(speed);
+            Thread.sleep(200);
+            count.set(0);
+            Thread.sleep(1000);
+            assertThat(count.get()).as("pictures per second at %sx", speed).isBetween(20, 40);
+        }
+    }
+
+    @Test
     void producesFramesUnlessPaused() throws Exception {
         var frames = new ArrayBlockingQueue<int[]>(100);
         host.onFrame(frames::offer);

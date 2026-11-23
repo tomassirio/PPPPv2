@@ -193,7 +193,7 @@
 							<dl class="tiles">
 								<div><dt>Last action</dt><dd>{when(gb.lastActive)}</dd></div>
 								<div>
-									<dt>{gb.linkedWith ? 'Linked with' : 'Shuts down'}</dt>
+									<dt>{gb.linkedWith ? 'Linked with' : gb.state === 'RUNNING' ? 'Pauses' : 'Shuts down'}</dt>
 									<dd>{gb.linkedWith ? nameOf(gb.linkedWith) : gb.closesAt ? `in ${left(gb.closesAt)}` : '–'}</dd>
 								</div>
 								<div>

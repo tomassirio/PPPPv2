@@ -92,11 +92,11 @@ class SessionsApiTest {
     }
 
     @Test
-    void anUntouchedConsoleIsShutDownEvenWithItsTabOpen() throws Exception {
+    void anUntouchedConsoleIsPausedThenShutDownAfterTheGracePeriod() throws Exception {
         pick("idle@x.y");
         String[] away = {null};
         consoles.onAway(id -> away[0] = id);
-        consoles.limits(Duration.ofMinutes(1), Duration.ofMillis(200));
+        consoles.limits(Duration.ofMillis(300), Duration.ofMillis(200)); // stands in for a day paused, an hour untouched
         consoles.open("idle@x.y");
         Thread.sleep(120);
         consoles.touch("idle@x.y"); // the browser's activity ping
@@ -106,7 +106,22 @@ class SessionsApiTest {
         Thread.sleep(250);
         consoles.sweep();
         assertThat(away[0]).isEqualTo("idle@x.y");
+        // Paused, parked, still in memory: Continue resumes it at once.
+        assertThat(consoles.isAwake("idle@x.y")).isFalse();
+        assertThat(consoles.running()).contains("idle@x.y");
+        Thread.sleep(350);
+        consoles.sweep();
         assertThat(consoles.running()).doesNotContain("idle@x.y");
+    }
+
+    @Test
+    void leavingKeepsTheConsoleRunning() throws Exception {
+        pick("leaver@x.y");
+        consoles.open("leaver@x.y");
+        consoles.leave("leaver@x.y"); // the last tab closed
+        consoles.sweep();
+        assertThat(consoles.isAwake("leaver@x.y")).isTrue();
+        consoles.discard("leaver@x.y");
     }
 
     @Test

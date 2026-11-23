@@ -374,7 +374,8 @@ public class EmulatorHost {
     }
 
     /**
-     * Registers a listener for every second emulated frame: 160x144 pixels as 0xRRGGBB, a fresh array
+     * Registers a listener for 30 frames a second of game time at 1x and of wall time at any speed (every second
+     * emulated frame at 1x, every 2*speed-th faster): 160x144 pixels as 0xRRGGBB, a fresh array
      * each call. Runs on the emulator thread, so it must hand off and return immediately.
      */
     public void onFrame(Consumer<int[]> listener) {
@@ -528,7 +529,9 @@ public class EmulatorHost {
                 log.warn("Frame hook failed", e);
             }
         }
-        if (frame % 2 == 0 && !frameListeners.isEmpty()) {
+        // 30 pictures a second at any speed: every second frame at 1x, every 8th at 4x. A screen only needs that
+        // many, and at 4x the 120 a second filled slow links (phones), arriving late and in order: it looked like 1x.
+        if (frame % (2L * Math.max(1, Math.round(speed))) == 0 && !frameListeners.isEmpty()) {
             for (Consumer<int[]> l : frameListeners) {
                 try {
                     l.accept(pixels.clone());

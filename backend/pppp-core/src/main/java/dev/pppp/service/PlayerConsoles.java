@@ -37,10 +37,11 @@ import org.springframework.stereotype.Service;
 
 /**
  * One private Game Boy per player. A console boots when its player opens it (from the state parked on disk, if
- * any) and only lives in memory while they play: once they leave (idle: paused, its state parked) it is shut down
- * after a grace period ({@link #grace}, so a reload or a quick page change finds it still there), and one nobody
- * touched for {@link #inactivity} is parked and shut down even with its tab open (its screen is told why, see
- * {@link #onAway}). A linked console stays: its link session has its own rules (LinkService). The game is picked once.
+ * any). Leaving (the last tab closes, {@link #leave}) keeps it running, so coming back within the hour finds the game
+ * ready. Untouched (no button, no activity ping) for {@link #inactivity} (an hour), with or without a tab open, it is
+ * paused and its state parked ({@link #idle}; open screens are told why, see {@link #onAway}); it stays in memory,
+ * so Continue resumes it at once. Paused for {@link #grace} (a day), it is shut down; the next open boots it from the
+ * parked state. A linked console stays: its link session has its own rules (LinkService). The game is picked once.
  */
 @Service
 public class PlayerConsoles {
@@ -62,9 +63,9 @@ public class PlayerConsoles {
     /** Consoles parked since: userId -> epoch ms; set and cleared inside the consoles map's compute for that key. */
     private final Map<String, Long> idleSince = new ConcurrentHashMap<>();
     /** How long a parked console waits for its player before it is shut down. */
-    private volatile Duration grace = Duration.ofSeconds(60);
+    private volatile Duration grace = Duration.ofDays(1);
     /** How long a running console may go untouched before it is parked and shut down. */
-    private volatile Duration inactivity = Duration.ofMinutes(15);
+    private volatile Duration inactivity = Duration.ofHours(1);
     /** Players whose arrow keys do nothing: linked, standing at the receptionist until they are in the link room. */
     private final Set<String> pinned = ConcurrentHashMap.newKeySet();
     private static final Set<Button> ARROWS = Set.of(Button.UP, Button.DOWN, Button.LEFT, Button.RIGHT);
@@ -115,7 +116,18 @@ public class PlayerConsoles {
         if (consoles.containsKey(userId)) lastActive.put(userId, System.currentTimeMillis());
     }
 
-    /** The player left: tell the listeners, pull their link cable, then pause and park the state on disk. */
+    /**
+     * The player's last tab closed: they are not here (the listeners take them out of the lobby and their challenges,
+     * held buttons let go, their name tag leaves other screens) but the console keeps running until the sweep finds
+     * it untouched for an hour.
+     */
+    public void leave(String userId) {
+        left(userId);
+        releaseAll(userId);
+        ghosts.leave(userId);
+    }
+
+    /** Untouched for too long (or closed): tell the listeners, pull their link cable, then pause and park the state. */
     public void idle(String userId) {
         left(userId);
         releaseAll(userId);
@@ -137,9 +149,9 @@ public class PlayerConsoles {
     }
 
     /**
-     * Shuts down what nobody plays: a parked console past its grace period, and a running one untouched for the
-     * inactivity limit (its screens are told first, see onAway, then it is parked). Linked consoles are left to
-     * LinkService. Both checks are repeated inside the map's compute, so an open() in between wins.
+     * Pauses a running console untouched for the inactivity limit (an hour: idle, its screens are told, see onAway)
+     * and shuts down one paused for the grace period (a day). Linked consoles are left to LinkService. Both checks are
+     * repeated, so an open() in between wins.
      */
     @Scheduled(fixedDelay = 5000)
     public void sweep() {
@@ -157,8 +169,8 @@ public class PlayerConsoles {
             // Untouched for too long. Anything they do meanwhile (open, a button, the activity ping, a link)
             // writes lastActive or links them, so each step checks it is still the same stale moment.
             if (!last.equals(lastActive.get(id)) || linkedWith(id) != null) continue;
-            idle(id); // its screens are told why once it is paused (onAway)
-            shutDown(id, c -> idleSince.containsKey(id) && last.equals(lastActive.get(id)), "inactive");
+            idle(id); // paused and parked, still in memory; its screens are told why (onAway)
+            log.info("Console paused (untouched for {}): {}", inactivity, id);
         }
     }
 
@@ -190,7 +202,7 @@ public class PlayerConsoles {
         }
     }
 
-    /** For tests: the grace period after leaving and the inactivity limit. */
+    /** For tests: how long a paused console stays in memory, and how long a running one may go untouched. */
     public void limits(Duration grace, Duration inactivity) {
         this.grace = grace;
         this.inactivity = inactivity;

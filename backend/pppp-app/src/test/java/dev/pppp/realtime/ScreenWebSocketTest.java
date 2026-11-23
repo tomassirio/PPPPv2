@@ -181,7 +181,7 @@ class ScreenWebSocketTest {
 
             link.unplug(pal);
             assertThat(consoles.linkedWith(friend)).isNull();
-            assertThat(consoles.isAwake(friend)).as("nobody watching: asleep").isFalse();
+            assertThat(consoles.isAwake(friend)).as("nobody watching: left, still running").isTrue();
         } finally {
             consoles.idle(friend);
             consoles.idle(pal);

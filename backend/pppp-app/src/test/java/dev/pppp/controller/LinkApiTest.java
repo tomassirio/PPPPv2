@@ -165,9 +165,10 @@ class LinkApiTest {
         as(SAM, get("/api/v1/link"), null).andExpect(jsonPath("$.session").doesNotExist());
         assertThat(DATA.resolve("saves/" + ASH + "/test.state")).isNotEmptyFile();
         assertThat(DATA.resolve("saves/" + SAM + "/test.state")).isNotEmptyFile();
-        // Nobody has a screen socket open here: once the cable is out, both consoles go to sleep (ScreenWebSocketHandler).
-        assertThat(consoles.isAwake(ASH)).isFalse();
-        assertThat(consoles.isAwake(SAM)).isFalse();
+        // Nobody has a screen socket open here: once the cable is out both have left, and both keep running (they pause
+        // after an hour untouched, PlayerConsoles.sweep).
+        assertThat(consoles.isAwake(ASH)).isTrue();
+        assertThat(consoles.isAwake(SAM)).isTrue();
     }
 
     @Test

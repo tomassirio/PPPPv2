@@ -22,8 +22,9 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 /**
- * /ws/screen: the signed-in player's own console, every second emulated frame as a PNG binary message.
- * Connecting wakes the console; closing the player's last socket pauses it. Each socket has a one-frame
+ * /ws/screen: the signed-in player's own console, 30 frames a second (EmulatorHost.onFrame) as PNG binary messages.
+ * Connecting wakes the console; closing the player's last socket leaves it running (PlayerConsoles.leave: it pauses
+ * after an hour untouched). Each socket has a one-frame
  * handoff, so a slow client just skips frames; nothing here blocks an emulator thread.
  * Before a frame whose players changed (and to a socket that just connected) goes a text message,
  * {"ghosts": [{"user", "x", "y"}]}: the player (first) and each ghost's sprite top left in screen pixels, for the
@@ -96,10 +97,10 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
             return;
         }
         // The console went idle between registering and opening (onAway took this socket, closing it with AWAY):
-        // open() just resumed it, so put it back to idle unless another screen holds it.
+        // open() just resumed it; with no screen left it simply keeps running, as after any leave.
         Viewer v = viewers.get(userId);
         if (v == null || !v.sockets().containsKey(session)) {
-            if (!viewers.containsKey(userId) && consoles.linkedWith(userId) == null) consoles.idle(userId);
+            if (!viewers.containsKey(userId) && consoles.linkedWith(userId) == null) consoles.leave(userId);
         }
     }
 
@@ -135,17 +136,17 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         });
         if (!last[0]) return;
         // A linked player who went to another tab keeps their console running and the cable in: the partner's
-        // game runs in step with it. It goes idle when the session ends (below).
+        // game runs in step with it, until the session ends (below).
         // A closed browser: LinkService ends the session after a minute with no events socket.
-        if (consoles.linkedWith(userId) == null) consoles.idle(userId);
+        if (consoles.linkedWith(userId) == null) consoles.leave(userId);
     }
 
-    /** A link session ended: whoever of the pair is not watching their screen goes idle now. Takes no lock of ours. */
+    /** A link session ended: whoever of the pair is not watching their screen has left (still running). No lock of ours. */
     @EventListener
     public void onLinkEnded(LiveEvent event) {
         if (!(event.payload() instanceof SessionEvent s) || !"ENDED".equals(s.status())) return;
         for (String id : List.of(s.a(), s.b())) {
-            if (!viewers.containsKey(id)) consoles.idle(id);
+            if (!viewers.containsKey(id)) consoles.leave(id);
         }
     }
 

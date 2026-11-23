@@ -11,18 +11,19 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 
 ## Status
 - Done: link cable in `EmulatorHost` (`link`, `unlink`, `isLinked`); `LinkCableTest` swaps bytes between two consoles.
-- Done: one private console per player. `PlayerConsoles` (core) boots it when `/ws/screen` connects, pauses it and
-  parks its state in `saves/{user}/{cartridge}.state` when the player's last socket closes. The game is picked once
+- Done: one private console per player. `PlayerConsoles` (core) boots it when `/ws/screen` connects; pausing parks
+  its state in `saves/{user}/{cartridge}.state` (see the lifecycle below). The game is picked once
   (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`. Key bindings per user: `GET/PUT /api/v1/me/keys`, Redis hash `pibs:keys:{userId}` (kept across a reset).
   `/ws/screen` and `/ws/audio` carry only the caller's own console. /play shows `GamePicker` until a game is picked.
-- Done: consoles only live in memory while someone plays. `PlayerConsoles.sweep` (every 5 s) shuts a console down
-  60 s after its player's last /play tab closed (`idle`: paused, battery flushed, state parked; reopening within the
-  grace period cancels) and after 15 min with no button and no browser activity ping (`"active"` on /ws/input, at
-  most once a minute) even with its tab open; linked consoles are left to LinkService. `onAway` (fired once a console
+- Done: console lifecycle. The player's last /play tab closing only `leave`s (out of the lobby, buttons released,
+  name tag off other screens): the console keeps running. `PlayerConsoles.sweep` (every 5 s) pauses one untouched for
+  an hour (`inactivity`: no button and no browser activity ping, `"active"` on /ws/input at most once a minute; tab
+  open or not; `idle`: paused, battery flushed, state parked, still in memory so Continue resumes at once) and shuts
+  down one paused for a day (`grace`); linked consoles are left to LinkService. `onAway` (fired once a console
   is paused and parked) closes its screens with 4408 ("Paused while you were away" + Continue) and admin watchers
   with 4410. The next open boots from the parked state. Admin: People's Manage opens `/admin/players/{id}`: their
-  Game Boy (`GET /api/v1/admin/sessions/{userId}`: RUNNING / IDLE / PAUSED-not-saved / CLOSED, last action, shutdown
-  time, .sav and .state info; `POST /{userId}/close`; `GET /{userId}/save` downloads the .sav), its screen live
+  Game Boy (`GET /api/v1/admin/sessions/{userId}`: RUNNING / IDLE / PAUSED-not-saved / CLOSED, last action, pause or
+  shutdown time, .sav and .state info; `POST /{userId}/close`; `GET /{userId}/save` downloads the .sav), its screen live
   while it runs (admins may watch any running console on /ws/watch/{id}) or powered off, stats, Reset run.
 - Done: god messages. `POST /api/v1/admin/players/{userId}/god-message` {text} (1-200 chars; 409 when they have no
   tab open; not stored; admin chat logs it) sends `GOD_MESSAGE` {text, at} to that player's /ws/events sockets only
@@ -117,7 +118,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   segmented control, the sorts as chips scrolling sideways; each table row a small card (no sideways scroll). Profiles on phones: the header a centred stack, the tabs
   share the width ("Stats"). Sign-in on phones: the handheld with the full banner on its bezel (tapping its screen is START),
   the numbers on a pill and the Google button, sized to fit one screen. `GET /api/v1/me` is open: 204 when signed out.
-  Tab titles: "<page> · PPPPv2". Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order; a third
+  Tab titles: "<page> · PPPPv2". The screen stream is 30 pictures a second at any speed
+  (`EmulatorHost.onFrame`: every 2*speed-th frame); 120 a second at 4x lagged on phones and looked like 1x. Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order; a third
   of the width or a flick switches, else it springs back; not
   from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
   phones (record as stat tiles, Trade/Battle tiles with a hint); "Nobody is waiting" is an empty state on every size.
