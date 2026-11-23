@@ -38,4 +38,18 @@ class V1RedTest {
         rom[0x134] = 'X';
         assertThat(new V1Red().patch(rom)).isSameAs(rom);
     }
+
+    /** The Hall of Fame team in its order, at Red's levels, one nickname each. */
+    @Test
+    void aaaaFieldsTheHallOfFameTeamAtRedsLevels() {
+        int[] species = new int[6], levels = new int[6];
+        for (int i = 0; i < 6; i++) {
+            levels[i] = V1Red.RECORD[6 + i * 6] & 0xFF;
+            species[i] = V1Red.RECORD[7 + i * 6] & 0xFF;
+        }
+        assertThat(species).containsExactly(144, 148, 6, 145, 97, 75); // Articuno Dragonair Charizard Zapdos Hypno Graveler
+        assertThat(Arrays.stream(levels).sorted().toArray()).containsExactly(73, 75, 77, 77, 77, 81); // Red's
+        assertThat(V1Red.RECORD[V1Red.RECORD.length - 1] & 0xFF).isEqualTo(0xFF);
+        assertThat(V1Red.NICKNAMES).hasSize(6 * 11);
+    }
 }

@@ -4,8 +4,10 @@ import eu.rekawek.coffeegb.core.AddressSpace;
 import java.util.Arrays;
 
 /**
- * Mt. Silver's Red fights as PPPP v1's player: AAAA with v1's party as of v1's save state of 2026-11-17 15:30 UTC
- * (same species, levels, moves and nicknames). Gold, Silver and Crystal; other ROMs are left alone. One per console:
+ * Mt. Silver's Red fights as PPPP v1's player: AAAA with the team that beat v1's Pokémon League, as its Hall of Fame
+ * recorded it (v1's battery save, sHallOfFame: species, nicknames and order; the moves are those six Pokémon's in the
+ * same save, 2026-11-23), raised to Red's own levels: Red's 81, 77, 77, 77, 75 and 73 handed out in order of their
+ * Hall of Fame levels. Gold, Silver and Crystal; other ROMs are left alone. One per console:
  * {@link #patch} is the ROM patch for {@code EmulatorHost.insert}, {@link #nicknames} its frame hook.
  * <p>
  * ROM: Red's trainer record (pret data/trainers/parties.asm RedGroup, "RED@" TRAINERTYPE_MOVES) is rewritten as
@@ -27,21 +29,21 @@ public final class V1Red {
     /** "AAAA@", TRAINERTYPE_MOVES, {level, species (Pokédex number), 4 moves (ids 1-165 match Gen 1)} x 6, end. */
     static final byte[] RECORD = bytes(
             0x80, 0x80, 0x80, 0x80, 0x50, 1,
-            25, 134, 33, 28, 58, 57,    // Vaporeon: Tackle, Sand-Attack, Ice Beam, Surf
-            41, 97, 29, 95, 94, 93,     // Hypno: Headbutt, Hypnosis, Psychic, Confusion
-            33, 45, 72, 77, 79, 15,     // Vileplume: Mega Drain, PoisonPowder, Sleep Powder, Cut
-            42, 6, 5, 99, 52, 163,      // Charizard: Mega Punch, Rage, Ember, Slash
-            21, 147, 35, 43, 86, 97,    // Dratini: Wrap, Leer, Thunder Wave, Agility
-            42, 75, 70, 89, 157, 91,    // Graveler: Strength, Earthquake, Rock Slide, Dig
+            81, 144, 64, 58, 19, 59,    // Articuno (HoF Lv 58): Peck, Ice Beam, Fly, Blizzard
+            73, 148, 21, 59, 86, 87,    // Dragonair (40): Slam, Blizzard, Thunder Wave, Thunder
+            77, 6, 5, 126, 90, 53,      // Charizard (47): Mega Punch, Fire Blast, Fissure, Flamethrower
+            77, 145, 84, 65, 87, 0,     // Zapdos (52): ThunderShock, Drill Peck, Thunder
+            75, 97, 29, 149, 94, 93,    // Hypno (44): Headbutt, Psywave, Psychic, Confusion
+            77, 75, 70, 89, 153, 91,    // Graveler (47): Strength, Earthquake, Explosion, Dig
             0xFF);
 
-    /** v1's nicknames in the shared Gen 1/2 charmap, "@"-padded to MON_NAME_LENGTH (11), party order. */
+    /** The Hall of Fame's nicknames in the shared Gen 1/2 charmap, "@"-padded to MON_NAME_LENGTH (11), its order. */
     static final byte[] NICKNAMES = names(
-            bytes(0x95, 0x95, 0x84, 0x95, 0x95),                          // VVEVV
-            bytes(0x8F, 0x80, 0x89, 0x80),                                // PAJA
-            bytes(0x91, 0x80, 0x81, 0x80, 0x8D, 0x88, 0x93, 0x8E),        // RABANITO
-            bytes(0x82, 0x87, 0x80, 0x91, 0x88, 0x99, 0x80, 0x91, 0x83),  // CHARIZARD
+            bytes(0x88, 0x82, 0x84, 0x7F, 0x81, 0x88, 0x91, 0x81),        // ICE BIRB
             bytes(0xEF, 0xE6, 0xF5, 0xE6, 0x7F, 0xE1, 0xE2, 0xE7),        // ♂?♀? PkMn!
+            bytes(0x82, 0x87, 0x8E, 0x91, 0x88, 0x99, 0x80, 0x91, 0x83),  // CHORIZARD (renamed since; the HoF has CHARIZARD)
+            bytes(0x91, 0x80, 0x98, 0x88, 0x93, 0x8E),                    // RAYITO
+            bytes(0x8F, 0x80, 0x89, 0x80),                                // PAJA
             bytes(0x82, 0x80, 0x92, 0x82, 0x8E, 0x93, 0x84));             // CASCOTE
 
     /** wBattleMode, wOtherTrainerClass, wCurOTMon, wEnemyMonNickname (pret pokecrystal11.sym / pokegold.sym). */
