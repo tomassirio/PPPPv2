@@ -1,4 +1,7 @@
-name: Build and Deploy
+name: Build, Release and Deploy
+
+# Every push to main is a release: the next version (patch bump; "#minor" or "#major" in the commit message for
+# more), images tagged with it, both Helm charts as OCI packages, a GitHub Release, then the deploy.
 
 on:
   push:
@@ -9,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       image-tag:
-        description: 'Existing image tag to deploy (empty = build this commit)'
+        description: 'Existing version or image tag to deploy, e.g. 2.0.3 (empty = build and release this commit)'
         required: false
         type: string
         default: ''
@@ -23,8 +26,37 @@ env:
   NAMESPACE: ppppv2
 
 jobs:
-  build:
+  version:
     if: ${{ inputs.image-tag == '' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A commit that already has a release keeps it (re-runs); otherwise bump the latest v* tag; the first is 2.0.0.
+      - id: next
+        run: |
+          tagged=$(git tag --points-at HEAD --list 'v*' --sort=-v:refname | head -1)
+          last=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ -n "$tagged" ]; then
+            version=${tagged#v}
+          elif [ -z "$last" ]; then
+            version=2.0.0
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            message=$(git log -1 --format=%B)
+            if grep -q '#major' <<< "$message"; then version=$((major + 1)).0.0
+            elif grep -q '#minor' <<< "$message"; then version=$major.$((minor + 1)).0
+            else version=$major.$minor.$((patch + 1)); fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: version
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -85,18 +117,66 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
+            ghcr.io/${{ github.repository_owner }}/ppppv2-${{ matrix.app }}:${{ needs.version.outputs.version }}
             ghcr.io/${{ github.repository_owner }}/ppppv2-${{ matrix.app }}:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/ppppv2-${{ matrix.app }}:latest
+          labels: |
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
 
+  release:
+    needs: [version, build]
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      CHARTS: oci://ghcr.io/${{ github.repository_owner }}/charts
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Each chart is packaged at the release version and points at that version's image (not "latest").
+      - name: Package and push the Helm charts
+        run: |
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for app in backend frontend; do
+            sed -i "s/^  tag: latest$/  tag: \"$VERSION\"/" "$app/chart/values.yaml"
+            grep -q "^  tag: \"$VERSION\"$" "$app/chart/values.yaml"
+            helm package "$app/chart" --version "$VERSION" --app-version "$VERSION" -d dist
+            helm push "dist/ppppv2-$app-$VERSION.tgz" "$CHARTS"
+          done
+
+      - name: Create the GitHub Release
+        run: |
+          gh release view "v$VERSION" >/dev/null 2>&1 && { echo "v$VERSION exists"; exit 0; }
+          previous=$(git tag --list 'v*' --sort=-v:refname | grep -vx "v$VERSION" | head -1 || true)
+          owner=${{ github.repository_owner }}
+          {
+            echo "## Changes"
+            if [ -n "$previous" ]; then git log --no-merges --format='- %s (%h)' "$previous..$GITHUB_SHA"
+            else echo "- First release of PPPPv2."; fi
+            echo
+            echo "## Packages"
+            echo "- \`ghcr.io/$owner/ppppv2-backend:$VERSION\`"
+            echo "- \`ghcr.io/$owner/ppppv2-frontend:$VERSION\`"
+            echo "- Charts: \`helm install ppppv2-backend $CHARTS/ppppv2-backend --version $VERSION\` (and \`ppppv2-frontend\`)"
+          } > notes.md
+          gh release create "v$VERSION" dist/*.tgz --target "$GITHUB_SHA" --title "v$VERSION" --notes-file notes.md
+
   deploy:
-    needs: build
+    needs: [version, build]
     if: ${{ github.event_name != 'pull_request' && !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     runs-on: ubuntu-latest
     environment: prod
     env:
-      IMAGE_TAG: ${{ inputs.image-tag || github.sha }}
+      IMAGE_TAG: ${{ inputs.image-tag || needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 

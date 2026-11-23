@@ -112,8 +112,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, README
   (still describes v1).
-- Deploy: `.github/workflows/deploy.yml` (push to main: tests, arm64 images `ghcr.io/tomassirio/ppppv2-{backend,
-  frontend}`, Helm releases `ppppv2-backend` / `ppppv2-frontend` in namespace `ppppv2`; GitHub environment `prod`:
+- Deploy: `.github/workflows/deploy.yml`. Every push to main is a release: the next version (latest `v*` tag, patch
+  bump; `#minor`/`#major` in the commit message; first 2.0.0), arm64 images `ghcr.io/tomassirio/ppppv2-{backend,
+  frontend}:{version,sha,latest}`, both charts as OCI packages `oci://ghcr.io/tomassirio/charts/ppppv2-*` (image tag
+  = version), a GitHub Release `v{version}` (commits since the last one, chart .tgz attached), then Helm releases `ppppv2-backend` / `ppppv2-frontend` in namespace `ppppv2`; GitHub environment `prod`:
   secrets TWINGATE_SERVICE_KEY, KUBECONFIG_CONTENT, GOOGLE_CLIENT_SECRET; vars GOOGLE_CLIENT_ID, PPPP_ADMINS).
   Namespace and `ppppv2-data-pvc` (NFS 192.168.2.150:/volume1/PPPPv2) come from turing-pi-server's storage chart; v1
   stays in `pppp` with its own /volume1/PPPP. CI deploys as `github-deployer` (`deploy/ci-access.yaml`, namespace
