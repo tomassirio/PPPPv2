@@ -8,7 +8,7 @@ data/
 *.iml
 .DS_Store
 .env
-# Never commit cluster credentials (deploy/kubeconfig.sh prints to stdout only)
+# Never commit cluster credentials
 kubeconfig
 *.kubeconfig
 kubeconfig*.y*ml
