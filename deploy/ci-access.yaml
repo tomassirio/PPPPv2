@@ -1,7 +1,7 @@
 # The GitHub Actions deployer: may manage anything inside the ppppv2 namespace and nothing else (the built-in
 # "admin" ClusterRole, bound only here). Applied once by hand, after turing-pi-server's storage chart has created
-# the namespace; then deploy/kubeconfig.sh sets the pipeline's KUBECONFIG_CONTENT secret to it:
-#   kubectl --context turing apply -f deploy/ci-access.yaml && deploy/kubeconfig.sh
+# the namespace (its kubeconfig goes into the pipeline's KUBECONFIG_CONTENT secret):
+#   kubectl --context turing apply -f deploy/ci-access.yaml
 # Its token never expires (unlike the k3s admin client certificate, which lasts a year).
 apiVersion: v1
 kind: ServiceAccount

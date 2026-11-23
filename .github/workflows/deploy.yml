@@ -190,7 +190,7 @@ jobs:
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_CONTENT }}
         run: |
-          [ -n "$KUBECONFIG_CONTENT" ] || { echo "::error::KUBECONFIG_CONTENT is empty: run deploy/kubeconfig.sh"; exit 1; }
+          [ -n "$KUBECONFIG_CONTENT" ] || { echo "::error::KUBECONFIG_CONTENT is empty"; exit 1; }
           mkdir -p ~/.kube
           echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config

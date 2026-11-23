@@ -119,7 +119,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   secrets TWINGATE_SERVICE_KEY, KUBECONFIG_CONTENT, GOOGLE_CLIENT_SECRET; vars GOOGLE_CLIENT_ID, PPPP_ADMINS).
   Namespace and `ppppv2-data-pvc` (NFS 192.168.2.150:/volume1/PPPPv2) come from turing-pi-server's storage chart; v1
   stays in `pppp` with its own /volume1/PPPP. CI deploys as `github-deployer` (`deploy/ci-access.yaml`, namespace
-  admin only; `deploy/kubeconfig.sh` sets KUBECONFIG_CONTENT to it). Public hostname: a Cloudflare Tunnel route to
+  admin only; its base64 kubeconfig is KUBECONFIG_CONTENT). Public hostname: a Cloudflare Tunnel route to
   `ppppv2-frontend.ppppv2:80`, set in the Cloudflare dashboard. v1's data was archived on 2026-11-23 to v1's
   `data/v1-archive-20261123/` (local, gitignored).
 
