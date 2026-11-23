@@ -154,8 +154,8 @@ public class LinkService {
         requireCableClub(userId, userId);
         requireCableClub(userId, c.from());
         // Either side may have been on another page: both consoles wake up and both browsers go to /play.
-        // ponytail: a console woken here with nobody watching only parks when a screen socket closes; add an idle
-        // timeout if Pibs accept and never open /play.
+        // A console woken here with nobody watching runs until the session ends (then it parks and shuts down after
+        // PlayerConsoles' grace period).
         consoles.open(c.from());
         consoles.open(userId);
         for (String id : List.of(userId, c.from())) {
@@ -228,7 +228,11 @@ public class LinkService {
                 stranded.remove(id);
             } else if (now - stranded.computeIfAbsent(id, k -> now) >= strandedLimit.toMillis()) {
                 stranded.remove(id);
-                consoles.reset(id);
+                try {
+                    consoles.reset(id);
+                } catch (IllegalStateException e) {
+                    continue; // shut down meanwhile (PlayerConsoles.sweep): nothing left to reset
+                }
                 chat.postSystem(name(id) + "'s Game Boy was reset: the link cable came out mid-link, so it was stuck waiting");
             }
         }
@@ -237,7 +241,11 @@ public class LinkService {
             if (s == null || t.getValue() < now) talk.remove(t.getKey());
             else if (dig.atReceptionist(t.getKey(), s.kind())) {
                 talk.remove(t.getKey());
-                consoles.press(t.getKey(), "a", 1);
+                try {
+                    consoles.press(t.getKey(), "a", 1);
+                } catch (IllegalStateException e) {
+                    // console gone meanwhile; the session sweep below ends what needs ending
+                }
             }
         }
         for (SessionEvent s : sessions.values().stream().distinct().toList()) {

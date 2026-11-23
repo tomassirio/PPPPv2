@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,15 +27,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * One private Game Boy per player. A console boots the first time its player opens it and then stays in
- * memory: paused, with its state parked on disk, whenever the player is away. The game is picked once.
+ * One private Game Boy per player. A console boots when its player opens it (from the state parked on disk, if
+ * any) and only lives in memory while they play: once they leave (idle: paused, its state parked) it is shut down
+ * after a grace period ({@link #grace}, so a reload or a quick page change finds it still there), and one nobody
+ * touched for {@link #inactivity} is parked and shut down even with its tab open (its screen is told why, see
+ * {@link #onAway}). A linked console stays: its link session has its own rules (LinkService). The game is picked once.
  */
 @Service
 public class PlayerConsoles {
@@ -49,6 +56,15 @@ public class PlayerConsoles {
     private final List<BiConsumer<String, int[]>> frameListeners = new CopyOnWriteArrayList<>();
     private final List<BiConsumer<String, short[]>> audioListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<String>> idleListeners = new CopyOnWriteArrayList<>();
+    private final List<Consumer<String>> awayListeners = new CopyOnWriteArrayList<>();
+    /** When each player last did something (a button, or the browser's activity ping): userId -> epoch ms. */
+    private final Map<String, Long> lastActive = new ConcurrentHashMap<>();
+    /** Consoles parked since: userId -> epoch ms; set and cleared inside the consoles map's compute for that key. */
+    private final Map<String, Long> idleSince = new ConcurrentHashMap<>();
+    /** How long a parked console waits for its player before it is shut down. */
+    private volatile Duration grace = Duration.ofSeconds(60);
+    /** How long a running console may go untouched before it is parked and shut down. */
+    private volatile Duration inactivity = Duration.ofMinutes(15);
     /** Players whose arrow keys do nothing: linked, standing at the receptionist until they are in the link room. */
     private final Set<String> pinned = ConcurrentHashMap.newKeySet();
     private static final Set<Button> ARROWS = Set.of(Button.UP, Button.DOWN, Button.LEFT, Button.RIGHT);
@@ -84,8 +100,15 @@ public class PlayerConsoles {
         consoles.compute(userId, (id, c) -> {
             if (c == null) c = start(id);
             c.host().resume();
+            idleSince.remove(id);
+            lastActive.put(id, System.currentTimeMillis());
             return c;
         });
+    }
+
+    /** The player did something on the site (the browser's activity ping): their console is not abandoned. */
+    public void touch(String userId) {
+        if (consoles.containsKey(userId)) lastActive.put(userId, System.currentTimeMillis());
     }
 
     /** The player left: tell the listeners, pull their link cable, then pause and park the state on disk. */
@@ -94,11 +117,122 @@ public class PlayerConsoles {
         releaseAll(userId);
         ghosts.leave(userId);
         unlink(userId); // before pausing: a paused driver would freeze the other player's console too
+        boolean[] paused = {false};
         consoles.computeIfPresent(userId, (id, c) -> {
+            paused[0] = true;
             c.host().pause();
-            park(id, c);
+            c.host().flushBattery(); // the game's own save on disk too, not only inside the parked state
+            // Only a console whose state is safely on disk may be shut down; one that could not park stays paused
+            // in memory (and tries again the next time it goes idle).
+            if (park(id, c)) idleSince.putIfAbsent(id, System.currentTimeMillis());
             return c;
         });
+        // Now that it is paused: any screen or watcher that attached meanwhile is told (4408 / 4410) instead of
+        // staring at a frozen frame.
+        if (paused[0]) away(userId);
+    }
+
+    /**
+     * Shuts down what nobody plays: a parked console past its grace period, and a running one untouched for the
+     * inactivity limit (its screens are told first, see onAway, then it is parked). Linked consoles are left to
+     * LinkService. Both checks are repeated inside the map's compute, so an open() in between wins.
+     */
+    @Scheduled(fixedDelay = 5000)
+    public void sweep() {
+        long now = System.currentTimeMillis();
+        for (String id : List.copyOf(consoles.keySet())) {
+            if (linkedWith(id) != null) continue;
+            Long since = idleSince.get(id);
+            if (since != null) {
+                // The same idle spell still (a reopen and leave in between starts a new grace period).
+                if (now - since >= grace.toMillis()) shutDown(id, c -> since.equals(idleSince.get(id)), "left");
+                continue;
+            }
+            Long last = lastActive.get(id);
+            if (last == null || now - last < inactivity.toMillis()) continue;
+            // Untouched for too long. Anything they do meanwhile (open, a button, the activity ping, a link)
+            // writes lastActive or links them, so each step checks it is still the same stale moment.
+            if (!last.equals(lastActive.get(id)) || linkedWith(id) != null) continue;
+            idle(id); // its screens are told why once it is paused (onAway)
+            shutDown(id, c -> idleSince.containsKey(id) && last.equals(lastActive.get(id)), "inactive");
+        }
+    }
+
+    /**
+     * Called with the player's id once their console is paused and parked (they left, nobody touched it for too
+     * long, or an admin closed it): its screens and watchers are told it stopped.
+     */
+    public void onAway(Consumer<String> listener) {
+        awayListeners.add(listener);
+    }
+
+    /**
+     * Parks the player's console and shuts it down now (an admin's Close; a link is pulled first). False without one,
+     * or when its state could not be parked (it stays, paused).
+     */
+    public boolean close(String userId) {
+        if (!consoles.containsKey(userId)) return false;
+        idle(userId);
+        return shutDown(userId, c -> idleSince.containsKey(userId), "closed by an admin");
+    }
+
+    private void away(String userId) {
+        for (Consumer<String> l : awayListeners) {
+            try {
+                l.accept(userId);
+            } catch (RuntimeException e) {
+                log.warn("Away listener failed for {}", userId, e);
+            }
+        }
+    }
+
+    /** For tests: the grace period after leaving and the inactivity limit. */
+    public void limits(Duration grace, Duration inactivity) {
+        this.grace = grace;
+        this.inactivity = inactivity;
+    }
+
+    /**
+     * Stops and removes the console if still(c) holds. Its state is parked already. All of it happens inside the
+     * map's compute for that player, so an open() waits until the old console has flushed its battery save and
+     * stopped, and never boots a second one beside it.
+     */
+    private boolean shutDown(String userId, Predicate<Console> still, String why) {
+        boolean[] gone = {false};
+        consoles.computeIfPresent(userId, (id, c) -> {
+            if (linkedWith(id) != null || !still.test(c)) return c;
+            c.presses().shutdownNow();
+            c.host().shutdown(); // flushes the battery save
+            idleSince.remove(id);
+            lastActive.remove(id);
+            gone[0] = true;
+            return null;
+        });
+        if (gone[0]) log.info("Console shut down ({}): {}", why, userId);
+        return gone[0];
+    }
+
+    /**
+     * A console in memory as the admin overview shows it. state: RUNNING, IDLE (parked, waiting to shut down) or
+     * PAUSED (its state could not be parked, so it stays).
+     */
+    public record Session(String userId, String cartridgeId, String state, String linkedWith, Long lastActive,
+                          Long closesAt) {}
+
+    /** Every console in memory now. */
+    public List<Session> sessions() {
+        List<Session> out = new ArrayList<>();
+        consoles.forEach((id, c) -> {
+            String peer = linkedWith(id);
+            Long since = idleSince.get(id), last = lastActive.get(id);
+            Long closes = peer != null ? null
+                    : since != null ? since + grace.toMillis()
+                    : last != null ? last + inactivity.toMillis() : null;
+            // PAUSED: paused but not parked (writing its state failed): it stays in memory, not shut down.
+            String state = since != null ? "IDLE" : c.host().status().paused() ? "PAUSED" : "RUNNING";
+            out.add(new Session(id, c.cartridgeId(), state, peer, last, "PAUSED".equals(state) ? null : closes));
+        });
+        return out;
     }
 
     /**
@@ -109,6 +243,7 @@ public class PlayerConsoles {
     public void reset(String userId) {
         Console c = consoles.get(userId);
         if (c == null) throw new IllegalStateException("Your console is not running");
+        touch(userId);
         left(userId);
         unlink(userId);
         releaseAll(userId);
@@ -130,6 +265,8 @@ public class PlayerConsoles {
     public void discard(String userId) {
         idle(userId);
         Console c = consoles.remove(userId);
+        idleSince.remove(userId);
+        lastActive.remove(userId);
         if (c == null) return;
         c.presses().shutdownNow();
         c.host().shutdown();
@@ -142,6 +279,7 @@ public class PlayerConsoles {
     public void press(String userId, String command, int repeat) {
         Console c = consoles.get(userId);
         if (c == null) throw new IllegalStateException("Your console is not running");
+        touch(userId);
         List<Button> parsed = CommandParser.parse(command, repeat);
         List<Button> steps = pinned.contains(userId) ? parsed.stream().filter(b -> !ARROWS.contains(b)).toList() : parsed;
         if (steps.isEmpty() || c.pending().get() > MAX_PENDING) return;
@@ -161,7 +299,9 @@ public class PlayerConsoles {
     public void hold(String userId, Button button, boolean down) {
         if (down && pinned.contains(userId) && ARROWS.contains(button)) return;
         Console c = consoles.get(userId);
-        if (c != null) c.host().hold(button, down);
+        if (c == null) return;
+        if (down) touch(userId);
+        c.host().hold(button, down);
     }
 
     /**
@@ -249,6 +389,8 @@ public class PlayerConsoles {
         if (linkedWith(userId) != null) throw new IllegalStateException("Unplug the link cable first");
         players.saveSprite(userId, key);
         Console c = consoles.remove(userId);
+        idleSince.remove(userId);
+        lastActive.remove(userId); // open() below sets it again for a running one
         if (c == null) return;
         boolean awake = !c.host().status().paused();
         releaseAll(userId);
@@ -337,13 +479,21 @@ public class PlayerConsoles {
     /** Bytes of the player's console memory, or null when their console is not in memory or WRAM bank 1 is not switched in. */
     public byte[] readBytes(String userId, int address, int length) {
         Console c = consoles.get(userId);
-        return c == null ? null : c.host().readBytes(address, length);
+        try {
+            return c == null ? null : c.host().readBytes(address, length);
+        } catch (IllegalStateException e) {
+            return null; // powered off meanwhile (shut down by the sweep)
+        }
     }
 
     /** Runs task on the player's console between frames with its bus, to read and write. Null when their console is not in memory. */
     public <T> T withBus(String userId, Function<AddressSpace, T> task) {
         Console c = consoles.get(userId);
-        return c == null ? null : c.host().withBus(task);
+        try {
+            return c == null ? null : c.host().withBus(task);
+        } catch (IllegalStateException e) {
+            return null; // powered off meanwhile (shut down by the sweep)
+        }
     }
 
     /**
@@ -354,11 +504,11 @@ public class PlayerConsoles {
     public byte[] batterySave(String userId) {
         Console c = consoles.get(userId);
         if (c == null) return null;
-        c.host().flushBattery();
         try {
+            c.host().flushBattery();
             return Files.readAllBytes(files.playerBatterySave(userId, c.cartridgeId()));
-        } catch (IOException e) {
-            return null;
+        } catch (IOException | IllegalStateException e) {
+            return null; // unreadable, or powered off meanwhile
         }
     }
 
@@ -415,15 +565,18 @@ public class PlayerConsoles {
         return new Console(host, game, Executors.newSingleThreadExecutor(Thread.ofVirtual().factory()), new AtomicInteger());
     }
 
-    private void park(String userId, Console c) {
+    /** Writes the console's state to its .state file (atomically). False when it could not. */
+    private boolean park(String userId, Console c) {
         try {
             Path state = files.playerState(userId, c.cartridgeId());
             Path tmp = state.resolveSibling(state.getFileName() + ".tmp");
             Files.createDirectories(state.getParent());
             Files.write(tmp, c.host().saveState());
             Files.move(tmp, state, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            return true;
         } catch (IOException | RuntimeException e) {
             log.warn("Could not park the console of {}", userId, e);
+            return false;
         }
     }
 }

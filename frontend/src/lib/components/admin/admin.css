@@ -48,13 +48,90 @@
 	text-transform: uppercase;
 	color: var(--muted);
 }
+.admin .notice-slot {
+	position: fixed;
+	right: 24px;
+	bottom: 24px;
+	z-index: 40;
+	width: min(420px, calc(100vw - 32px));
+}
+/* A toast: a tick for done (goes away by itself), a warning sign for errors (stays until dismissed). */
 .admin .notice {
-	min-height: 1.4em;
-	margin: 0 0 12px;
+	margin: 0;
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 12px 12px 12px 14px;
+	border-radius: 12px;
+	border: 1px solid color-mix(in oklab, var(--grass) 55%, transparent);
+	background: color-mix(in oklab, var(--grass) 10%, var(--panel));
+	box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
+	color: var(--text);
+	line-height: 1.4;
+	animation: notice-in 0.2s ease-out;
+}
+.admin .notice > svg {
+	flex: none;
+	margin-top: 2px;
 	color: var(--grass);
 }
 .admin .notice.error {
+	border-color: color-mix(in oklab, var(--danger) 60%, transparent);
+	background: color-mix(in oklab, var(--danger) 12%, var(--panel));
+}
+.admin .notice.error > svg {
 	color: var(--danger);
+}
+.admin .notice .msg {
+	flex: 1;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+.admin .notice .x {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: 6px;
+	background: none;
+	color: var(--muted);
+	cursor: pointer;
+}
+.admin .notice .x:hover {
+	background: var(--sunk);
+	color: var(--text);
+}
+@keyframes notice-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+}
+/* Back to play: the same gold Play button as the top bar's. */
+.admin a.play {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	height: 36px;
+	padding: 0 14px;
+	border-radius: 8px;
+	font-size: 14px;
+	font-weight: 800;
+	text-decoration: none;
+	color: var(--ink);
+	background: var(--accent);
+	box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 55%, #000), 0 4px 14px -4px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.admin a.play:hover {
+	color: var(--ink);
+	background: color-mix(in srgb, var(--accent) 88%, #fff);
+}
+.admin a.play:focus-visible {
+	outline: 3px solid var(--accent-text);
+	outline-offset: 2px;
 }
 .admin .muted {
 	color: var(--muted);
@@ -374,4 +451,33 @@
 	.admin .grid label.check {
 		grid-column: 1 / -1;
 	}
+}
+/* A panel across both columns (the Game Boys table). */
+.admin .wide {
+	margin-top: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+/* Manage: a player's admin page, as a link that looks like the panels' buttons. */
+.admin a.manage {
+	display: inline-flex;
+	align-items: center;
+	height: 32px;
+	padding: 0 12px;
+	border-radius: 8px;
+	border: 1px solid var(--link);
+	background: var(--link-tint);
+	color: var(--link);
+	font-weight: 600;
+	font-size: 13px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.admin a.manage:hover {
+	background: color-mix(in oklab, var(--link) 18%, transparent);
+}
+.admin a.manage:focus-visible {
+	outline: 3px solid var(--accent-text);
+	outline-offset: 2px;
 }

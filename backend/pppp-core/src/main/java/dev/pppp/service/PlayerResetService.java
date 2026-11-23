@@ -43,8 +43,8 @@ public class PlayerResetService {
             throw new NotFoundException("No run to reset for " + userId);
         }
         // ponytail: a progress poll already in flight can still write one award after this; reset again if seen.
+        players.delete(userId); // first: a screen reconnecting meanwhile gets "pick a game", not the old run back
         consoles.discard(userId);
-        players.delete(userId);
         progress.delete(userId);
         files.deletePlayerFiles(userId);
         tracker.forget(userId);

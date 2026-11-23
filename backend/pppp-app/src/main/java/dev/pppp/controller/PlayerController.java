@@ -3,7 +3,9 @@ package dev.pppp.controller;
 import dev.pppp.exception.NotFoundException;
 import dev.pppp.model.Cartridge;
 import dev.pppp.model.KeyBindings;
+import dev.pppp.realtime.EventPublisher;
 import dev.pppp.security.CurrentUser;
+import dev.pppp.service.ChatService;
 import dev.pppp.service.CartridgeService;
 import dev.pppp.service.KeyBindingService;
 import dev.pppp.service.PlayerConsoles;
@@ -36,9 +38,14 @@ public class PlayerController {
     private final CartridgeService cartridges;
     private final PlayerResetService resets;
     private final KeyBindingService keys;
+    private final EventPublisher events;
+    private final ChatService chat;
 
-    public PlayerController(PlayerConsoles consoles, CartridgeService cartridges, PlayerResetService resets, KeyBindingService keys) {
+    public PlayerController(PlayerConsoles consoles, CartridgeService cartridges, PlayerResetService resets, KeyBindingService keys,
+                            EventPublisher events, ChatService chat) {
         this.keys = keys;
+        this.events = events;
+        this.chat = chat;
         this.consoles = consoles;
         this.cartridges = cartridges;
         this.resets = resets;
@@ -121,6 +128,24 @@ public class PlayerController {
     @DeleteMapping("/api/v1/admin/players/{userId}")
     public ResponseEntity<Void> reset(@PathVariable String userId, Authentication auth) {
         resets.reset(CurrentUser.id(auth), userId.toLowerCase(java.util.Locale.ROOT));
+        return ResponseEntity.noContent().build();
+    }
+
+    public record GodMessage(String text) {}
+
+    /**
+     * An admin's message shown only to that player, over whatever page they have open (GOD_MESSAGE {text, at}).
+     * Not stored: 409 when they have no tab open. Other admins see a line in the admin chat.
+     */
+    @PostMapping("/api/v1/admin/players/{userId}/god-message")
+    public ResponseEntity<Void> godMessage(@PathVariable String userId, @RequestBody GodMessage body, Authentication auth) {
+        String text = body == null || body.text() == null ? "" : body.text().strip();
+        if (text.isEmpty() || text.length() > 200) throw new IllegalArgumentException("A message of 1 to 200 characters");
+        String to = userId.toLowerCase(java.util.Locale.ROOT);
+        if (!events.publishTo(to, "GOD_MESSAGE", java.util.Map.of("text", text, "at", System.currentTimeMillis()))) {
+            throw new IllegalStateException(to + " has no tab open");
+        }
+        chat.postAdmin(CurrentUser.id(auth) + " sent a god message to " + to + ": " + text);
         return ResponseEntity.noContent().build();
     }
 }

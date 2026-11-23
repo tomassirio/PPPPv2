@@ -15,6 +15,19 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   parks its state in `saves/{user}/{cartridge}.state` when the player's last socket closes. The game is picked once
   (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`. Key bindings per user: `GET/PUT /api/v1/me/keys`, Redis hash `pibs:keys:{userId}` (kept across a reset).
   `/ws/screen` and `/ws/audio` carry only the caller's own console. /play shows `GamePicker` until a game is picked.
+- Done: consoles only live in memory while someone plays. `PlayerConsoles.sweep` (every 5 s) shuts a console down
+  60 s after its player's last /play tab closed (`idle`: paused, battery flushed, state parked; reopening within the
+  grace period cancels) and after 15 min with no button and no browser activity ping (`"active"` on /ws/input, at
+  most once a minute) even with its tab open; linked consoles are left to LinkService. `onAway` (fired once a console
+  is paused and parked) closes its screens with 4408 ("Paused while you were away" + Continue) and admin watchers
+  with 4410. The next open boots from the parked state. Admin: People's Manage opens `/admin/players/{id}`: their
+  Game Boy (`GET /api/v1/admin/sessions/{userId}`: RUNNING / IDLE / PAUSED-not-saved / CLOSED, last action, shutdown
+  time, .sav and .state info; `POST /{userId}/close`; `GET /{userId}/save` downloads the .sav), its screen live
+  while it runs (admins may watch any running console on /ws/watch/{id}) or powered off, stats, Reset run.
+- Done: god messages. `POST /api/v1/admin/players/{userId}/god-message` {text} (1-200 chars; 409 when they have no
+  tab open; not stored; admin chat logs it) sends `GOD_MESSAGE` {text, at} to that player's /ws/events sockets only
+  (`EventPublisher.publishTo`). `GodMessage.svelte` writes it across their own Game Boy screen (GameScreen, not spectators') in glowing purple
+  text, fading in and out, one at a time. Sent from the admin player page.
 - Done: lobby and link sessions. `LinkService` (core): ready to TRADE/BATTLE in Redis hash `pibs:lobby`, challenges
   (60 s) and sessions (no time cap; a player with no tab open for 60 s leaves, via `LinkService.presence` = EventPublisher.isOnline) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events
   `LOBBY_CHANGED`, `LINK_CHALLENGE`, `LINK_SESSION` (to everyone, with user ids). Panel: `LinkPanel.svelte`.

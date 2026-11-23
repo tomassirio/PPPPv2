@@ -34,6 +34,9 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
     /** Closing code for a player who has not picked a game yet. */
     static final CloseStatus NO_GAME = new CloseStatus(4409, "Pick a game first");
+    /** Closing code when the console stopped under an open tab (nobody touched it, an admin closed it or reset the
+     * run; PlayerConsoles.onAway): the page says so and waits for Continue instead of reconnecting. */
+    static final CloseStatus AWAY = new CloseStatus(4408, "Paused while you were away");
 
     private record Frame(int[] pixels, List<Ghosts.OnScreen> ghosts) {}
 
@@ -53,24 +56,50 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
             Viewer v = viewers.get(userId);
             if (v != null) v.encoder().offer(new Frame(pixels, ghosts.onScreen(userId)));
         });
+        // Shut down for inactivity: the player's screens close with AWAY, so the page says so instead of reconnecting.
+        // The console stopped (paused and parked): its screens close with AWAY. Removing the viewer happens in a
+        // compute on its key, as adding a socket does (afterConnectionEstablished), so a socket is either closed here
+        // or lands in a fresh viewer; a console resumed meanwhile (someone just opened it) keeps its screens. No lock
+        // of ours: this runs inside idle(), also from LinkService while it holds its own lock. The closes run on a
+        // virtual thread so a slow client cannot hold anyone up.
+        consoles.onAway(userId -> {
+            List<WebSocketSession> closing = new java.util.ArrayList<>();
+            viewers.computeIfPresent(userId, (id, v) -> {
+                if (consoles.isAwake(id)) return v;
+                closing.addAll(v.sockets().keySet());
+                v.sockets().clear();
+                return null;
+            });
+            if (!closing.isEmpty()) Thread.ofVirtual().start(() -> closing.forEach(s -> close(s, AWAY)));
+        });
     }
 
     @Override
     public synchronized void afterConnectionEstablished(WebSocketSession session) {
         String userId = userId(session);
-        Viewer v = viewers.computeIfAbsent(userId, id -> {
-            Map<WebSocketSession, Handoff<Out>> sockets = new ConcurrentHashMap<>();
-            return new Viewer(new Handoff<>(1, frame -> {
-                Out out = new Out(ghostsJson(frame.ghosts()), FrameEncoder.png(frame.pixels()));
-                sockets.values().forEach(slot -> slot.offer(out));
-            }), sockets);
-        });
         String[] sent = {null}; // the players this socket last got; only its handoff's thread touches it
-        v.sockets().put(session, new Handoff<>(1, out -> send(session, out, sent)));
+        viewers.compute(userId, (id, v) -> {
+            if (v == null) {
+                Map<WebSocketSession, Handoff<Out>> sockets = new ConcurrentHashMap<>();
+                v = new Viewer(new Handoff<>(1, frame -> {
+                    Out out = new Out(ghostsJson(frame.ghosts()), FrameEncoder.png(frame.pixels()));
+                    sockets.values().forEach(slot -> slot.offer(out));
+                }), sockets);
+            }
+            v.sockets().put(session, new Handoff<>(1, out -> send(session, out, sent)));
+            return v;
+        });
         try {
             consoles.open(userId);
         } catch (RuntimeException e) { // no game picked, or its ROM is gone
             close(session, NO_GAME);
+            return;
+        }
+        // The console went idle between registering and opening (onAway took this socket, closing it with AWAY):
+        // open() just resumed it, so put it back to idle unless another screen holds it.
+        Viewer v = viewers.get(userId);
+        if (v == null || !v.sockets().containsKey(session)) {
+            if (!viewers.containsKey(userId) && consoles.linkedWith(userId) == null) consoles.idle(userId);
         }
     }
 
@@ -98,9 +127,13 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
     @Override
     public synchronized void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         String userId = userId(session);
-        Viewer v = viewers.get(userId);
-        if (v == null || v.sockets().remove(session) == null || !v.sockets().isEmpty()) return;
-        viewers.remove(userId);
+        boolean[] last = {false};
+        viewers.computeIfPresent(userId, (id, v) -> {
+            if (v.sockets().remove(session) == null || !v.sockets().isEmpty()) return v;
+            last[0] = true;
+            return null;
+        });
+        if (!last[0]) return;
         // A linked player who went to another tab keeps their console running and the cable in: the partner's
         // game runs in step with it. It goes idle when the session ends (below).
         // A closed browser: LinkService ends the session after a minute with no events socket.

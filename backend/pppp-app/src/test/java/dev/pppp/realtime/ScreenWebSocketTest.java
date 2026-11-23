@@ -76,7 +76,8 @@ class ScreenWebSocketTest {
                     .authorizeHttpRequests(a -> a.anyRequest().hasRole("PLAYER"))
                     .httpBasic(b -> {})
                     .userDetailsService(new InMemoryUserDetailsManager(
-                            User.withUsername("Friend@x.y").password("{noop}pw").roles("PLAYER").build()))
+                            User.withUsername("Friend@x.y").password("{noop}pw").roles("PLAYER").build(),
+                            User.withUsername("Boss@x.y").password("{noop}pw").roles("PLAYER", "ADMIN").build()))
                     .build();
         }
     }
@@ -121,6 +122,32 @@ class ScreenWebSocketTest {
         } finally {
             consoles.idle("friend@x.y");
         }
+    }
+
+    /** A console shut down under an open tab (nobody touched it, or an admin closed it): the screen closes with 4408. */
+    @Test
+    void anOpenScreenIsToldWhenItsConsoleCloses() throws Exception {
+        consoles.pick("friend@x.y", "test");
+        BlockingQueue<byte[]> frames = new LinkedBlockingQueue<>();
+        CompletableFuture<CloseStatus> closed = new CompletableFuture<>();
+        WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+        headers.setBasicAuth("Friend@x.y", "pw");
+        new StandardWebSocketClient().execute(new AbstractWebSocketHandler() {
+            @Override
+            protected void handleBinaryMessage(WebSocketSession s, BinaryMessage m) {
+                frames.add(new byte[0]);
+            }
+
+            @Override
+            public void afterConnectionClosed(WebSocketSession s, CloseStatus status) {
+                closed.complete(status);
+            }
+        }, headers, URI.create("ws://localhost:" + port + "/ws/screen")).get(5, TimeUnit.SECONDS);
+        assertThat(frames.poll(5, TimeUnit.SECONDS)).isNotNull();
+
+        assertThat(consoles.close("friend@x.y")).isTrue();
+        assertThat(closed.get(5, TimeUnit.SECONDS).getCode()).isEqualTo(4408);
+        assertThat(consoles.running()).doesNotContain("friend@x.y");
     }
 
     @Autowired dev.pppp.service.LinkService link;
@@ -189,9 +216,40 @@ class ScreenWebSocketTest {
         }
     }
 
+    /** An admin watches anyone whose console runs, linked or not, until it stops (NOT_PLAYING, 4410). */
+    @Test
+    void adminsWatchAnyRunningConsole() throws Exception {
+        String solo = "solo@x.y";
+        consoles.pick(solo, "test");
+        try {
+            CompletableFuture<CloseStatus> early = new CompletableFuture<>();
+            watch(solo, new LinkedBlockingQueue<>(), early, "Boss@x.y");
+            assertThat(early.get(5, TimeUnit.SECONDS).getCode()).as("not playing").isEqualTo(4410);
+
+            consoles.open(solo);
+            CompletableFuture<CloseStatus> player = new CompletableFuture<>();
+            watch(solo, new LinkedBlockingQueue<>(), player);
+            assertThat(player.get(5, TimeUnit.SECONDS).getCode()).as("players only watch links").isEqualTo(4404);
+
+            BlockingQueue<byte[]> frames = new LinkedBlockingQueue<>();
+            CompletableFuture<CloseStatus> closed = new CompletableFuture<>();
+            watch(solo, frames, closed, "Boss@x.y");
+            assertThat(frames.poll(5, TimeUnit.SECONDS)).isNotNull().startsWith((byte) 0x89, (byte) 'P', (byte) 'N', (byte) 'G');
+
+            consoles.idle(solo);
+            assertThat(closed.get(5, TimeUnit.SECONDS).getCode()).isEqualTo(4410);
+        } finally {
+            consoles.discard(solo);
+        }
+    }
+
     private void watch(String user, BlockingQueue<byte[]> frames, CompletableFuture<CloseStatus> closed) throws Exception {
+        watch(user, frames, closed, "Friend@x.y");
+    }
+
+    private void watch(String user, BlockingQueue<byte[]> frames, CompletableFuture<CloseStatus> closed, String as) throws Exception {
         WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
-        headers.setBasicAuth("Friend@x.y", "pw");
+        headers.setBasicAuth(as, "pw");
         new StandardWebSocketClient().execute(new AbstractWebSocketHandler() {
             @Override
             protected void handleBinaryMessage(WebSocketSession s, BinaryMessage m) {

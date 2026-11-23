@@ -29,7 +29,7 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
  * /ws/events: everything that changes for everyone while people play, pushed to every open tab as one JSON text
  * message per event, {"type": ..., "data": ...}. Types: CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, CHAT_CLEARED,
  * GAME_STATE, PROGRESS, ACHIEVEMENT_UNLOCKED, SCOREBOARD_CHANGED, LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION,
- * PLAYER_RESET, ACCESS_REQUESTS, PRESENCE. Server to browser only; anything the browser sends is ignored.
+ * PLAYER_RESET, ACCESS_REQUESTS, PRESENCE; GOD_MESSAGE to one player only. Server to browser only; anything the browser sends is ignored.
  *
  * <p>Presence = who has a socket open, kept in memory (single instance). PRESENCE carries the list of viewers,
  * one entry per user however many tabs they have open.
@@ -82,15 +82,22 @@ public class EventPublisher extends TextWebSocketHandler {
     }
 
     public void publish(String type, Object data) {
-        send(type, data, false);
+        send(type, data, s -> true);
     }
 
     /** Only to admins' sockets (ADMIN chat lines). */
     public void publishToAdmins(String type, Object data) {
-        send(type, data, true);
+        send(type, data, Stream::admin);
     }
 
-    private void send(String type, Object data, boolean adminsOnly) {
+    /** Only to one player's sockets (an admin's god message). False when they have no tab open. */
+    public boolean publishTo(String userId, String type, Object data) {
+        if (!isOnline(userId)) return false;
+        send(type, data, s -> s.viewer().id().equals(userId));
+        return true;
+    }
+
+    private void send(String type, Object data, java.util.function.Predicate<Stream> to) {
         TextMessage message;
         try {
             message = new TextMessage(json.writeValueAsString(new Message(type, data)));
@@ -98,7 +105,7 @@ public class EventPublisher extends TextWebSocketHandler {
             throw new IllegalStateException("Cannot serialise " + type, e);
         }
         streams.forEach((session, stream) -> {
-            if (!adminsOnly || stream.admin()) write(session, stream, message);
+            if (to.test(stream)) write(session, stream, message);
         });
     }
 

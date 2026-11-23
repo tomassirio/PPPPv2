@@ -5,6 +5,7 @@
      player too) gets their chat line above their head for a few seconds, fading out. Text only, never HTML. -->
 <script lang="ts">
 	import Name from '#lib/components/Name.svelte';
+	import GodMessage from '#lib/components/GodMessage.svelte';
 	import type { Snippet } from 'svelte';
 	import { backoff, nearbyPlayers, type ScreenPlayer } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
@@ -23,8 +24,19 @@
 	let canvas: HTMLCanvasElement;
 	let connected = $state(false);
 	let ended = $state(false); // watching: the player is not (or no longer) linked
+	let notPlaying = $state(false); // an admin watching: their console is not running (4410); keeps retrying
+	// The server shut the console down because nobody touched it for a while (close code 4408): no reconnecting
+	// until the player says so. Continue bumps `wake`, which opens the screen (and the console) again.
+	let away = $state(false);
+	let wake = $state(0);
+	let continueButton = $state<HTMLButtonElement>();
+	$effect(() => {
+		if (away) continueButton?.focus(); // keyboard players land on it
+	});
 
-	const overlay = $derived(ended ? 'Not linked' : connected ? null : 'Reconnecting…');
+	const overlay = $derived(
+		ended ? 'Not linked' : away ? 'Paused while you were away' : notPlaying ? 'Not playing right now' : connected ? null : 'Reconnecting…'
+	);
 	// Who is on screen this frame (sprite top left, screen pixels; the player first, then ghosts), and their latest chat line.
 	let ghosts = $state<ScreenPlayer[]>([]);
 	export function nearby() {
@@ -49,6 +61,7 @@
 	);
 
 	$effect(() => {
+		void wake; // Continue after being away: connect again
 		const ctx = canvas.getContext('2d')!;
 		let ws: WebSocket | null = null;
 		let attempt = 0;
@@ -81,9 +94,13 @@
 			ws.binaryType = 'blob';
 			ws.onopen = () => {
 				connected = true;
-				attempt = 0;
+				// A watcher's socket opens even when the server closes it right away (4410): it only counts as
+				// back once a frame arrives (onmessage), so retries keep backing off.
+				if (!watch) attempt = 0;
 			};
 			ws.onmessage = (e) => {
+				notPlaying = false;
+				attempt = 0;
 				if (typeof e.data === 'string') {
 					ghosts = JSON.parse(e.data).ghosts ?? [];
 					ghosts.forEach((g) => needPicture(g.user));
@@ -95,7 +112,9 @@
 			ws.onclose = (e) => {
 				connected = false;
 				ghosts = [];
+				notPlaying = !!watch && e.code === 4410;
 				if (watch && e.code === 4404) ended = true;
+				else if (!watch && e.code === 4408) away = true;
 				else if (!stopped) timer = setTimeout(connect, backoff(attempt++));
 			};
 		}
@@ -163,8 +182,24 @@
 				{/each}
 			{/if}
 			{#if overlay}
-				<div class="overlay pixel" aria-hidden="true">{overlay}</div>
+				{#if away}
+					<div class="overlay pixel away">
+						<span aria-hidden="true">{overlay}</span>
+						<button
+							bind:this={continueButton}
+							type="button"
+							class="continue"
+							onclick={() => {
+								away = false;
+								wake++;
+							}}>Continue</button
+						>
+					</div>
+				{:else}
+					<div class="overlay pixel" aria-hidden="true">{overlay}</div>
+				{/if}
 			{/if}
+			{#if !watch}<GodMessage />{/if}
 			<p class="sr-only" role="status">{overlay ?? ''}</p>
 		</div>
 		<div class="strip">
@@ -209,6 +244,27 @@
 		width: 100%;
 		height: 100%;
 		image-rendering: pixelated;
+	}
+	/* Away: the message and a way back. */
+	.overlay.away {
+		flex-direction: column;
+		gap: 14px;
+	}
+	.continue {
+		font: 600 max(12px, 2.6cqw) / 1 var(--body-font);
+		padding: 0.7em 1.4em;
+		border-radius: 8px;
+		border: 2px solid #0f380f;
+		background: #0f380f;
+		color: #cadc9f;
+		cursor: pointer;
+	}
+	.continue:hover {
+		background: #306230;
+	}
+	.continue:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
 	}
 	.overlay {
 		position: absolute;

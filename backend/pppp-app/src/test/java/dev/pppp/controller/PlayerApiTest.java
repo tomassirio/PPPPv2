@@ -171,4 +171,18 @@ class PlayerApiTest {
                 .content("{\"key\":\"RED\"}")).andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/me/sprites/RED.png").with(other)).andExpect(status().isNotFound());
     }
+
+    /** Only admins send god messages; they must say something, and only reach a player with a tab open. */
+    @Test
+    void godMessagesAreForAdminsAndOnlinePlayers() throws Exception {
+        String url = "/api/v1/admin/players/pib@x.y/god-message";
+        mvc.perform(post(url).with(PIB).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"hi\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(url).with(ADMIN).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"  \"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(url).with(ADMIN).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"" + "x".repeat(201) + "\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(url).with(ADMIN).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"Behold\"}"))
+                .andExpect(status().isConflict()); // no tab open
+    }
 }

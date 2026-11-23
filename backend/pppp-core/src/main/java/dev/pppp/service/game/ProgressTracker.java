@@ -102,7 +102,8 @@ public class ProgressTracker {
     public void poll() {
         Set<String> running = consoles.running();
         samples.keySet().retainAll(running);
-        summaries.keySet().retainAll(running);
+        // summaries stay when a console leaves memory: GET /game/state shows the last confirmed one until it boots
+        // again (cleared on a player reset, forget()).
         saves.keySet().retainAll(running);
         sramSamples.keySet().retainAll(running);
         for (String userId : running) {

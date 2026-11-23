@@ -12,8 +12,9 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 /**
  * /ws/input: the signed-in player's button presses on their own console as they happen, one text message per
  * change: "down UP" or "up UP" (button names as in {@link Button}). A held key stays held on the Game Boy, so
- * walking is smooth. Closing the socket lets go of every button. Anything else is ignored. Same security as
- * /ws/screen.
+ * walking is smooth. "active": the player did something on the page (the browser sends it at most once a minute),
+ * so their console is not shut down for inactivity. Closing the socket lets go of every button. Anything else is
+ * ignored. Same security as /ws/screen.
  */
 @Component
 public class InputWebSocketHandler extends TextWebSocketHandler {
@@ -25,7 +26,12 @@ public class InputWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
-        String[] parts = message.getPayload().trim().split(" ");
+        String text = message.getPayload().trim();
+        if (text.equals("active")) {
+            consoles.touch(ScreenWebSocketHandler.userId(session));
+            return;
+        }
+        String[] parts = text.split(" ");
         if (parts.length != 2 || !(parts[0].equals("down") || parts[0].equals("up"))) return;
         Button button;
         try {
