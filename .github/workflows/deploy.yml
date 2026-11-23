@@ -196,29 +196,36 @@ jobs:
           chmod 600 ~/.kube/config
           kubectl get pods -n "$NAMESPACE"
 
-      - name: Deploy backend
+      # Both releases at once (one Twingate connection); the step fails if either does, after printing both logs.
+      - name: Deploy backend and frontend
         env:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           PPPP_ADMINS: ${{ vars.PPPP_ADMINS }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           # --set splits on commas; the admin list is comma-separated.
           ADMINS="${PPPP_ADMINS//,/\\,}"
           helm upgrade --install ppppv2-backend ./backend/chart \
             --namespace "$NAMESPACE" \
-            --set image.repository="ghcr.io/${{ github.repository_owner }}/ppppv2-backend" \
+            --set image.repository="ghcr.io/$OWNER/ppppv2-backend" \
             --set image.tag="$IMAGE_TAG" \
             --set-string application.admins="$ADMINS" \
             --set-string application.google.clientId="${{ vars.GOOGLE_CLIENT_ID }}" \
             --set-string application.google.clientSecret="$GOOGLE_CLIENT_SECRET" \
-            --wait --timeout 5m
-
-      - name: Deploy frontend
-        run: |
+            --wait --timeout 5m > backend.log 2>&1 &
+          backend=$!
           helm upgrade --install ppppv2-frontend ./frontend/chart \
             --namespace "$NAMESPACE" \
-            --set image.repository="ghcr.io/${{ github.repository_owner }}/ppppv2-frontend" \
+            --set image.repository="ghcr.io/$OWNER/ppppv2-frontend" \
             --set image.tag="$IMAGE_TAG" \
-            --wait --timeout 5m
+            --wait --timeout 5m > frontend.log 2>&1 &
+          frontend=$!
+          failed=0
+          wait $backend || failed=1
+          wait $frontend || failed=1
+          echo "::group::backend"; cat backend.log; echo "::endgroup::"
+          echo "::group::frontend"; cat frontend.log; echo "::endgroup::"
+          exit $failed
 
       - name: Show state on failure
         if: failure()
