@@ -6,13 +6,18 @@ image:
 service:
   port: 8080
 
+# One Game Boy per player playing (v1's single console took ~1.4 cores and ~900 MiB on a Pi): room for a few at
+# once on one 4-core node. The heap is a share of the memory limit (javaOpts).
+# ponytail: one pod caps how many play at once; measure per-console cost on the Pi before raising.
 resources:
   limits:
-    cpu: "2"
-    memory: 1Gi
+    cpu: "4"
+    memory: 2Gi
   requests:
-    cpu: 500m
-    memory: 512Mi
+    cpu: "1"
+    memory: 1Gi
+
+javaOpts: "-XX:MaxRAMPercentage=75"
 
 application:
   # Comma-separated emails seeded as admins while the allowlist is empty.

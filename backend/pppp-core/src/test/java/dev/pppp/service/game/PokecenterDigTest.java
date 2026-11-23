@@ -33,7 +33,7 @@ class PokecenterDigTest {
         return name.substring(0, name.length() - ".state".length());
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(allowZeroInvocations = true) // no parked states in data/ (CI): nothing to run
     @MethodSource("states")
     void digsToTheLastPokemonCenter(Path state) throws Exception {
         Path rom = DATA.resolve("roms").resolve(cartridge(state) + ".gbc");

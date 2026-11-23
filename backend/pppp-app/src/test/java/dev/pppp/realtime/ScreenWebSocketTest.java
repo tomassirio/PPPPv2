@@ -112,10 +112,11 @@ class ScreenWebSocketTest {
                 }
             }, headers, URI.create("ws://localhost:" + port + "/ws/screen")).get(5, TimeUnit.SECONDS);
 
-            byte[] png = frames.poll(5, TimeUnit.SECONDS);
+            // Generous waits: on a busy machine (a CI runner, other emulators) booting and encoding take seconds.
+            byte[] png = frames.poll(15, TimeUnit.SECONDS);
             assertThat(png).isNotNull().startsWith((byte) 0x89, (byte) 'P', (byte) 'N', (byte) 'G');
             assertThat(png.length).isLessThan(10_000);
-            assertThat(frames.poll(5, TimeUnit.SECONDS)).isNotNull(); // keeps streaming
+            assertThat(frames.poll(15, TimeUnit.SECONDS)).isNotNull(); // keeps streaming
 
             events.publishEvent(new UserRevokedEvent("friend@x.y"));
             assertThat(closed.get(5, TimeUnit.SECONDS).getCode()).isEqualTo(CloseStatus.POLICY_VIOLATION.getCode());

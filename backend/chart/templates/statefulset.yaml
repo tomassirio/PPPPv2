@@ -30,6 +30,8 @@ spec:
           value: {{ .Chart.Name }}-redis
         - name: PPPP_DATA_DIR
           value: /data
+        - name: JAVA_TOOL_OPTIONS
+          value: {{ .Values.javaOpts | quote }}
         - name: PPPP_ADMINS
           value: {{ .Values.application.admins | quote }}
         envFrom:
