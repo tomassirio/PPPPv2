@@ -2,6 +2,8 @@
 // hide() on leave; render <DexCard {...hover.card} /> while hover.card is set. Always the viewer's own Pokédex
 // (GET /game/dex/{n}): someone else's Pokémon shows only what you have seen or caught. Answers are cached per number
 // and key (a new catch asks again).
+// Phones: the card goes wherever it fits on screen (beside, else above or below, kept inside the edges), and a tap
+// opens it and keeps it open (a finger's pointerleave comes right after it lifts) until a tap elsewhere or a scroll.
 import { api } from '#lib/api.ts';
 import type { Tier } from '#lib/play.ts';
 
@@ -19,7 +21,7 @@ export type DexEntry = {
 	tier?: Tier | null;
 };
 
-type Side = 'right' | 'left' | 'above';
+type Side = 'right' | 'left' | 'above' | 'below';
 export type DexCardState = {
 	n: number;
 	x: number;
@@ -34,6 +36,25 @@ export type DexCardState = {
 
 const cache = new Map<string, Promise<DexEntry | null>>();
 
+/** The card's size in CSS px (DexCard: 300px wide; the tallest, a caught entry, about 280px). */
+const CARD_W = 300;
+const CARD_H = 280;
+const EDGE = 8;
+
+// What the last press was made with: a touch has no hover, so its card stays until the next tap.
+let lastPointer = 'mouse';
+// Every card a tap has opened, to close them all at once (a swipe between panels starts).
+const tapped = new Set<() => void>();
+export function closeDexCards() {
+	for (const close of [...tapped]) close();
+}
+// pointerover too: it comes before the pointerenter that shows a card, pointerdown only after it.
+if (typeof window !== 'undefined')
+	for (const type of ['pointerover', 'pointerdown'] as const)
+		addEventListener(type, (e) => {
+			lastPointer = e.pointerType;
+		}, { capture: true });
+
 export function loadDex(n: number, key = ''): Promise<DexEntry | null> {
 	const id = `${n}:${key}`;
 	let p = cache.get(id);
@@ -44,9 +65,18 @@ export function loadDex(n: number, key = ''): Promise<DexEntry | null> {
 	return p;
 }
 
+/** For a Pokémon inside a link (a scoreboard row): on touch, the tap only opens its card. Use as its onclick. */
+export function keepTap(e: MouseEvent) {
+	if (lastPointer !== 'touch') return;
+	e.preventDefault();
+	e.stopPropagation();
+}
+
 export class DexHover {
 	card = $state<DexCardState | null>(null);
 	#timer: ReturnType<typeof setTimeout> | undefined;
+	#anchor: HTMLElement | null = null;
+	#off: (() => void) | null = null;
 
 	/**
 	 * The card for n beside el: side "above" centres it over el, "right"/"left" centre it vertically beside el, kept
@@ -59,27 +89,54 @@ export class DexHover {
 		opts: { side?: Side; key?: string; state?: DexCardState['state']; name?: string; note?: string } = {}
 	) {
 		clearTimeout(this.#timer);
+		this.#anchor = el;
 		const r = el.getBoundingClientRect();
 		const zoom = (el as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom ?? 1;
-		const side = opts.side ?? 'above';
-		const half = 130 * zoom;
-		let x: number, y: number;
-		if (side === 'above') {
-			x = Math.min(Math.max(160 * zoom, r.left + r.width / 2), innerWidth - 160 * zoom);
-			y = r.top - 8;
-			if (y < 280 * zoom) return this.#beside(n, r, zoom, opts); // no room above: beside it instead
-		} else {
-			x = side === 'right' ? r.right + 10 : r.left - 10;
-			y = Math.min(Math.max(half, r.top + r.height / 2), innerHeight - half);
-		}
+		const w = CARD_W * zoom;
+		const h = CARD_H * zoom;
+		const fits: Record<Side, boolean> = {
+			right: r.right + 10 + w <= innerWidth - EDGE,
+			left: r.left - 10 - w >= EDGE,
+			above: r.top - 8 - h >= EDGE,
+			below: r.bottom + 8 + h <= innerHeight - EDGE
+		};
+		// The asked side if it fits, else the other side of the same axis, else the other axis; above as a last resort.
+		const asked = opts.side ?? 'above';
+		const order: Side[] =
+			asked === 'right' || asked === 'left'
+				? [asked, asked === 'right' ? 'left' : 'right', 'above', 'below']
+				: [asked, asked === 'above' ? 'below' : 'above', 'right', 'left'];
+		const side = order.find((s) => fits[s]) ?? 'above';
+		const clampX = (v: number) => Math.min(Math.max(EDGE + w / 2, v), innerWidth - EDGE - w / 2);
+		const clampY = (v: number) => Math.min(Math.max(EDGE + h / 2, v), innerHeight - EDGE - h / 2);
+		const x = side === 'right' ? r.right + 10 : side === 'left' ? r.left - 10 : clampX(r.left + r.width / 2);
+		const y = side === 'above' ? Math.max(r.top - 8, EDGE + h) : side === 'below' ? r.bottom + 8 : clampY(r.top + r.height / 2);
 		this.#set({ n, x, y, side, zoom, state: opts.state ?? 'unseen', entry: null, name: opts.name, note: opts.note }, opts);
+		if (lastPointer === 'touch') this.#stayUntilTapElsewhere();
 	}
 
-	#beside(n: number, r: DOMRect, zoom: number, opts: { key?: string; state?: DexCardState['state']; name?: string; note?: string }) {
-		const right = r.right + 320 * zoom < innerWidth;
-		const half = 130 * zoom;
-		const y = Math.min(Math.max(half, r.top + r.height / 2), innerHeight - half);
-		this.#set({ n, x: right ? r.right + 10 : r.left - 10, y, side: right ? 'right' : 'left', zoom, state: opts.state ?? 'unseen', entry: null, name: opts.name, note: opts.note }, opts);
+	/** Touch: keep the card until a tap outside the Pokémon it belongs to (another Pokémon moves it there) or a scroll. */
+	#stayUntilTapElsewhere() {
+		if (this.#off) return;
+		const close = (e: Event) => {
+			if (e.type === 'pointerdown' && this.#anchor?.contains(e.target as Node)) return;
+			this.#close();
+		};
+		addEventListener('pointerdown', close, { capture: true });
+		addEventListener('scroll', close, { capture: true, passive: true });
+		const closeThis = () => this.#close();
+		tapped.add(closeThis);
+		this.#off = () => {
+			removeEventListener('pointerdown', close, { capture: true });
+			removeEventListener('scroll', close, { capture: true });
+			tapped.delete(closeThis);
+		};
+	}
+
+	#close() {
+		this.#off?.();
+		this.#off = null;
+		this.card = null;
 	}
 
 	#set(card: DexCardState, opts: { key?: string }) {
@@ -91,6 +148,7 @@ export class DexHover {
 	}
 
 	hide() {
-		this.#timer = setTimeout(() => (this.card = null), 80);
+		if (this.#off) return; // opened by a tap: stays until a tap elsewhere
+		this.#timer = setTimeout(() => this.#close(), 80);
 	}
 }

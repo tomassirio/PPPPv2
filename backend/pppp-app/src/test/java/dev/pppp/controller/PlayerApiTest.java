@@ -91,6 +91,10 @@ class PlayerApiTest {
 
         consoles.idle("pib@x.y"); // leaving parks the state next to the player's own battery save
         assertThat(DATA.resolve("saves/pib@x.y/test.state")).isNotEmptyFile();
+        consoles.discard("pib@x.y"); // shut down (a phone's locked screen, after the grace period)
+        consoles.open("pib@x.y");
+        assertThat(consoles.speed("pib@x.y")).isEqualTo(4.0); // boots again at the speed the chip shows
+        consoles.idle("pib@x.y");
     }
 
     @Test

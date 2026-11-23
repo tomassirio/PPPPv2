@@ -13,7 +13,7 @@
 		rel="stylesheet"
 		href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap"
 	/>
-	<title>Pibs&PibettesPlayPokemonV2</title>
+	<title>PPPPv2</title>
 </svelte:head>
 
 {@render children()}

@@ -27,14 +27,18 @@
 	const PER_PAGE = 15;
 	let page = $state(0);
 
-	// People first (admins, then by points), then bots by points.
+	// People first (admins, then by points), then bots: online ones first, then by points.
 	const everyone = $derived.by(() => {
 		const byId = new Map<string, Person>();
 		for (const u of users) byId.set(u.id, { id: u.id, user: u, row: null });
 		for (const r of rows) byId.set(r.userId, { id: r.userId, user: byId.get(r.userId)?.user ?? null, row: r });
 		const pts = (p: Person) => p.row?.points ?? -1;
 		return [...byId.values()].sort(
-			(a, b) => Number(!a.user) - Number(!b.user) || Number(b.user?.role === 'ADMIN') - Number(a.user?.role === 'ADMIN') || pts(b) - pts(a)
+			(a, b) =>
+				Number(!a.user) - Number(!b.user) ||
+				Number(b.user?.role === 'ADMIN') - Number(a.user?.role === 'ADMIN') ||
+				(!a.user ? Number(!!b.row?.online) - Number(!!a.row?.online) : 0) ||
+				pts(b) - pts(a)
 		);
 	});
 	const counts = $derived({ all: everyone.length, people: everyone.filter((p) => p.user).length, bots: everyone.filter((p) => !p.user).length });
@@ -117,7 +121,7 @@
 							<b>{nameOf(p.id)}</b>
 							<span class="email">{p.id}</span>
 						</td>
-						<td>
+						<td class="role-cell">
 							{#if p.user}
 								<select
 									aria-label={`Role of ${p.id}`}
@@ -137,9 +141,9 @@
 								>
 							{/if}
 						</td>
-						<td>{p.row?.game ? (names[p.row.game] ?? p.row.game) : '–'}</td>
-						<td class="num">{p.row ? p.row.points.toLocaleString() : '–'}</td>
-						<td>{p.row?.online ? 'Yes' : 'No'}</td>
+						<td class="game-cell">{p.row?.game ? (names[p.row.game] ?? p.row.game) : '–'}</td>
+						<td class="num pts-cell">{p.row ? p.row.points.toLocaleString() : '–'}</td>
+						<td class="online-cell" class:yes={p.row?.online}>{p.row?.online ? 'Yes' : 'No'}</td>
 						<td class="actions">
 							<a class="manage" href="/admin/players/{enc(p.id)}">Manage</a>
 							{#if p.user}
@@ -280,5 +284,86 @@
 	}
 	tr.bot .who b {
 		color: var(--muted);
+	}
+	/* Phones: each person a small card: name and e-mail with their role on the right; game, points and online on one
+	   line; then the actions sharing the width. Adding someone and "Mute for" stack above the list. */
+	@media (max-width: 760px) {
+		.people-tools {
+			flex-direction: column;
+			align-items: stretch;
+		}
+		.add {
+			flex: none;
+		}
+		.mute-for {
+			flex-direction: row;
+			align-items: center;
+		}
+		.people-table tr {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto auto;
+			grid-template-areas:
+				'who who role'
+				'game pts online'
+				'actions actions actions';
+			gap: 8px 12px;
+			align-items: center;
+			padding: 12px 0;
+		}
+		.people-table tr:has(td[colspan]) {
+			display: block;
+		}
+		.who {
+			grid-area: who;
+			min-width: 0;
+		}
+		.role-cell {
+			grid-area: role;
+			justify-self: end;
+			display: flex !important;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			gap: 4px;
+		}
+		.game-cell {
+			grid-area: game;
+			font-size: 13px;
+			color: var(--muted);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.pts-cell {
+			grid-area: pts;
+			font-size: 13px;
+		}
+		.pts-cell::after {
+			content: ' pts';
+			color: var(--muted);
+		}
+		.online-cell {
+			grid-area: online;
+			font-size: 0; /* "Yes"/"No" become a dot and Online / Offline */
+		}
+		.online-cell::before {
+			content: '● Offline';
+			font-size: 12px;
+			color: var(--muted);
+		}
+		.online-cell.yes::before {
+			content: '● Online';
+			color: var(--grass, #3fae4a);
+		}
+		/* Equal buttons, as many per line as fit (a second line rather than a clipped label). */
+		.actions {
+			grid-area: actions;
+			margin-left: 0 !important;
+			display: grid !important;
+			grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+			gap: 6px;
+		}
+		.actions > :global(*) {
+			justify-content: center;
+		}
 	}
 </style>

@@ -28,7 +28,9 @@
 		aria-label="{label}: show it on the town map"
 		aria-expanded={open}
 		onpointerenter={show}
-		onpointerleave={() => (open = false)}
+		onpointerleave={(e) => {
+			if (e.pointerType !== 'touch') open = false; // a finger lifting is no leave: a tap elsewhere (blur) closes it
+		}}
 		onfocus={show}
 		onblur={() => (open = false)}
 	>

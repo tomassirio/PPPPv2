@@ -1,9 +1,42 @@
-<!-- Settings (account menu): the player's key bindings. Three choices: Arrows, WASD or Custom (any key per pad button:
+<!-- Settings (account menu). Upright phones: the strips under the controller on /play (pick up to three, put them in
+     order; per browser). Keyboards: the player's key bindings (not on touch screens). Three choices: Arrows, WASD or Custom (any key per pad button:
      click a button's key, press the new one; a key already in use swaps over). A little keyboard shows which keys do
      what. Escape cancels a change, then closes. -->
 <script lang="ts">
 	import { BUTTONS, keyName, PRESETS, rebind, RESERVED_KEYS, type Bindings, type Button } from '#lib/play.ts';
 	import { keys, loadKeys, setBindings } from '#lib/keys.svelte.ts';
+	import { controls, setStrips, STRIP_IDS, STRIP_NAMES, stripsThatFit, type StripId } from '#lib/controls.svelte.ts';
+	// As many as this screen has room for (at most three).
+	const limit = $derived(stripsThatFit());
+
+	// Strips: the picked ones in their order, then the rest.
+	const stripRows = $derived([...controls.strips, ...STRIP_IDS.filter((id) => !controls.strips.includes(id))]);
+	function toggleStrip(id: StripId, on: boolean) {
+		setStrips(on ? [...controls.strips, id] : controls.strips.filter((s) => s !== id));
+	}
+	function moveStrip(id: StripId, to: number) {
+		const list = controls.strips.filter((s) => s !== id);
+		list.splice(Math.max(0, Math.min(to, list.length)), 0, id);
+		setStrips(list);
+	}
+	// Dragging a picked strip by its grip (pointer events: fingers and mice alike). The row follows the pointer; the
+	// list reorders as it crosses the middle of a neighbour.
+	let dragging = $state<{ id: StripId; startY: number; startIndex: number; rowH: number; dy: number } | null>(null);
+	function grab(e: PointerEvent, id: StripId) {
+		const row = (e.currentTarget as HTMLElement).closest('li')!;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		e.preventDefault();
+		dragging = { id, startY: e.clientY, startIndex: controls.strips.indexOf(id), rowH: row.offsetHeight + 6, dy: 0 };
+	}
+	function drag(e: PointerEvent) {
+		if (!dragging) return;
+		const dy = e.clientY - dragging.startY;
+		const to = Math.max(0, Math.min(controls.strips.length - 1, dragging.startIndex + Math.round(dy / dragging.rowH)));
+		if (to !== controls.strips.indexOf(dragging.id)) moveStrip(dragging.id, to);
+		dragging.dy = dy;
+	}
+	const dragShift = (id: StripId) =>
+		dragging?.id === id ? dragging.dy - (controls.strips.indexOf(id) - dragging.startIndex) * dragging.rowH : 0;
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -110,7 +143,60 @@
 			</button>
 		</header>
 
-		<section aria-labelledby="keys-h">
+		<section class="strips-section" aria-labelledby="strips-h">
+			<div class="strips-head">
+				<h3 id="strips-h">Under the controller</h3>
+				<span class="count" class:full={Math.min(controls.strips.length, limit) >= limit}>{Math.min(controls.strips.length, limit)} / {limit}</span>
+			</div>
+			{#if limit === 0}
+				<p class="hint">This screen is too short for anything under the Game Boy: the screen and controller take all of it.</p>
+			{:else}
+			<p class="hint">
+				Pick what shows under your Game Boy on Play, and drag
+				<span class="grip-chip" aria-hidden="true"
+					><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14" /></svg></span
+				><span class="sr">the grip</span> to put them in order.
+			</p>
+			<p class="fine">This screen has room for {limit === 1 ? 'one' : limit === 2 ? 'two' : 'three'}.</p>
+			<ul class="strip-list">
+				{#each stripRows as id (id)}
+					{@const i = controls.strips.indexOf(id)}
+					{@const on = i >= 0}
+					<li class:on class:lifted={dragging?.id === id} style:translate={dragging?.id === id ? `0 ${dragShift(id)}px` : null}>
+						<label>
+							<input type="checkbox" checked={on} disabled={!on && controls.strips.length >= limit} onchange={(e) => toggleStrip(id, e.currentTarget.checked)} />
+							<span>{STRIP_NAMES[id]}</span>
+							{#if on && i >= limit}<span class="nofit">doesn't fit</span>{/if}
+						</label>
+						{#if on}
+							<button
+								type="button"
+								class="grip"
+								aria-label="Reorder {STRIP_NAMES[id]}, number {i + 1} of {controls.strips.length}: drag, or press the up and down arrows"
+								onpointerdown={(e) => grab(e, id)}
+								onpointermove={drag}
+								onpointerup={() => (dragging = null)}
+								onpointercancel={() => (dragging = null)}
+								onkeydown={(e) => {
+									if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+									e.preventDefault();
+									moveStrip(id, i + (e.key === 'ArrowUp' ? -1 : 1));
+									const el = e.currentTarget;
+									queueMicrotask(() => el.focus()); // the row moved: keep the grip focused
+								}}
+							>
+								<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"
+									><path d="M5 8h14M5 12h14M5 16h14" /></svg
+								>
+							</button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+			{/if}
+		</section>
+
+		<section class="keys-section" aria-labelledby="keys-h">
 			<h3 id="keys-h">Keyboard</h3>
 			<div class="layouts" role="group" aria-label="Layout">
 				{#each LAYOUTS as l (l.id)}
@@ -172,6 +258,135 @@
 </dialog>
 
 <style>
+	/* Strips: upright phones only. Keyboard: not on touch screens. */
+	.strips-section {
+		display: none;
+	}
+	@media (max-width: 760px) {
+		.strips-section {
+			display: block;
+		}
+	}
+	@media (hover: none) and (pointer: coarse) {
+		.keys-section {
+			display: none;
+		}
+	}
+	.strips-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 8px;
+	}
+	.strips-head h3 {
+		margin: 0;
+	}
+	.count {
+		padding: 2px 8px;
+		border-radius: 999px;
+		border: 1px solid var(--border-strong);
+		font-size: 12px;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		color: var(--muted);
+	}
+	.count.full {
+		border-color: var(--accent);
+		color: var(--accent-text);
+	}
+	.hint {
+		margin: 0;
+		font-size: 14px;
+		line-height: 20px;
+		color: var(--text);
+	}
+	.grip-chip {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 18px;
+		margin: 0 2px;
+		vertical-align: -3px;
+		border: 1px solid var(--border-strong);
+		border-radius: 5px;
+		color: var(--muted);
+	}
+	.nofit {
+		margin-left: auto;
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--muted);
+	}
+	.fine {
+		margin: 4px 0 12px;
+		font-size: 12px;
+		color: var(--muted);
+	}
+	.strip-list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.strip-list li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		min-height: 44px;
+		padding: 0 6px 0 12px;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+	}
+	.strip-list li.on {
+		border-color: var(--accent);
+		background: var(--accent-tint, var(--sunk));
+	}
+	.strip-list label {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 44px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.strip-list input {
+		width: 18px;
+		height: 18px;
+		margin: 0;
+		accent-color: var(--accent-text);
+	}
+	.strip-list input:disabled + span {
+		color: var(--muted);
+	}
+	/* The grip: press and drag (touch-action none, so the finger drags the row, not the dialog). */
+	.grip {
+		width: 44px;
+		height: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border: none;
+		border-radius: 8px;
+		background: none;
+		color: var(--muted);
+		cursor: grab;
+		touch-action: none;
+	}
+	.lifted {
+		position: relative;
+		z-index: 1;
+		box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+	}
+	.lifted .grip {
+		cursor: grabbing;
+		color: var(--text);
+	}
 	/* Modal, so in the top layer and centred whatever page opens it. */
 	dialog {
 		position: fixed;

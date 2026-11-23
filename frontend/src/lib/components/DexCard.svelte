@@ -1,6 +1,6 @@
 <!-- A Pokédex card, drawn like the game's (a red frame around a screen), floating at x/y on <body>: ??? while
      unseen, name, category and types once seen, height, weight and the entry text once caught. side: "right" of the
-     point (vertically centred), "left" of it, or "above" it (horizontally centred). note: an extra line under the
+     point (vertically centred), "left" of it, or "above" / "below" it (horizontally centred). note: an extra line under the
      name ("Lv 100 · shiny"). The hovering itself: DexHover (dexhover.svelte.ts). -->
 <script lang="ts">
 	import { TIER_NAMES, TYPE_COLORS } from '#lib/play.ts';
@@ -22,7 +22,7 @@
 		state: 'unseen' | 'seen' | 'caught';
 		x: number;
 		y: number;
-		side?: 'right' | 'left' | 'above';
+		side?: 'right' | 'left' | 'above' | 'below';
 		zoom?: number;
 		name?: string;
 		note?: string;
@@ -45,7 +45,7 @@
 	}
 </script>
 
-<div class="card {state} {tier && tier !== 'F' ? `t-${tier}` : ''}" class:left={side === 'left'} class:above={side === 'above'} style:left="{x / zoom}px" style:top="{y / zoom}px" role="tooltip" use:portal>
+<div class="card {state} {tier && tier !== 'F' ? `t-${tier}` : ''}" class:left={side === 'left'} class:above={side === 'above'} class:below={side === 'below'} style:left="{x / zoom}px" style:top="{y / zoom}px" role="tooltip" use:portal>
 	<div class="card-head">
 		<span class="no pixel">No.{pad(n)}</span>
 		<span class="name">{state === 'unseen' ? '???' : (entry?.name ?? name ?? '…')}</span>
@@ -105,6 +105,9 @@
 	}
 	.card.above {
 		transform: translate(-50%, -100%);
+	}
+	.card.below {
+		transform: translateX(-50%);
 	}
 	@keyframes pop {
 		from {

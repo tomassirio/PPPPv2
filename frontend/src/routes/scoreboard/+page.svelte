@@ -64,7 +64,7 @@
 	const dexHover = new DexHover(); // the podium's party tiles
 </script>
 
-<svelte:head><title>Scoreboard · Pibs&amp;PibettesPlayPokemonV2</title></svelte:head>
+<svelte:head><title>Scoreboard · PPPPv2</title></svelte:head>
 
 <SubPage>
 	<div class="head">
@@ -75,10 +75,16 @@
 		<div class="filters">
 			<div class="seg" role="group" aria-label="Game">
 				{#each VERSIONS as v (v)}
-					<button type="button" aria-pressed={version === v} onclick={() => pick(() => (version = v))}>{v}</button>
+					<button
+						type="button"
+						class={v === 'All' ? undefined : `ver-${v}`}
+						style:--cart={v === 'All' ? null : `var(--cart-${v.toLowerCase()})`}
+						aria-pressed={version === v}
+						onclick={() => pick(() => (version = v))}>{v}</button
+					>
 				{/each}
 			</div>
-			<div class="seg" role="group" aria-label="Sort by">
+			<div class="seg chips" role="group" aria-label="Sort by">
 				{#each SORTS as [k, label] (k)}
 					<button type="button" aria-pressed={sort === k} onclick={() => pick(() => (sort = k))}>{label}</button>
 				{/each}
@@ -157,25 +163,26 @@
 					{@const v = versionOf(r.game, board.names)}
 					{@const where = st.kind === 'linked' ? 'Trade Center' : place(r.location).city}
 					<a class="tr" class:you={r.userId === session.me?.id} href={href(r.userId)} animate:flip={{ duration: ms(500) }} in:arrive style:position="relative" style:z-index={pageRows.length - j}>
-						<span class="rank"><RankNumber rank={i + 1} total={board.rows.length} medal /></span>
-						<span class="row">
+						<span class="rank c-rank"><RankNumber rank={i + 1} total={board.rows.length} medal /></span>
+						<span class="row c-who">
 							<Avatar user={r.userId} />
 							<span class="grow">
 								<b class="name"><Name user={r.userId} colored /></b>
 								<span class="row xs status-{st.kind}"><span class="status-dot"></span>{st.label}{#if where}<span class="muted ell">· {where}</span>{/if}{#if v}<span class="muted">·&nbsp;<span class="ver-{v}">{v}</span></span>{/if}</span>
 							</span>
 						</span>
-						<span><PartyIcons party={r.party} size={30} hp={false} dex /></span>
-						<span class="linkcol">
+						<span class="c-party"><PartyIcons party={r.party} size={30} hp={false} dex /></span>
+						<span class="linkcol c-link">
 							<span class="rec pixel"><span class="w">{r.link?.wins ?? 0}</span>–<span class="l">{r.link?.losses ?? 0}</span><span class="sr-only"> link battles won and lost</span></span>
-							<span class="muted xs">{#if winRate(r.link) != null}{winRate(r.link)}% won · {/if}{r.link?.trades ?? 0} {(r.link?.trades ?? 0) === 1 ? 'trade' : 'trades'}</span>
+							<span class="stat-label phone-only" aria-hidden="true">link W–L</span>
+							<span class="muted xs desk-only">{#if winRate(r.link) != null}{winRate(r.link)}% won · {/if}{r.link?.trades ?? 0} {(r.link?.trades ?? 0) === 1 ? 'trade' : 'trades'}</span>
 						</span>
-						<span class="num"><b>{r.badges}</b><span class="muted"> / 16</span><span class="sr-only"> badges</span></span>
-						<span class="dex">
-							<span class="small"><b>{r.caught}</b> <span class="muted">caught · {r.seen} seen</span></span>
+						<span class="num c-badges"><b>{r.badges}</b><span class="muted"> / 16</span><span class="sr-only"> badges</span><span class="stat-label phone-only" aria-hidden="true">badges</span></span>
+						<span class="dex c-dex">
+							<span class="small"><b>{r.caught}</b> <span class="muted">caught<span class="desk-only">&nbsp;· {r.seen} seen</span></span></span>
 							<span class="bar"><b style:width="{(r.caught * 100) / 251}%"></b></span>
 						</span>
-						<span class="num"><span class="pts"><CountUp value={score(r)} /><span class="sr-only"> points, grade</span></span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
+						<span class="num c-pts"><span class="pts"><CountUp value={score(r)} /><span class="sr-only"> points, grade</span></span> <GradeChip grade={r.grade} rating={r.trainerScore} /></span>
 					</a>
 				{/each}
 			</div>
@@ -263,6 +270,15 @@
 	}
 	.seg button[aria-pressed='true'] {
 		background: var(--accent);
+		color: var(--ink);
+	}
+	/* Gold, Silver, Crystal: named in their cartridge's colour (pulled toward the text, as app.css .ver-*), filled
+	   with it when picked. */
+	.seg button[class*='ver-'] {
+		color: color-mix(in srgb, var(--cart) 60%, var(--text));
+	}
+	.seg button[class*='ver-'][aria-pressed='true'] {
+		background: var(--cart);
 		color: var(--ink);
 	}
 	button:focus-visible,
@@ -635,6 +651,133 @@
 		display: block;
 		height: 100%;
 		background: var(--accent);
+	}
+	.phone-only {
+		display: none;
+	}
+	/* Phones: each row of the table is a small card (rank down the side; name and points, the party, then link record,
+	   badges and Pokédex in three columns), so nothing scrolls sideways. The column headers go: each value says what
+	   it is. */
+	@media (max-width: 760px) {
+		.tablewrap {
+			overflow: visible;
+		}
+		.tbl {
+			min-width: 0;
+		}
+		.tr.th {
+			display: none;
+		}
+		.tr {
+			grid-template-columns: 28px repeat(3, minmax(0, 1fr));
+			grid-template-areas:
+				'rank who who pts'
+				'rank party party party'
+				'rank link badges dex';
+			gap: 8px 10px;
+			padding: 12px 14px 12px 10px;
+		}
+		.tablewrap .tr:first-of-type + .tr {
+			border-top: none;
+		}
+		.c-rank {
+			grid-area: rank;
+			align-self: start;
+			padding-top: 8px;
+			text-align: center;
+		}
+		.c-who {
+			grid-area: who;
+			min-width: 0;
+		}
+		.c-pts {
+			grid-area: pts;
+			align-self: start;
+			display: flex;
+			flex-direction: column;
+			align-items: flex-end;
+			gap: 2px;
+		}
+		.c-party {
+			grid-area: party;
+		}
+		/* The last line: three small stats, each a value with its label under it. */
+		.c-link {
+			grid-area: link;
+			gap: 0;
+		}
+		.c-badges {
+			grid-area: badges;
+			text-align: center;
+			font-size: 13px;
+		}
+		.c-dex {
+			grid-area: dex;
+			font-size: 12px;
+			gap: 4px;
+		}
+		.phone-only {
+			display: block;
+		}
+		.desk-only {
+			display: none;
+		}
+		.stat-label {
+			font-size: 11px;
+			color: var(--muted);
+		}
+	}
+	/* Phones: the game as one full-width segmented control, the sorts as a row of chips that scrolls sideways
+	   edge to edge; both big enough for a thumb. */
+	@media (max-width: 760px) {
+		.titles {
+			width: 100%;
+			align-items: center;
+		}
+		.filters {
+			width: 100%;
+			min-width: 0; /* the chip row scrolls; it must not widen the page */
+			flex-direction: column;
+			flex-wrap: nowrap; /* a wrapping column line is as wide as the chip row */
+			gap: 10px;
+		}
+		.seg {
+			flex-wrap: nowrap;
+			min-width: 0;
+		}
+		.seg button {
+			flex: 1 1 0;
+			height: 36px;
+			font-size: 14px;
+		}
+		.seg.chips {
+			margin: 0 -16px;
+			padding: 0 16px;
+			gap: 8px;
+			border: none;
+			border-radius: 0;
+			background: none;
+			overflow-x: auto;
+			scrollbar-width: none;
+			scroll-padding: 0 16px;
+			scroll-snap-type: x proximity;
+		}
+		.seg.chips::-webkit-scrollbar {
+			display: none;
+		}
+		.seg.chips button {
+			flex: none;
+			padding: 0 14px;
+			border: 1px solid var(--border);
+			border-radius: 999px;
+			background: var(--panel);
+			white-space: nowrap;
+			scroll-snap-align: start;
+		}
+		.seg.chips button[aria-pressed='true'] {
+			border-color: var(--accent);
+			background: var(--accent);
+		}
 	}
 	@media (max-width: 820px) {
 		.podium {

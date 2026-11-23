@@ -47,8 +47,12 @@ public class AllowlistController {
         this.resets = resets;
     }
 
+    /** The signed-in player, or 204 No Content for a visitor who is not signed in (a player only: anything else is 204 too). */
     @GetMapping("/me")
-    public Me me(Authentication auth) {
+    public org.springframework.http.ResponseEntity<Me> me(Authentication auth) {
+        if (auth == null || auth.getAuthorities().stream().noneMatch(a -> "ROLE_PLAYER".equals(a.getAuthority()))) {
+            return org.springframework.http.ResponseEntity.noContent().build();
+        }
         var v = CurrentUser.viewer(auth);
         allowlist.rememberProfile(v.id(), v.name(), v.picture());
         List<String> roles = auth.getAuthorities().stream()
@@ -56,7 +60,8 @@ public class AllowlistController {
                 .filter(a -> a.startsWith("ROLE_"))
                 .map(a -> a.substring(5))
                 .toList();
-        return new Me(v.id(), v.name(), v.picture(), roles, allowlist.displayName(v.id()), AllowlistService.username(v.id()));
+        return org.springframework.http.ResponseEntity.ok(
+                new Me(v.id(), v.name(), v.picture(), roles, allowlist.displayName(v.id()), AllowlistService.username(v.id())));
     }
 
     /** Sets the caller's nickname (blank: back to their Google name); answers the name they are now shown as. */

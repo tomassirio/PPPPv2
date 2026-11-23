@@ -23,6 +23,8 @@ class CsrfCookieTest {
 
     @Test
     void firstRequestSetsCsrfCookieForTheSpa() throws Exception {
-        mvc.perform(get("/api/v1/me")).andExpect(cookie().exists("XSRF-TOKEN"));
+        mvc.perform(get("/api/v1/me")).andExpect(cookie().exists("XSRF-TOKEN"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent()); // signed out: nobody, no 401
+
     }
 }

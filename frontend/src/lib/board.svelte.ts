@@ -16,13 +16,19 @@ export const board = $state<{ rows: ScoreRow[]; activity: ScoreEvent[]; names: R
 function load() {
 	if (!Object.keys(board.names).length)
 		api<{ available: { id: string; name: string }[] }>('GET', '/me/game')
-			.then((g) => (board.names = Object.fromEntries(g.available.map((c) => [c.id, c.name]))))
+			.then((g) => {
+				board.names = Object.fromEntries(g.available.map((c) => [c.id, c.name]));
+			})
 			.catch(() => {});
 	api<ScoreRow[]>('GET', '/scoreboard')
-		.then((r) => (board.rows = r))
+		.then((r) => {
+			board.rows = r;
+		})
 		.catch(() => {});
 	api<ScoreEvent[]>('GET', `/activity?limit=${FEED}`)
-		.then((a) => (board.activity = a))
+		.then((a) => {
+			board.activity = a;
+		})
 		.catch(() => {});
 }
 
@@ -33,8 +39,12 @@ let offs: (() => void)[] = [];
 export function watchBoard(): () => void {
 	if (watchers++ === 0) {
 		offs = [
-			on('SCOREBOARD_CHANGED', (r: ScoreRow[]) => (board.rows = r)),
-			on('PROGRESS', (e: ScoreEvent) => (board.activity = [e, ...board.activity].slice(0, FEED))),
+			on('SCOREBOARD_CHANGED', (r: ScoreRow[]) => {
+				board.rows = r;
+			}),
+			on('PROGRESS', (e: ScoreEvent) => {
+				board.activity = [e, ...board.activity].slice(0, FEED);
+			}),
 			onOpen(load) // events sent while the stream was down are gone: fetch again
 		];
 		load();

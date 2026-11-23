@@ -6,6 +6,7 @@
 	import NicknameEditor from '#lib/components/NicknameEditor.svelte';
 	import Name from '#lib/components/Name.svelte';
 	import RunSummary from '#lib/components/RunSummary.svelte';
+	import FindButton from '#lib/components/FindButton.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import KindIcon from '#lib/components/KindIcon.svelte';
 	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
@@ -98,7 +99,7 @@
 	const TABS = [
 		{ id: 'overview', label: 'Overview' },
 		{ id: 'achievements', label: 'Achievements' },
-		{ id: 'badges', label: 'Badges & stats' },
+		{ id: 'badges', label: 'Badges & stats', short: 'Stats' },
 		{ id: 'recent', label: 'Recent' }
 	] as const;
 	let tab = $state<(typeof TABS)[number]['id']>(page.url.searchParams.has('ach') ? 'achievements' : 'overview');
@@ -167,7 +168,7 @@
 		[`Lv ${m.level}`, m.status, m.shiny && 'shiny'].filter(Boolean).join(' · ');
 </script>
 
-<svelte:head><title>{you ? 'Your profile' : nameOf(id)} · Pibs&amp;PibettesPlayPokemonV2</title></svelte:head>
+<svelte:head><title>{you ? 'Your profile' : nameOf(id)} · PPPPv2</title></svelte:head>
 
 <SubPage>
 	<nav class="crumb" aria-label="Breadcrumb"><a href="/scoreboard">← Scoreboard</a><span class="muted">/ {#if you}You{:else}<Name user={id} />{/if}</span></nav>
@@ -176,16 +177,32 @@
 		<section class="card no-game">
 			<Avatar user={id} size={72} />
 			<NicknameEditor user={id} editable={you} />
-			{#if you}
-				<p class="muted">You haven't picked a game yet. Choose Gold, Silver or Crystal and your profile fills in as you play: party, badges, Pokédex, achievements and link battles.</p>
-				<div class="actions">
-					<a class="btn primary" href="/play">Pick your game</a>
-					<a class="btn" href="/watch">Watch live battles</a>
-				</div>
-			{:else}
-				<p class="muted">Hasn't started a game yet. Their profile shows up here once they do.</p>
-				<div class="actions"><a class="btn" href="/scoreboard">Back to the scoreboard</a></div>
-			{/if}
+			<!-- No game yet: an empty state, three cartridges in their plastic, what will fill in, the way on. -->
+			<div class="empty-game">
+				<span class="carts" aria-hidden="true">
+					{#each ['#d4a72c', '#5aaed6', '#a3adb7'] as c (c)}
+						<svg viewBox="0 0 12 14" width="30" height="35" shape-rendering="crispEdges" style:--c={c}>
+							<path d="M0 0h10l2 2v12H0z" fill="var(--c)" />
+							<path d="M2 3h8v7H2z" fill="color-mix(in oklab, var(--c), white 45%)" />
+							<path d="M1 1h7v1H1z" fill="color-mix(in oklab, var(--c), black 25%)" />
+						</svg>
+					{/each}
+				</span>
+				<b class="empty-title">{you ? 'No game yet' : 'Not playing yet'}</b>
+				{#if you}
+					<p>Pick Gold, Silver or Crystal and this page fills in as you play:</p>
+					<ul class="fills" aria-label="What your profile will show">
+						{#each ['Party', 'Badges', 'Pokédex', 'Achievements', 'Link battles'] as f (f)}<li>{f}</li>{/each}
+					</ul>
+					<div class="actions">
+						<a class="btn primary" href="/play">Pick your game</a>
+						<a class="btn" href="/watch">Watch live battles</a>
+					</div>
+				{:else}
+					<p>They haven't started a game. Their party, badges and achievements show up here once they do.</p>
+					<div class="actions"><a class="btn" href="/scoreboard">Back to the scoreboard</a></div>
+				{/if}
+			</div>
 		</section>
 	{:else if !profile || !row || !status}
 		<p class="muted" role="status">Loading…</p>
@@ -208,7 +225,7 @@
 								>
 							</LocationMap>
 						{/if}
-						{#if row.playTime ?? profile.stats.playTime}<span class="muted">· playtime {row.playTime ?? profile.stats.playTime}</span>{/if}
+						{#if row.playTime ?? profile.stats.playTime}<span class="muted"><span class="sep">· </span>playtime {row.playTime ?? profile.stats.playTime}</span>{/if}
 					</div>
 				</div>
 			</div>
@@ -221,7 +238,7 @@
 		<div class="tabs" role="tablist" aria-label="Profile">
 			{#each TABS as t (t.id)}
 				<button type="button" role="tab" id="tab-{t.id}" aria-selected={tab === t.id} aria-controls="panel-{t.id}" class:on={tab === t.id} onclick={() => (tab = t.id)}
-					>{t.label}</button
+					>{#if 'short' in t}<span class="long">{t.label}</span><span class="short">{t.short}</span>{:else}{t.label}{/if}</button
 				>
 			{/each}
 		</div>
@@ -369,7 +386,7 @@
 								{:else if !busy}<span class="muted xs"><Name user={id} /> sees your offer wherever they are, for a minute.</span>{/if}
 								{#if link.error}<span class="error xs" role="alert">{link.error}</span>{/if}
 							{:else}
-								<button type="button" class="btn find wide" onclick={() => (finding = true)}>Find someone online</button>
+								<FindButton onclick={() => (finding = true)} />
 								<LinkFinder bind:open={finding} />
 							{/if}
 							{/if}
@@ -615,6 +632,61 @@
 		padding: 48px 24px;
 		text-align: center;
 	}
+	.empty-game {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+		box-sizing: border-box;
+		width: 100%;
+		max-width: 520px;
+		margin-top: 6px;
+		padding: 20px 18px;
+		border: 1px dashed var(--border-strong);
+		border-radius: 14px;
+		background: var(--sunk);
+	}
+	.empty-game .carts {
+		display: flex;
+		gap: 8px;
+	}
+	.empty-game .carts svg:nth-child(2) {
+		translate: 0 -4px;
+	}
+	.empty-title {
+		font-size: 16px;
+	}
+	.empty-game p {
+		color: var(--muted);
+		font-size: 14px;
+		line-height: 20px;
+	}
+	.fills {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 6px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.fills li {
+		padding: 3px 10px;
+		border-radius: 999px;
+		border: 1px solid var(--border);
+		background: var(--panel);
+		font-size: 12px;
+		font-weight: 600;
+	}
+	@media (max-width: 640px) {
+		.no-game .actions {
+			width: 100%;
+			flex-direction: column;
+		}
+		.no-game .actions .btn {
+			justify-content: center;
+		}
+	}
 	.no-game p {
 		margin: 0;
 		max-width: 460px;
@@ -733,15 +805,6 @@
 		font-weight: 600;
 		white-space: nowrap;
 	}
-	/* Find someone: the link cable blue, as on /play's Link cable card. */
-	.btn.find {
-		border: 1px solid var(--link);
-		background: var(--link-tint, transparent);
-		color: var(--link);
-	}
-	.btn.find:hover {
-		background: color-mix(in oklab, var(--link) 18%, transparent);
-	}
 	.btn.primary {
 		background: var(--accent);
 		border-color: var(--accent);
@@ -787,6 +850,9 @@
 		font-weight: 600;
 		white-space: nowrap;
 		cursor: pointer;
+	}
+	.tabs .short {
+		display: none;
 	}
 	.tabs button:hover {
 		color: var(--text);
@@ -1264,12 +1330,48 @@
 		.mons {
 			grid-template-columns: minmax(0, 1fr);
 		}
+		/* Phones: the header as a centred stack (avatar, name, trainer, chips), then the trainer and points cards full
+		   width; the tabs share the width instead of scrolling sideways. */
 		.hero {
 			gap: 14px;
 		}
+		.who {
+			width: 100%;
+			flex-direction: column;
+			align-items: center;
+			gap: 10px;
+			text-align: center;
+		}
+		.who > .col {
+			align-items: center;
+		}
+		.who :global(.wrap) {
+			justify-content: center;
+		}
 		.numbers {
 			width: 100%;
-			justify-content: space-between;
+			flex-direction: column;
+			gap: 12px;
+		}
+		.trainer-slot,
+		.summary-slot {
+			width: 100%;
+		}
+		.tabs {
+			gap: 0;
+			overflow-x: visible;
+		}
+		.tabs button {
+			flex: 1 1 auto;
+			padding: 10px 6px;
+			font-size: 13px;
+		}
+		.tabs .long,
+		.who .sep {
+			display: none;
+		}
+		.tabs .short {
+			display: inline;
 		}
 	}
 </style>

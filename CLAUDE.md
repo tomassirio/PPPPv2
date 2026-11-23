@@ -109,6 +109,31 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   out when a confirmed reading changes them (play time alone is stored, not pushed). `GET /api/v1/players/{userId}/profile`
   = `PlayerProfile` {row, party, achievements (progress/goal only for the caught/Kanto-badge counts), stats {caught,
   seen, playTime}, recent (their 10 newest feed entries)}. No trade or link battle counters exist.
+- Done: phones. Upright, the header's burger (`AppHeader`, a `<dialog>` drawer) replaces the nav and, on /play, the
+  tabs. One list with icons on every page: the /play panels under the screen (Play, Link cable, Your run, Scoreboard,
+  Activity, Chat; in place on /play, `/play?panel=<id>` elsewhere; Scoreboard's panel links the full page), then a
+  divider and Live; on top the logo and the player's trainer card (game, rank, Trainer Score, link status; opens
+  their profile), Sign out at its bottom. /scoreboard on phones: the game as a full-width
+  segmented control, the sorts as chips scrolling sideways; each table row a small card (no sideways scroll). Profiles on phones: the header a centred stack, the tabs
+  share the width ("Stats"). Sign-in on phones: the handheld with the full banner on its bezel (tapping its screen is START),
+  the numbers on a pill and the Google button, sized to fit one screen. `GET /api/v1/me` is open: 204 when signed out.
+  Tab titles: "<page> · PPPPv2". Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order; a third
+  of the width or a flick switches, else it springs back; not
+  from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
+  phones (record as stat tiles, Trade/Battle tiles with a hint); "Nobody is waiting" is an empty state on every size.
+  `FindButton` is the one "Find someone online" button (Link cable card, /watch, profiles).
+  On phones Link cable and Your run are exactly the height left under the screen (size containers) and drop parts by
+  height container queries instead of scrolling; Scoreboard, Activity and Chat scroll their lists.
+  The Play panel on phones (`play-panel`, one swipe unit): the controller and the strips the player picked (`PlayStrips`;
+  Settings on phones, as many as the measured room fits (48px each, at most 3; `controls.room`, `stripsThatFit`) of
+  Location, Party, Latest activity, Badges, Pokédex, Rank, dragged into order;
+  `controls.svelte.ts`, per browser). Strips give way before the screen when height runs out, the last first, and hide
+  when cut short; the triangle in the controller's corner puts them under the screen and the controller at the bottom. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order; a third
+  of the width or a flick switches, else it springs back; not
+  from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
+  phones: the record as stat tiles, Trade/Battle tiles with a hint, "Nobody is waiting" as an empty state. Held
+  sideways the icon rail stays. Settings (key bindings) is hidden on touch screens. A player's picked speed survives
+  their console rebooting (`PlayerConsoles.speeds`, memory only; plugging a cable clears it).
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, README
   (still describes v1).

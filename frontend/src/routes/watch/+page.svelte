@@ -7,6 +7,7 @@
 	import Avatar from '#lib/components/Avatar.svelte';
 	import LiveStage from '#lib/components/LiveStage.svelte';
 	import SubPage from '#lib/components/SubPage.svelte';
+	import FindButton from '#lib/components/FindButton.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { clock, link, since, watchLink } from '#lib/link.svelte.ts';
@@ -27,7 +28,7 @@
 	};
 </script>
 
-<svelte:head><title>Live · PPPP</title></svelte:head>
+<svelte:head><title>Live · PPPPv2</title></svelte:head>
 
 <SubPage>
 	<div class="live-page">
@@ -81,7 +82,7 @@
 							>Your Cable Club isn't open yet: bring Mr. Pokémon's Mystery Egg back to Prof. Elm first.</span
 						>
 					{:else}
-						<button type="button" class="btn find" onclick={() => (finding = true)}>Find someone online</button>
+						<FindButton onclick={() => (finding = true)} />
 						<LinkFinder bind:open={finding} />
 					{/if}
 				</section>
@@ -240,15 +241,6 @@
 	}
 	.btn:hover {
 		border-color: var(--accent-text);
-	}
-	/* Find someone: the link cable blue, as on /play's Link cable card. */
-	.btn.find {
-		border: 1px solid var(--link);
-		background: var(--link-tint, transparent);
-		color: var(--link);
-	}
-	.btn.find:hover {
-		background: color-mix(in oklab, var(--link) 18%, transparent);
 	}
 	.btn:focus-visible {
 		outline: 3px solid var(--accent-text);

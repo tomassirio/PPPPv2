@@ -1,6 +1,8 @@
 <!-- Link cable card: your link record, ready to trade/battle toggles, everyone else who is ready (avatar, name, what they want, their game and
      party), the running session (two avatars joined by the cable, both parties, time left,
-     Unplug), and Find someone to link with (LinkFinder: anyone online).
+     Unplug), and Find someone to link with (LinkFinder: anyone online). On phones it fills the panel under the screen:
+     the record as four stat tiles, Trade/Battle tiles with a hint. "Nobody is waiting" is an empty state
+     (icon, hint, Find someone online) on every size.
      State lives in link.svelte.ts. -->
 <script lang="ts">
 	import Name from '#lib/components/Name.svelte';
@@ -8,11 +10,12 @@
 	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
 	import LinkError from '#lib/components/LinkError.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
+	import FindButton from '#lib/components/FindButton.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { act, clock, desk, left, link, roomName, since, verb, watchLink } from '#lib/link.svelte.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
-	import { clubClosed, place } from '#lib/play.ts';
+	import { clubClosed, place, winRate } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { cubicOut } from 'svelte/easing';
 
@@ -139,6 +142,14 @@
 				<span><b>{mine?.trades ?? 0}</b> {mine?.trades === 1 ? 'trade' : 'trades'}</span>
 			</span>
 		</div>
+		{@const rate = winRate(mine)}
+		<!-- Phones: the record pill as stat tiles. -->
+		<dl class="stats" aria-label="Your link record">
+			<div><dt>Won</dt><dd class="w">{mine?.wins ?? 0}</dd></div>
+			<div><dt>Lost</dt><dd class="l">{mine?.losses ?? 0}</dd></div>
+			<div><dt>Win rate</dt><dd>{rate === null ? '–' : `${rate}%`}</dd></div>
+			<div><dt>Trades</dt><dd>{mine?.trades ?? 0}</dd></div>
+		</dl>
 		{#if parting}
 			<div class="parting-slot">
 				<div class="cable-row parting" role="status">
@@ -159,16 +170,21 @@
 				<button class="toggle {kind === 'TRADE' ? 't-trade' : 't-battle'}" class:on aria-pressed={on} title="Let others offer you a {verb(kind)}" onclick={() => act('PUT', '/link/ready', { kind: on ? null : kind })}>
 					<span class="ico">{@render kindIcon(kind, 18)}</span>
 					<b class="tl">{kind === 'TRADE' ? 'Trade' : 'Battle'}</b>
+					<span class="hint">{kind === 'TRADE' ? 'Swap Pokémon with another Pib' : 'Pit your team against theirs'}</span>
 					{#if on}<span class="ready"><span class="live-dot" aria-hidden="true"></span>Ready</span>{/if}
 				</button>
 			{/each}
 		</div>
 		</div>
 		{#if !others.length}
-			<!-- One line when nobody is waiting; beside the toggles when the card is wide. -->
+			<!-- Nobody is waiting: an empty state with the way to find someone. -->
 			<div class="nobody">
-				<span class="muted">Nobody is waiting.</span>
-				<button class="find small" onclick={() => (finding = true)}>Find someone online</button>
+				<svg class="nobody-art" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"
+					><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h2M14 12h2" /></svg
+				>
+				<b>Nobody is waiting.</b>
+				<span class="nobody-hint">Pick Trade or Battle so others can find you, or offer one to someone online.</span>
+				<FindButton onclick={() => (finding = true)} />
 			</div>
 		{/if}
 		</div>
@@ -207,9 +223,7 @@
 					</li>
 				{/each}
 			</ul>
-			<button class="find" onclick={() => (finding = true)}
-				>{others.length > SHOWN ? `See all ${others.length} ready · find someone online` : 'Find someone else online'}</button
-			>
+			<FindButton onclick={() => (finding = true)} label={others.length > SHOWN ? `See all ${others.length} ready · find someone online` : 'Find someone else online'} />
 		{/if}
 		{#if live.length}
 			<div class="sub">
@@ -254,26 +268,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 14px;
-	}
-	/* Wide card, nobody waiting: the toggles and "Nobody is waiting" share one row. */
-	@container (min-width: 480px) {
-		.controls.split {
-			flex-direction: row;
-			align-items: flex-end;
-			gap: 16px;
-		}
-		.controls.split .ups {
-			flex: 1 1 auto;
-			min-width: 0;
-		}
-		.controls.split .nobody {
-			flex: none;
-			flex-direction: column;
-			align-items: flex-end;
-			gap: 6px;
-			padding-top: 0;
-			border-top: none;
-		}
 	}
 	.card {
 		--kind: var(--link);
@@ -498,23 +492,161 @@
 	}
 	.nobody {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		justify-content: space-between;
-		gap: 10px;
-		padding-top: 12px;
-		border-top: 1px solid var(--border);
+		gap: 4px;
+		padding: 16px 14px;
+		border: 1px dashed var(--border-strong);
+		border-radius: 14px;
+		text-align: center;
 	}
-	.nobody button.find {
-		width: auto;
-		flex: none;
-	}
-	button.find {
-		width: 100%;
-		box-sizing: border-box;
-		border: 1px solid var(--link);
-		background: var(--link-tint, transparent);
+	.nobody-art {
 		color: var(--link);
-		cursor: pointer;
+		opacity: 0.85;
+	}
+	.nobody b {
+		font-size: 15px;
+	}
+	.nobody-hint {
+		max-width: 34ch;
+		margin-bottom: 8px;
+		font-size: 13px;
+		line-height: 18px;
+		color: var(--muted);
+	}
+	.stats,
+	.hint {
+		display: none;
+	}
+	/* Phones: the card is the whole panel under the screen, so it can breathe. */
+	@media (max-width: 760px) {
+		.card {
+			padding: 16px;
+			gap: 12px;
+		}
+		.record {
+			display: none;
+		}
+		.stats {
+			display: grid;
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+			gap: 8px;
+			margin: 0;
+		}
+		.stats div {
+			display: flex;
+			flex-direction: column-reverse;
+			align-items: center;
+			gap: 0;
+			padding: 8px 4px;
+			border-radius: 12px;
+			background: var(--sunk);
+			border: 1px solid var(--border);
+		}
+		.stats dt {
+			font-size: 11px;
+			font-weight: 600;
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+			color: var(--muted);
+		}
+		.stats dd {
+			margin: 0;
+			font-size: 20px;
+			font-weight: 800;
+			font-variant-numeric: tabular-nums;
+		}
+		.stats dd.w {
+			color: var(--grass, #3fae4a);
+		}
+		.stats dd.l {
+			color: var(--danger);
+		}
+		.controls {
+			flex: 1 1 auto;
+			min-height: 0;
+			gap: 12px;
+		}
+		/* The empty state takes whatever height is left, its contents centred. */
+		.nobody {
+			flex: 1 1 auto;
+			min-height: 0;
+			justify-content: center;
+		}
+		button.toggle {
+			height: auto;
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr);
+			grid-template-areas: 'ico tl' 'hint hint';
+			align-items: center;
+			align-content: start; /* both tiles line up at the top whatever their hint's length */
+			gap: 8px 10px;
+			padding: 12px;
+		}
+		button.toggle .ico {
+			grid-area: ico;
+			width: 40px;
+			height: 40px;
+		}
+		button.toggle .ico :global(svg) {
+			width: 22px;
+			height: 22px;
+		}
+		/* Ready: the pill sits in the tile's corner. */
+		button.toggle .ready {
+			position: absolute;
+			top: 8px;
+			right: 8px;
+			padding: 2px 6px;
+			font-size: 10px;
+		}
+		.tl {
+			grid-area: tl;
+			font-size: 16px;
+			line-height: 20px;
+		}
+		.hint {
+			grid-area: hint;
+			display: block;
+			font-size: 12px;
+			line-height: 16px;
+			color: var(--muted);
+			white-space: normal;
+		}
+	}
+	/* Phones: the card is exactly as tall as the panel under the screen (a size container, set by /play). As that
+	   height shrinks, the least needed parts go first, so it never scrolls. Height queries never match elsewhere. */
+	@container (max-height: 430px) {
+		.nobody-hint {
+			display: none;
+		}
+	}
+	@container (max-height: 390px) {
+		.nobody-art {
+			display: none;
+		}
+	}
+	@container (max-height: 345px) {
+		.hint {
+			display: none;
+		}
+		button.toggle {
+			grid-template-areas: 'ico tl';
+		}
+	}
+	@container (max-height: 290px) {
+		.stats {
+			display: none;
+		}
+		.record {
+			display: inline-flex;
+		}
+	}
+	@container (max-height: 230px) {
+		.toggles-head,
+		.nobody b {
+			display: none;
+		}
 	}
 	.head {
 		display: flex;

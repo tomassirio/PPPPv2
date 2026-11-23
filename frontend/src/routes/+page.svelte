@@ -185,7 +185,9 @@
 
 		<div class="bezel">
 			<span class="led" aria-hidden="true"></span>
-			<div class="lcd" class:denied class:cart={!!showing.src}>
+			<!-- Tapping the screen presses START (signs in); the keyboard and the button below do the same. -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<div class="lcd" class:denied class:cart={!!showing.src} onclick={signIn}>
 				<h1>
 					<img src={pibs} alt="Pibs&amp;Pibettes" width="720" height="131" /><span class="row"
 						><img src={play} alt="PlayPokemon" width="720" height="171" /></span
@@ -345,9 +347,10 @@
 		--rubber: #2e2935;
 		--pixel: #1f1a33;
 		position: relative;
-		/* 1.67 is the device's height/width; 40px is the page padding, plus the about strip under it on phones. */
-		width: min(410px, calc(100vw - 24px), calc((100dvh - 40px - var(--below, 0px)) / 1.67));
-		min-width: 280px;
+		/* 1.67 is the device's height/width; 40px is the page padding, plus the about strip under it on phones (and
+		   the gap above it). 48px: 24px margins each side. */
+		width: min(410px, calc(100vw - 48px), calc((100dvh - 40px - var(--below, 0px)) / 1.67));
+		min-width: 200px;
 		aspect-ratio: 100 / 167;
 		container-type: inline-size;
 		user-select: none;
@@ -471,6 +474,7 @@
 	}
 
 	.lcd {
+		cursor: pointer;
 		position: absolute;
 		top: 9.4cqw;
 		left: 15cqw;
@@ -876,14 +880,17 @@
 	}
 
 	@media (max-width: 899px) {
+		/* Phones: handheld and the strip under it fit one screen (no scrolling), the same width, 24px from the sides. */
 		.device {
-			--below: 190px; /* the about strip: logo, numbers, button */
+			--below: 166px; /* the banner above it, the numbers and the button under it, and the gaps */
 		}
 		.device.asked {
-			--below: 260px; /* plus the access-requested note */
+			--below: 238px; /* plus the access-requested note */
 		}
+
 		main {
-			gap: 14px;
+			gap: 12px;
+			padding: 20px 24px;
 		}
 	}
 

@@ -22,7 +22,7 @@
 	});
 </script>
 
-<svelte:head><title>Admin · Pibs&PibettesPlayPokemonV2</title></svelte:head>
+<svelte:head><title>Admin · PPPPv2</title></svelte:head>
 
 <div class="admin">
 	<header>

@@ -3,6 +3,7 @@
 <script lang="ts">
 	import type { Teaser } from '#lib/teaser.js';
 	import logo from '#lib/assets/ppppv2-logo.png';
+	import banner from '#lib/assets/banner-v2.png';
 
 	/** requested: this sign-in was turned into an access request (not on the list yet). */
 	let { teaser, requested = false }: { teaser: Teaser | null; requested?: boolean } = $props();
@@ -18,7 +19,8 @@
 </script>
 
 <section class="about" aria-labelledby="about-title">
-	<h2 id="about-title"><img class="logo" src={logo} alt="Pibs&amp;Pibettes Play Pokémon V2" /></h2>
+	<!-- The card shows the PPPP V2 logo; phones put the full Pibs&PibettesPlayPokemon V2 banner over the handheld. -->
+	<h2 id="about-title"><img class="logo" src={logo} alt="Pibs&amp;Pibettes Play Pokémon V2" /><img class="banner" src={banner} alt="Pibs&amp;Pibettes Play Pokémon V2" width="940" height="113" /></h2>
 	<p class="pitch">
 		Your own Game Boy, linked to everyone else's.<span class="more" aria-hidden="true">▼</span>
 	</p>
@@ -134,6 +136,9 @@
 </section>
 
 <style>
+	.banner {
+		display: none;
+	}
 	/* The game's text box: a dark frame, a light gap, a thin inner line. */
 	.about {
 		position: relative;
@@ -421,22 +426,45 @@
 		}
 	}
 
-	/* Phones: a compact strip under the device: title, the card's numbers on one line, the button. */
+	/* Phones: no card. Its parts join the page's column (display: contents): the logo above the handheld, then
+	   the numbers on a dark pill (readable over the map) and a compact button under it. The handheld itself signs in
+	   too (tap its screen, or START). */
 	@media (max-width: 899px) {
 		.about {
-			width: min(410px, calc(100vw - 24px));
-			padding: 12px 14px;
-			border-width: 3px;
-			box-shadow:
-				inset 0 0 0 3px var(--panel),
-				inset 0 0 0 5px var(--text),
-				0 10px 24px rgb(0 0 0 / 0.3);
+			display: contents;
 		}
 		h2 {
+			order: -1;
 			margin: 0;
+			line-height: 0;
 		}
 		.logo {
-			max-width: 150px;
+			display: none;
+		}
+		/* The full banner over the handheld, nearly edge to edge, no plate: a dark outline and a deep shadow make it
+		   read over the busy map, like a game's title logo. */
+		.banner {
+			display: block;
+			width: calc(100vw - 16px);
+			max-width: 520px;
+			height: auto;
+			filter: drop-shadow(0 0 1.5px #0b0d1a) drop-shadow(0 0 1.5px #0b0d1a) drop-shadow(0 3px 0 #0b0d1a)
+				drop-shadow(0 8px 14px rgb(0 0 0 / 0.65));
+		}
+		.card {
+			order: 1;
+		}
+		.phone-line {
+			padding: 6px 14px;
+			border-radius: 999px;
+			background: rgb(10 12 16 / 0.72);
+			color: #f2f2f2;
+			backdrop-filter: blur(4px);
+		}
+		.requested {
+			order: 1;
+			width: min(410px, calc(100vw - 48px));
+			box-sizing: border-box;
 		}
 		.pitch,
 		.card-title,
@@ -459,13 +487,17 @@
 			display: block;
 		}
 		.card {
-			margin-top: 8px;
+			margin: 0;
 			padding: 0;
+			border: none;
 			background: none;
+			box-shadow: none;
 		}
 		.cta {
-			margin-top: 10px;
+			order: 2;
+			margin: 0;
 			min-height: 44px;
+			padding: 0 20px;
 		}
 	}
 </style>

@@ -14,6 +14,7 @@
 	import { currentShell } from '#lib/shell.svelte.ts';
 	import ShellPicker from './ShellPicker.svelte';
 	import { konamiPress } from '#lib/konami.svelte.ts';
+	import { controls, setControlsLow } from '#lib/controls.svelte.ts';
 
 	let { talk }: { talk: () => boolean } = $props();
 
@@ -177,6 +178,16 @@
 			>START</button
 		>
 	</div>
+	<!-- Upright phones: a triangle in the corner moves the controller down to the bottom edge, or back up. -->
+	<button
+		type="button"
+		class="move"
+		aria-label={controls.low ? 'Move the controller up' : 'Move the controller down'}
+		title={controls.low ? 'Move the controller up' : 'Move the controller down'}
+		onclick={() => setControlsLow(!controls.low)}
+	>
+		<svg viewBox="0 0 12 12" width="12" height="12" fill="currentColor" aria-hidden="true"><path d={controls.low ? 'M6 2l5 8H1z' : 'M6 10L1 2h10z'} /></svg>
+	</button>
 </div>
 
 <!-- Only a failed press says anything here. Key bindings live in Settings (account menu). -->
@@ -295,6 +306,25 @@
 	@media (orientation: landscape) and (max-height: 520px) {
 		.pib {
 			display: none; /* the pad is split around the screen there */
+		}
+	}
+	.move {
+		display: none;
+		position: absolute;
+		left: 10px;
+		bottom: 10px;
+		width: 32px;
+		height: 32px;
+		align-items: center;
+		justify-content: center;
+		padding: 0;
+		border-radius: 50%;
+		background: transparent;
+		color: color-mix(in oklab, var(--shell), black 32%);
+	}
+	@media (max-width: 760px) and (orientation: portrait) {
+		.move {
+			display: flex;
 		}
 	}
 	.picker-corner {

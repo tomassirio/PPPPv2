@@ -51,7 +51,12 @@
 	{/if}
 	<h1 id="pick-title" class="pixel">Pick your game</h1>
 	{#if available.length}
-		<p class="lead">Pokémon Gold, Silver and Crystal trade and battle with each other. Each has Pokémon the others don't, so pick yours and trade for the rest.</p>
+		<div class="lead" role="note">
+			<svg class="lead-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+				><path d="M4 8h13l-3-3M20 16H7l3 3" /></svg
+			>
+			<p><b>They all link up.</b> Gold, Silver and Crystal trade and battle with each other. Each has Pokémon the others don't: pick yours and trade for the rest.</p>
+		</div>
 		<div class="carts" class:has-choice={choice !== null} role="radiogroup" aria-labelledby="pick-title">
 			{#each ordered as c (c.id)}
 				{@const art = cover(c)}
@@ -88,7 +93,12 @@
 			<button type="button" class="start" disabled={!choice || saving} onclick={start}>
 				{chosen ? `Start ${chosen.name}` : 'Choose a game'}
 			</button>
-			<p class="note">You pick once and can't change it yourself. Only an admin can reset your game, and a reset deletes your save and your score.</p>
+			<div class="note" role="note">
+				<svg class="note-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+					><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg
+				>
+				<p><b>You pick once.</b> You can't change games yourself: only an admin can reset yours, and that deletes your save and your score.</p>
+			</div>
 			{#if error}<p class="error" role="alert">{error}</p>{/if}
 		</div>
 	{:else}
@@ -114,12 +124,35 @@
 		line-height: 1.7;
 		text-wrap: balance;
 	}
+	/* The intro, as a callout like the one-pick warning (same shape, neutral colour). */
 	.lead {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		box-sizing: border-box;
+		width: 100%;
+		max-width: 520px;
 		margin: -12px 0 0;
-		max-width: 58ch;
+		padding: 12px 14px;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--panel) 88%, transparent);
+		backdrop-filter: blur(6px);
+		text-align: left;
+	}
+	.lead-icon {
+		flex: none;
+		margin-top: 1px;
+		color: var(--link);
+	}
+	.lead p {
+		margin: 0;
+		font-size: 14px;
+		line-height: 20px;
 		color: var(--muted);
-		line-height: 22px;
-		text-wrap: balance;
+	}
+	.lead b {
+		color: var(--text);
 	}
 	.carts {
 		display: grid;
@@ -170,6 +203,21 @@
 	.pick > :not(.backdrop) {
 		position: relative;
 		z-index: 1;
+	}
+	/* Portrait (phones): the sharp screen fits the width (the height would make it ~2.5x wider than the phone), the
+	   blur fills above and below, and the screen's top and bottom feather into it, as its sides do on desktop. */
+	@media (orientation: portrait) and (max-width: 760px) {
+		.backdrop .fill {
+			object-fit: cover;
+		}
+		/* The sharp title screen fits the width, centred behind the cartridges (their names sit on frosted pills),
+		   and feathers into the blur above and below. */
+		.backdrop .screen {
+			width: 100%;
+			height: auto;
+			top: 52%;
+			mask-image: linear-gradient(to bottom, transparent, black 12%, black 88%, transparent);
+		}
 	}
 	/* The chosen version's colour glows behind the cartridges; it arrives with the circle reveal. */
 	.carts {
@@ -371,17 +419,149 @@
 		opacity: 0.5;
 		cursor: default;
 	}
-	.note,
 	.error {
 		margin: 0;
 		max-width: 48ch;
 		font-size: 13px;
 		line-height: 19px;
-		color: var(--muted);
 		text-wrap: balance;
+	}
+	/* The one-pick warning: a callout with a lock, in the chosen game's colour once there is one. */
+	.note {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		box-sizing: border-box;
+		width: 100%;
+		max-width: 460px;
+		padding: 12px 14px;
+		border: 1px solid color-mix(in srgb, var(--chosen) 55%, var(--border));
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--chosen) 10%, var(--panel));
+		text-align: left;
+	}
+	.note-icon {
+		flex: none;
+		margin-top: 1px;
+		color: color-mix(in srgb, var(--chosen) 70%, var(--text));
+	}
+	.note p {
+		margin: 0;
+		font-size: 13px;
+		line-height: 19px;
+		color: var(--muted);
+	}
+	.note b {
+		color: var(--text);
 	}
 	.error {
 		color: var(--danger);
+	}
+	/* Phones: the three cartridges side by side in one row, smaller, and a full-width Start: picking needs no
+	   scrolling. */
+	@media (max-width: 760px) {
+		/* One screen tall: Start and the warning sit at the bottom, where thumbs are. */
+		.pick {
+			box-sizing: border-box;
+			min-height: calc(100svh - 57px);
+			padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+			gap: 18px;
+		}
+		.lead {
+			margin-top: -8px;
+			max-width: 420px;
+		}
+		.lead p {
+			font-size: 13px;
+			line-height: 19px;
+		}
+		/* A triangle: Gold and Silver on top, Crystal centred under them (picker order is Gold, Crystal, Silver). */
+		.carts {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 14px 18px;
+			/* As wide as the height left allows (the triangle is ~1.14x its width tall plus the names), at most 340px. */
+			max-width: min(300px, calc((100svh - 495px) * 0.88));
+			min-width: 160px;
+		}
+		/* Short phones: a smaller triangle (and a shorter intro), so the page still fits one screen. */
+		@media (max-height: 760px) {
+			.carts {
+				gap: 8px 12px;
+			}
+			.pick {
+				gap: 12px;
+				padding-top: 12px;
+			}
+			.lead p {
+				font-size: 12px;
+				line-height: 17px;
+			}
+			.label {
+				margin-top: 2px;
+			}
+			.label b {
+				font-size: 12px;
+			}
+		}
+		/* The triangle sits centred in the room between the intro and Start. */
+		.carts {
+			margin: auto 0;
+		}
+		.cart-card:nth-child(2) {
+			grid-column: 1 / -1;
+			grid-row: 2;
+			justify-self: center;
+			width: calc(50% - 9px);
+		}
+		.cart-card:focus-visible {
+			outline-color: var(--game);
+		}
+		.cart-card {
+			min-width: 0;
+		}
+		.shell {
+			width: 100%;
+			padding: 0 8%;
+		}
+		.grip {
+			height: 9px;
+			margin: 6px 0 5px;
+			background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px);
+		}
+		.label-art {
+			padding: 2px;
+		}
+		.arrow {
+			border-left-width: 6px;
+			border-right-width: 6px;
+			border-top-width: 6px;
+		}
+		.check {
+			width: 24px;
+			height: 24px;
+			margin-left: -12px;
+		}
+		.label {
+			margin-top: 8px;
+		}
+		.label b {
+			padding: 3px 10px;
+			border-radius: 999px;
+			background: color-mix(in srgb, var(--panel) 82%, transparent);
+			backdrop-filter: blur(6px);
+			font-size: 13px;
+			line-height: 17px;
+		}
+		.system {
+			display: none;
+		}
+		.go {
+			width: 100%;
+			max-width: 420px;
+		}
+		.start {
+			width: 100%;
+		}
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.cart-card,

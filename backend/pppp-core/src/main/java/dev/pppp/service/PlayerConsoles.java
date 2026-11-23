@@ -70,6 +70,10 @@ public class PlayerConsoles {
     private static final Set<Button> ARROWS = Set.of(Button.UP, Button.DOWN, Button.LEFT, Button.RIGHT);
     /** Link cables, one entry per end: userId -> the player at the other end. Guarded by itself. */
     private final Map<String, String> links = new HashMap<>();
+    /** The speed each player picked, put back on a console that boots again (after going away, e.g. a phone's
+     * screen locking) so it matches what their speed chip shows. Plugging a cable in clears it (back to 1x).
+     * ponytail: memory only, a backend restart boots everyone at 1x; a field in pibs:player:{userId} if that matters. */
+    private final Map<String, Double> speeds = new ConcurrentHashMap<>();
     private final PlayerRepository players;
     private final CartridgeService cartridges;
     private final CartridgeRepository files;
@@ -353,6 +357,8 @@ public class PlayerConsoles {
             b.host().patchRom(friendB);
             links.put(userA, userB);
             links.put(userB, userA);
+            speeds.remove(userA); // EmulatorHost.link set both to 1x
+            speeds.remove(userB);
         }
         log.info("Link cable plugged: {} and {}", userA, userB);
     }
@@ -433,6 +439,7 @@ public class PlayerConsoles {
             Console c = consoles.get(userId);
             if (c == null) throw new IllegalStateException("Your console is not running");
             c.host().setSpeed(speed);
+            speeds.put(userId, speed);
         }
     }
 
@@ -552,6 +559,7 @@ public class PlayerConsoles {
             frameListeners.forEach(l -> l.accept(userId, pixels));
         });
         host.onAudio(samples -> audioListeners.forEach(l -> l.accept(userId, samples)));
+        host.setSpeed(speeds.getOrDefault(userId, 1.0));
         host.powerOn();
         Path state = files.playerState(userId, game);
         if (Files.isRegularFile(state)) {

@@ -1,12 +1,15 @@
 <!-- /play: the player's own game (location sign, screen, pad); the Link cable and "Your run" cards; one card with
      Scoreboard / Activity / Chat tabs. Desktop = three columns (frontend/design/PlayV2.mock.html, #play), two with the
-     board underneath on tablets; phone = Play / Scores / Chat tabs under the header, a challenge comes up as a bottom
-     sheet and a linked session as a banner over the screen. Held sideways, Link / Scores / Chat are sheets. -->
+     board underneath on tablets; phone = the screen with one panel under it (Play, Link cable, Your run, Scoreboard,
+     Activity, Chat: picked from the header's burger menu, the same on every page), a challenge comes up as a bottom sheet and a linked session
+     as a banner over the screen. Held sideways, Link / Scores / Chat are sheets opened from an icon rail. -->
 <script lang="ts">
 	import LocationMap from '#lib/components/LocationMap.svelte';
 	import Name from '#lib/components/Name.svelte';
 	import { goto } from '$app/navigation';
 	import { dexBanners } from '#lib/dex.svelte.ts';
+	import { controls } from '#lib/controls.svelte.ts';
+	import PlayStrips from '#lib/components/PlayStrips.svelte';
 	import { api } from '#lib/api.ts';
 	import { on } from '#lib/events.ts';
 	import { isEmote } from '#lib/chat/bubble.ts';
@@ -41,9 +44,14 @@
 	import ViewportDebug from '#lib/components/ViewportDebug.svelte';
 	import PokeballRain from '#lib/components/PokeballRain.svelte';
 	import { page } from '$app/state';
+	import { tick } from 'svelte';
+	import { closeDexCards } from '#lib/dexhover.svelte.ts';
 
-	type Tab = 'play' | 'link' | 'scores' | 'chat';
-	let tab = $state<Tab>('play');
+	type Tab = 'play' | 'link' | 'run' | 'scores' | 'activity' | 'chat';
+	// ?panel=<id>: the burger menu on another page opened one of /play's panels.
+	const PANEL_IDS: Tab[] = ['play', 'link', 'run', 'scores', 'activity', 'chat'];
+	const asked = page.url.searchParams.get('panel') as Tab | null;
+	let tab = $state<Tab>(asked && PANEL_IDS.includes(asked) ? asked : 'play');
 	let screen = $state<ReturnType<typeof GameScreen>>();
 	let talking = $state(false);
 	function talk() {
@@ -63,10 +71,8 @@
 		{ id: 'chat', label: 'Chat' }
 	];
 
-	// Phone tabs (Play / Scores / Chat under the header; held sideways an icon rail with Link instead of Play): icons
-	// (static SVG paths, not user content) and badges for what changed on other tabs.
+	// Phone held sideways: an icon rail (static SVG paths, not user content) with badges for what changed elsewhere.
 	const TABS: { id: Tab; label: string; icon: string }[] = [
-		{ id: 'play', label: 'Play', icon: '<rect x="3" y="6" width="18" height="12" rx="4"/><path d="M7 12h4M9 10v4"/><circle cx="15.5" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>' },
 		{ id: 'link', label: 'Link', icon: '<path d="M8 3v4m8-4v4M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>' },
 		{ id: 'scores', label: 'Scores', icon: '<path d="M6 20v-8m6 8V4m6 16v-5"/>' },
 		{ id: 'chat', label: 'Chat', icon: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>' }
@@ -143,25 +149,124 @@
 	let unreadChat = $state(0);
 	let newScores = $state(false);
 	const chatShown = $derived(phone ? tab === 'chat' : sideTab === 'chat');
-	const scoresShown = $derived(phone ? tab === 'scores' : sideTab !== 'chat');
-	const badges = $derived<Record<Tab, number | boolean>>({
-		play: false,
-		link: false,
-		scores: newScores,
-		chat: unreadChat
-	});
+	const scoresShown = $derived(phone ? tab === 'scores' || tab === 'activity' : sideTab !== 'chat');
+	const badges = $derived<Partial<Record<Tab, number | boolean>>>({ scores: newScores, chat: unreadChat });
 	$effect(() => {
 		if (chatShown) unreadChat = 0;
 		if (scoresShown) newScores = false;
 	});
-	// Held sideways, Link and "Your run" share a sheet. Upright there is no Link tab: the Link cable card heads Scores,
-	// and "Your run" is the player's own profile (their row in the standings).
-	const linkOn = $derived(tab === 'link' || (!landscape && tab === 'scores'));
-	const runOn = $derived(landscape && tab === 'link');
-	// Phone held sideways: no Link tab upright, so don't leave it selected when the phone turns.
+	// Upright phones: the panel under the screen follows a sideways drag, with the next / previous one (menu order)
+	// coming in beside it; let go past a third of the width (or flick) and it moves on, otherwise it springs back. Not
+	// from the screen, the game's own buttons, a text field, a dialog or anything that scrolls sideways itself: those
+	// keep their gestures. Vertical moves stay native scrolling (touch-action: pan-y on the panels). Panels are found
+	// by data-panel; while dragging, the neighbour is shown with inline styles over the same box, then the tab switches.
+	let mainEl = $state<HTMLElement>();
+	// The Play panel may shrink (its strips giving way) down to the controller's own height, never below it.
+	let padEl = $state<HTMLDivElement>();
+	let padH = $state(0);
 	$effect(() => {
-		if (!landscape && tab === 'link') tab = 'scores';
+		const el = padEl;
+		if (!el) return;
+		const watch = new ResizeObserver(() => (padH = el.offsetHeight));
+		watch.observe(el);
+		return () => watch.disconnect();
 	});
+	// How much height this screen leaves for strips (Settings lets the player pick that many): the Play panel takes all
+	// the height under the screen, the controller its own share. Only while it is shown, on upright phones.
+	let playPanelEl = $state<HTMLDivElement>();
+	$effect(() => {
+		const el = playPanelEl;
+		if (!el) return;
+		const watch = new ResizeObserver(() => {
+			if (!phone || landscape || !el.offsetHeight || !padEl) return;
+			controls.room = Math.max(0, el.clientHeight - padEl.offsetHeight - 8);
+		});
+		watch.observe(el);
+		return () => watch.disconnect();
+	});
+	type Drag = { x: number; y: number; t: number; lock?: 'x' | 'y'; cur?: HTMLElement; nb?: HTMLElement | null; next?: Tab; w?: number; dx?: number };
+	let drag: Drag | null = null;
+	const GAP = 12;
+	function scrollsX(el: Element | null) {
+		for (; el && el !== mainEl; el = el.parentElement) {
+			const o = getComputedStyle(el).overflowX;
+			if ((o === 'auto' || o === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+		}
+		return false;
+	}
+	const panelEl = (id: Tab) => mainEl?.querySelector<HTMLElement>(`[data-panel="${id}"]`) ?? null;
+	function clearDrag(d: Drag) {
+		for (const el of [d.cur, d.nb]) if (el) el.removeAttribute('style');
+	}
+	function swipeStart(e: TouchEvent) {
+		if (drag) clearDrag(drag);
+		drag = null;
+		if (!phone || landscape || e.touches.length !== 1) return;
+		const t = e.target as Element;
+		if (!t.closest('[data-panel]') || t.closest('.dpad, .ab, .meta, input, textarea, select, dialog') || scrollsX(t)) return;
+		drag = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: e.timeStamp };
+	}
+	function swipeMove(e: TouchEvent) {
+		const d = drag;
+		if (!d || d.lock === 'y') return;
+		const dx = e.touches[0].clientX - d.x;
+		const dy = e.touches[0].clientY - d.y;
+		if (!d.lock) {
+			if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+			d.lock = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+			if (d.lock === 'y') return;
+			const cur = panelEl(tab);
+			if (!cur) return (drag = null);
+			closeDexCards(); // a drag that began on a Pokémon opened its card: the panel is moving away
+			d.cur = cur;
+			d.w = cur.offsetWidth;
+		}
+		const next = PANEL_IDS[PANEL_IDS.indexOf(tab) + (dx < 0 ? 1 : -1)];
+		if (next !== d.next) {
+			if (d.nb) d.nb.removeAttribute('style');
+			d.next = next;
+			d.nb = next ? panelEl(next) : null;
+			if (d.nb && d.cur) {
+				// The neighbour over the current panel's box, so both slide as one strip.
+				const c = d.cur;
+				Object.assign(d.nb.style, {
+					display: 'flex',
+					position: 'absolute',
+					top: `${c.offsetTop}px`,
+					left: `${c.offsetLeft}px`,
+					width: `${c.offsetWidth}px`,
+					height: `${c.offsetHeight}px`
+				});
+			}
+		}
+		d.dx = d.nb ? dx : dx / 3; // the first and last panel only give a little
+		d.cur!.style.translate = `${d.dx}px 0`;
+		if (d.nb) d.nb.style.translate = `${d.dx + (dx < 0 ? 1 : -1) * (d.w! + GAP)}px 0`;
+	}
+	function swipeEnd(e: TouchEvent) {
+		const d = drag;
+		drag = null;
+		if (!d?.cur || d.lock !== 'x') return;
+		const dx = d.dx ?? 0;
+		const fast = Math.abs(dx) > 40 && e.timeStamp - d.t < 250;
+		const go = !!d.nb && (Math.abs(dx) > d.w! / 3 || fast);
+		const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+		const sign = dx < 0 ? -1 : 1;
+		const settle = (el: HTMLElement, to: number) => {
+			el.style.transition = calm ? '' : 'translate 0.22s ease-out';
+			el.style.translate = `${to}px 0`;
+		};
+		settle(d.cur, go ? sign * (d.w! + GAP) : 0);
+		if (d.nb) settle(d.nb, go ? 0 : -sign * (d.w! + GAP));
+		setTimeout(async () => {
+			if (go) tab = d.next!;
+			await tick();
+			clearDrag(d);
+		}, calm ? 0 : 220);
+	}
+	// Held sideways, Link and "Your run" share a sheet.
+	const linkOn = $derived(tab === 'link');
+	const runOn = $derived(tab === 'run' || (landscape && tab === 'link'));
 	$effect(() => {
 		const offs = [
 			on('CHAT_MESSAGE', (m: { kind: string; text: string }) => {
@@ -247,7 +352,8 @@
 
 	const me = $derived(session.me);
 	// Where the player is, from their scoreboard row (the location sign over the screen).
-	const where = $derived(place(board.rows.find((r) => r.userId === me?.id)?.location));
+	const myRow = $derived(board.rows.find((r) => r.userId === me?.id));
+	const where = $derived(place(myRow?.location));
 	let loadFailed = $state(false);
 	// The player's own cartridge: null until /me/game answers, then `game` is null until they pick one.
 	let myGame = $state<{ game: string | null; available: Cartridge[]; speed: number | null } | null>(null);
@@ -273,15 +379,15 @@
 <svelte:window onpointerdowncapture={closeSheetOnOutsideTap} onclickcapture={swallowClosingClick} />
 
 {#if me && myGame && !myGame.game}
-	<AppHeader {me} ownTabs={false} />
+	<AppHeader {me} />
 	<GamePicker available={myGame.available} onpicked={(g) => (myGame = { ...myGame!, game: g })} />
 {:else if me && myGame}
 	<div class="page play-root" class:big={bigScreen} style:zoom={uiZoom === 1 ? null : uiZoom} style:--page-h={uiZoom === 1 ? null : `${pageH}px`} style:--plate={currentShell.value.shell} style:--plate-ink={inkFor(currentShell.value.shell)}>
-		<AppHeader {me} />
+		<AppHeader {me} panel={tab} onpanel={(id) => (tab = id as Tab)} badges={{ activity: newScores, chat: unreadChat }} />
 
 		<div class="stage">
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, first half"><PokedexBanner half={1} /></aside>
-		<main bind:clientWidth={mainW}>
+		<main class:pad-low={controls.low} bind:clientWidth={mainW} bind:this={mainEl} ontouchstart={swipeStart} ontouchmove={swipeMove} ontouchend={swipeEnd} ontouchcancel={swipeEnd}>
 			<section class="game" aria-label="Game" bind:this={gameEl} style:--frame-w={frameWidth ? `${frameWidth}px` : null} style:--game-w={fit.w > 0 ? `${fit.w}px` : null} style:--slot-h={fit.slot > 68 ? `${fit.slot}px` : null}>
 				{#if link.state?.session}
 					{@const ls = link.state.session}
@@ -316,7 +422,7 @@
 					<ChatOverlay hidden={chatShown} />
 				</div>
 				<nav class="tabs" aria-label="Panels">
-					{#each TABS.filter((t) => t.id !== (landscape ? 'play' : 'link')) as t (t.id)}
+					{#each TABS as t (t.id)}
 						{@const badge = badges[t.id]}
 						<button
 							type="button"
@@ -338,15 +444,19 @@
 					</button>
 					<span class="rail-picker"><ShellPicker up /></span>
 				</nav>
-				<div class="pad" class:off={tab !== 'play'}>
-					<Gamepad {talk} />
+				<!-- The Play panel: the controller and, on upright phones, the strips the player picked (one swipe unit). -->
+				<div class="play-panel" data-panel="play" bind:this={playPanelEl} class:off={tab !== 'play'} style:--pad-h={padH ? `${padH}px` : null}>
+					<div class="pad" bind:this={padEl}>
+						<Gamepad {talk} />
+					</div>
+					<PlayStrips onactivity={() => (tab = 'activity')} />
 				</div>
 			</section>
-			<section class="mid" class:sheet-off={tab !== 'link'} aria-label="Link cable and your run">
-				<div class="slot link" class:p-off={!linkOn}><LinkPanel /></div>
-				<div class="slot run" class:p-off={!runOn}><GameStatus /></div>
+			<section class="mid" class:sheet-off={tab !== 'link' && tab !== 'run'} aria-label="Link cable and your run">
+				<div class="slot link" data-panel="link" class:p-off={!linkOn}><LinkPanel /></div>
+				<div class="slot run" data-panel="run" class:p-off={!runOn}><GameStatus /></div>
 			</section>
-			<section class="board panel" class:sheet-off={tab !== 'scores' && tab !== 'chat'} aria-label="Scoreboard, activity and chat">
+			<section class="board panel" class:sheet-off={tab !== 'scores' && tab !== 'activity' && tab !== 'chat'} aria-label="Scoreboard, activity and chat">
 				<div class="board-tabs" role="group" aria-label="Show">
 					{#each SIDE_TABS as t (t.id)}
 						{@const unread = t.id === 'chat' ? unreadChat : 0}
@@ -355,9 +465,12 @@
 						>
 					{/each}
 				</div>
-				<div class="pane" class:d-off={sideTab !== 'scores'} class:p-off={tab !== 'scores'}><Scoreboard /></div>
-				<div class="pane" class:d-off={sideTab !== 'activity'} class:p-off={true}><Activity label="Activity" /></div>
-				<div class="pane chat-pane" class:d-off={sideTab !== 'chat'} class:p-off={tab !== 'chat'}><Chat /></div>
+				<div class="pane" data-panel="scores" class:d-off={sideTab !== 'scores'} class:p-off={tab !== 'scores'}><Scoreboard /></div>
+				<div class="pane activity-pane" data-panel="activity" class:d-off={sideTab !== 'activity'} class:p-off={tab !== 'activity'}>
+					<h2 class="pane-h">Activity</h2>
+					<Activity label="Activity" />
+				</div>
+				<div class="pane chat-pane" data-panel="chat" class:d-off={sideTab !== 'chat'} class:p-off={tab !== 'chat'}><Chat /></div>
 			</section>
 		</main>
 			<aside class="dex" class:off-dex={!dexBanners.on} aria-label="Pokédex, second half"><PokedexBanner half={2} /></aside>
@@ -564,6 +677,10 @@
 		padding: 0;
 		overflow: hidden;
 	}
+	/* The Activity panel's own heading: phones only (on desktop the card's tab names it). */
+	.pane-h {
+		display: none;
+	}
 	.chat-pane > :global(*) {
 		flex: 1 1 auto;
 		min-height: 0;
@@ -581,6 +698,14 @@
 		overflow: hidden;
 		clip-path: inset(50%);
 		white-space: nowrap;
+	}
+	/* The Play panel wraps the controller for phones (one swipe unit); elsewhere it adds no box. The strips are for
+	   upright phones only. */
+	.play-panel {
+		display: contents;
+	}
+	.play-panel > :global(.strips) {
+		display: none;
 	}
 	/* Phones only: the linked session over the screen (desktop shows it in the Link cable card). */
 	.linked-banner {
@@ -795,8 +920,13 @@
 			width: 100%;
 			max-width: none;
 			margin: 0;
-			padding: 0 6px calc(8px + env(safe-area-inset-bottom));
+			padding: 8px 6px calc(8px + env(safe-area-inset-bottom)); /* 8px under the header too: every gap the same */
 			gap: 8px;
+			position: relative; /* the panel coming in during a swipe sits over the current one's box */
+			overflow-x: clip;
+		}
+		[data-panel] {
+			touch-action: pan-y; /* sideways drags are the swipe's */
 		}
 		.game {
 			display: contents;
@@ -831,10 +961,19 @@
 			max-width: none;
 			overflow-y: auto;
 		}
-		/* Scores: the Link cable card on top (scrolls itself if long), the ranking under it scrolls. */
-		.slot.link {
-			flex: 0 1 auto;
-			max-height: 45%;
+		/* Link cable and Your run take exactly the height left under the screen and fit their contents to it (their
+		   height container queries drop the least needed parts first), so they don't scroll; a card that still
+		   can't fit (a long list of Pibs ready) scrolls inside itself as a last resort. */
+		.slot.link,
+		.slot.run {
+			overflow: hidden;
+		}
+		.slot.link > :global(.card),
+		.slot.run > :global(.card) {
+			flex: 1 1 0;
+			min-height: 0;
+			container-type: size;
+			overflow-y: auto;
 		}
 		.linked-banner {
 			order: 0;
@@ -886,64 +1025,54 @@
 			flex: 0 1 auto;
 			min-height: 120px;
 		}
+		/* The Play panel: the controller and the picked strips under the screen. The strips give way first when height
+		   runs out (the screen only after them); the triangle in the controller (main.pad-low) puts the strips right
+		   under the screen and the controller on the bottom edge. */
+		.play-panel {
+			order: 1;
+			flex: 1 1000 auto;
+			min-height: var(--pad-h, auto);
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+		.play-panel > :global(.strips) {
+			display: flex;
+			flex: 0 1 auto;
+		}
 		.pad {
-			flex: 1 0 auto;
+			order: 0; /* not the panels' order: 1 above, or the strips would always come first */
+			flex: none;
 			overflow: hidden;
+		}
+		.pad-low .play-panel > :global(.strips) {
+			order: -1;
+		}
+		.pad-low .pad {
+			margin-top: auto;
 		}
 		.chat-pane {
 			overflow: hidden; /* the chat scrolls its own list; the message box stays at the bottom */
 		}
-		.off {
-			display: none;
+		/* Activity: a card with its heading, like a profile's Recent. */
+		.activity-pane {
+			padding: 16px;
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			background: var(--panel);
 		}
-		.tabs {
-			order: -1;
+		.pane-h {
+			display: block;
 			flex: none;
-			display: flex;
-			margin: 0 -6px;
-			border-bottom: 1px solid var(--border);
-		}
-		.tabs button {
-			position: relative;
-			flex: 1 1 0;
-			height: 44px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 6px;
-			padding: 0;
-			border: none;
-			background: transparent;
-			font-size: 14px;
+			margin: 0 0 12px;
+			font-size: 12px;
 			font-weight: 600;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
 			color: var(--muted);
 		}
-		.tabs button svg {
+		.off {
 			display: none;
-		}
-		/* The selected tab in the player's plate colour (pulled toward the text colour on light, like names). */
-		.tabs button[aria-pressed='true'] {
-			color: color-mix(in oklab, var(--plate, var(--accent-text)), var(--text) var(--name-dim));
-			box-shadow: inset 0 -3px 0 var(--accent);
-		}
-		.badge {
-			position: static;
-			min-width: 8px;
-			height: 16px;
-			padding: 0 4px;
-			box-sizing: border-box;
-			border-radius: 999px;
-			background: var(--danger);
-			color: #fff;
-			font-size: 10px;
-			line-height: 16px;
-			text-align: center;
-		}
-		.badge:empty {
-			width: 8px;
-			min-width: 0;
-			height: 8px;
-			padding: 0;
 		}
 	}
 	/* Phone held sideways: a Game Boy Advance. D-pad left, screen in the middle, A/B right, Select/Start under
@@ -986,9 +1115,13 @@
 		}
 		.stage,
 		.game,
-		.pad,
-		.pad.off {
+		.play-panel,
+		.play-panel.off,
+		.pad {
 			display: contents;
+		}
+		.play-panel > :global(.strips) {
+			display: none;
 		}
 		main {
 			flex: 1 1 0;

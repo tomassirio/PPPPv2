@@ -1,5 +1,5 @@
 <!-- The avatar in the top bar opens this menu: who you are, light/dark (Solrock/Lunatone, with a reveal animation), Pokédex banners (wide desktops), My profile (not on it already),
-     Settings (key bindings), Admin (admins only), Play (on /admin only: elsewhere the top bar's tabs have it), Sign out. -->
+     Settings (key bindings; the Play strips on phones), Admin (admins only), Play (on /admin only: elsewhere the top bar's tabs have it), Sign out. -->
 <script lang="ts">
 	import { initialsOf, nameOf, usernameOf } from '#lib/pictures.svelte.ts';
 	import { page } from '$app/state';
@@ -107,7 +107,7 @@
 			{/if}
 			<button
 				type="button"
-				class="item"
+				class="item keys-item"
 				onclick={() => {
 					close();
 					settingsOpen = true;
@@ -125,6 +125,13 @@
 </div>
 
 <style>
+	/* Settings: key bindings, and on upright phones the strips under the controller. A touch screen wider than a phone
+	   has nothing to set there. */
+	@media (hover: none) and (pointer: coarse) and (min-width: 761px) {
+		.item.keys-item {
+			display: none;
+		}
+	}
 	/* Only where /play shows the banners (its wide media query); elsewhere the option would do nothing. */
 	.row.dex-row {
 		display: none;

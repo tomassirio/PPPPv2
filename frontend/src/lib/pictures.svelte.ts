@@ -15,7 +15,9 @@ let listening = false;
 export async function needPicture(user: string) {
 	if (!listening) {
 		listening = true;
-		on('NAMES_CHANGED', (e: { user: string; name: string }) => (pictures.names = { ...pictures.names, [e.user]: e.name }));
+		on('NAMES_CHANGED', (e: { user: string; name: string }) => {
+			pictures.names = { ...pictures.names, [e.user]: e.name };
+		});
 	}
 	if ((user in pictures.byUser && user in pictures.names) || Date.now() - loadedAt < 10_000) return;
 	loadedAt = Date.now();

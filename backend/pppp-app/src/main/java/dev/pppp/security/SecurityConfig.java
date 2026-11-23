@@ -25,6 +25,8 @@ public class SecurityConfig {
                         .requestMatchers("/dev/login", "/dev/nudge", "/dev/grade").permitAll()
                         // The sign-in page's teaser (player counts only).
                         .requestMatchers("/api/v1/public/**").permitAll()
+                        // "Who am I": 204 for a visitor who is not signed in (the sign-in page asks), not a 401.
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/me").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().hasRole("PLAYER"))
                 .oauth2Login(o -> o

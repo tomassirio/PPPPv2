@@ -60,7 +60,9 @@
 		if (key in infos) return;
 		infos[key] = null;
 		api<MapInfo>('GET', `/public/maps/${map}.json?time=${time}&m=${MARGIN}`).then(
-			(v) => (infos[key] = v),
+			(v) => {
+				infos[key] = v;
+			},
 			() => {}
 		);
 	}

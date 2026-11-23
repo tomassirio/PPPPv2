@@ -8,7 +8,7 @@ export const session = $state<{ me: Me | null; loaded: boolean }>({ me: null, lo
 
 export async function loadMe(): Promise<Me | null> {
 	try {
-		session.me = await api<Me>('GET', '/me');
+		session.me = (await api<Me | undefined>('GET', '/me')) ?? null; // 204: not signed in
 	} catch (e) {
 		if (!(e instanceof ApiError) || e.status !== 401) throw e;
 		session.me = null;

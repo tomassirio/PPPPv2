@@ -117,7 +117,7 @@
 	const OFF = { IDLE: 'Paused', PAUSED: 'Paused', CLOSED: 'Off' };
 </script>
 
-<svelte:head><title>{nameOf(id)} · Admin · Pibs&PibettesPlayPokemonV2</title></svelte:head>
+<svelte:head><title>{nameOf(id)} · Admin · PPPPv2</title></svelte:head>
 
 <div class="admin">
 	<header>
@@ -642,5 +642,27 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+	}
+	/* Phones: the player's header as a centred stack (avatar, name, e-mail, chips), Public profile full width. */
+	@media (max-width: 760px) {
+		.who {
+			flex-direction: column !important;
+			text-align: center;
+			gap: 10px;
+		}
+		.who .grow {
+			align-items: center;
+			width: 100%;
+		}
+		.who .muted {
+			overflow-wrap: anywhere;
+		}
+		.chips {
+			justify-content: center;
+		}
+		.who > .btn {
+			align-self: stretch;
+			justify-content: center;
+		}
 	}
 </style>

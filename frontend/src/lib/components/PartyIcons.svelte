@@ -20,7 +20,7 @@
 	import { hpColor } from '#lib/play.ts';
 	import { watchGame } from '#lib/game.svelte.ts';
 	import DexCard from '#lib/components/DexCard.svelte';
-	import { DexHover } from '#lib/dexhover.svelte.ts';
+	import { DexHover, keepTap } from '#lib/dexhover.svelte.ts';
 
 	let {
 		party = [],
@@ -45,6 +45,7 @@
 					title={dex ? undefined : monLabel(m)}
 					onpointerenter={dex && !m.egg ? (e) => hover.show(m.species, e.currentTarget, { note: monNote(m) }) : undefined}
 					onpointerleave={dex ? () => hover.hide() : undefined}
+					onclick={dex && !m.egg ? keepTap : undefined}
 				>
 					{#if m.egg}
 						<span class="egg"></span>
