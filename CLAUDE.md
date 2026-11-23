@@ -118,9 +118,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   = version), a GitHub Release `v{version}` (commits since the last one, chart .tgz attached), then Helm releases `ppppv2-backend` / `ppppv2-frontend` in namespace `ppppv2`; GitHub environment `prod`:
   secrets TWINGATE_SERVICE_KEY, KUBECONFIG_CONTENT, GOOGLE_CLIENT_SECRET; vars GOOGLE_CLIENT_ID, PPPP_ADMINS).
   Namespace and `ppppv2-data-pvc` (NFS 192.168.2.150:/volume1/PPPPv2) come from turing-pi-server's storage chart; v1
-  stays in `pppp` with its own /volume1/PPPP. CI deploys as `github-deployer` (`deploy/ci-access.yaml`, namespace
-  admin only; its base64 kubeconfig is KUBECONFIG_CONTENT). Public hostname: a Cloudflare Tunnel route to
-  `ppppv2-frontend.ppppv2:80`, set in the Cloudflare dashboard. v1's data was archived on 2026-11-23 to v1's
+  stays in `pppp` with its own /volume1/PPPP. KUBECONFIG_CONTENT = `kubectl config view --raw --minify --flatten
+  --context turing | base64` (the k3s admin certificate: renew yearly, also in turing-pi-server). Public hostname
+  https://pppp-v2.tomassir.io: a Cloudflare Tunnel route to `ppppv2-frontend.ppppv2:80`, set in the Cloudflare
+  dashboard. The ROMs were copied to the volume's data/roms by hand (2026-11-23). v1's data was archived on 2026-11-23 to v1's
   `data/v1-archive-20261123/` (local, gitignored).
 
 ## Local run (next to a running PPPP v1 dev stack)

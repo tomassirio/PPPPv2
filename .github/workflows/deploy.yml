@@ -185,7 +185,7 @@ jobs:
         with:
           service-key: ${{ secrets.TWINGATE_SERVICE_KEY }}
 
-      # KUBECONFIG_CONTENT: base64 kubeconfig of the ppppv2 deployer (deploy/ci-access.yaml), limited to the namespace.
+      # KUBECONFIG_CONTENT: base64 kubeconfig of the turing cluster.
       - name: Setup Kubernetes
         env:
           KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_CONTENT }}
