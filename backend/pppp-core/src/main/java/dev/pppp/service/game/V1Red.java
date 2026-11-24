@@ -1,6 +1,6 @@
 package dev.pppp.service.game;
 
-import eu.rekawek.coffeegb.core.AddressSpace;
+import dev.pppp.emulator.Bus;
 import java.util.Arrays;
 
 /**
@@ -74,7 +74,7 @@ public final class V1Red {
     }
 
     /** Frame hook: AAAA's nicknames while Red's battle runs. No-op unless {@link #patch} changed the ROM. */
-    public void nicknames(AddressSpace bus) {
+    public void nicknames(Bus bus) {
         if (enemyNickname == 0) return;
         int svbk = bus.getByte(0xFF70);
         if (svbk != 0xFF && (svbk & 7) > 1) return; // another WRAM bank is in

@@ -1,6 +1,5 @@
 package dev.pppp.emulator;
 
-import eu.rekawek.coffeegb.core.AddressSpace;
 import eu.rekawek.coffeegb.core.Gameboy;
 import eu.rekawek.coffeegb.core.Gameboy.GameboyConfiguration;
 import eu.rekawek.coffeegb.core.events.EventBus;
@@ -82,7 +81,7 @@ public class EmulatorHost {
     private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
     private final List<Consumer<int[]>> frameListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<short[]>> audioListeners = new CopyOnWriteArrayList<>();
-    private final List<Consumer<AddressSpace>> frameHooks = new CopyOnWriteArrayList<>();
+    private final List<Consumer<Bus>> frameHooks = new CopyOnWriteArrayList<>();
 
     private Gameboy gb;
     private EventBusImpl bus;
@@ -409,7 +408,7 @@ public class EmulatorHost {
      * Runs hook on the emulator thread after every frame with the bus, to read and write memory. A Game Boy Color
      * game may have any WRAM bank in at D000-DFFF (SVBK, FF70): check it before touching that range.
      */
-    public void afterFrame(Consumer<AddressSpace> hook) {
+    public void afterFrame(Consumer<Bus> hook) {
         frameHooks.add(hook);
     }
 
@@ -417,8 +416,8 @@ public class EmulatorHost {
      * Runs task once on the emulator thread between frames with the bus, to read and write memory in one go (the same
      * WRAM bank caveat as {@link #afterFrame}). Console must be ON.
      */
-    public <T> T withBus(Function<AddressSpace, T> task) {
-        return call(() -> task.apply(gb.getAddressSpace()));
+    public <T> T withBus(Function<Bus, T> task) {
+        return call(() -> task.apply(bus()));
     }
 
     /**
@@ -564,9 +563,10 @@ public class EmulatorHost {
             measureFrames = 0;
         }
         long h0 = System.nanoTime();
-        for (Consumer<AddressSpace> h : frameHooks) {
+        Bus b = bus();
+        for (Consumer<Bus> h : frameHooks) {
             try {
-                h.accept(gb.getAddressSpace());
+                h.accept(b);
             } catch (RuntimeException e) {
                 log.warn("Frame hook failed", e);
             }
@@ -635,6 +635,20 @@ public class EmulatorHost {
         }
         gb.close();
         bus.close();
+    }
+
+    /** Coffee GB's bus as ours. */
+    private Bus bus() {
+        var space = gb.getAddressSpace();
+        return new Bus() {
+            public int getByte(int address) {
+                return space.getByte(address);
+            }
+
+            public void setByte(int address, int value) {
+                space.setByte(address, value);
+            }
+        };
     }
 
     private GameboyConfiguration config() {

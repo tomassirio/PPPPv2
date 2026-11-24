@@ -2,7 +2,7 @@ package dev.pppp.service.game;
 
 import dev.pppp.service.CartridgeService;
 import dev.pppp.service.PlayerConsoles;
-import eu.rekawek.coffeegb.core.AddressSpace;
+import dev.pppp.emulator.Bus;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Map;
@@ -132,7 +132,7 @@ public class PokecenterDig {
         return Boolean.TRUE.equals(at);
     }
 
-    static boolean atReceptionist(Game game, AddressSpace bus, String kind) {
+    static boolean atReceptionist(Game game, Bus bus, String kind) {
         Layout at = game.at;
         return check(game, bus) == null && u8(bus, at.mapGroup) == game.pc2f[0] && u8(bus, at.mapGroup + 1) == game.pc2f[1]
                 && u8(bus, at.mapGroup + 3) == ("BATTLE".equals(kind) ? BATTLE_X : TRADE_X)
@@ -148,7 +148,7 @@ public class PokecenterDig {
      * Why the player is not free in the overworld (null when they are): WRAM bank 1 out, a battle, a link room, a
      * menu, dialog or event, or mid-step. Then the game touches nothing else (its save RAM is closed).
      */
-    static String busy(Game game, AddressSpace bus) {
+    static String busy(Game game, Bus bus) {
         Layout at = game.at;
         int svbk = bus.getByte(SVBK);
         if (svbk != 0xFF && (svbk & 7) > 1) return "busy"; // WRAM bank 1 is out: the game is mid-routine
@@ -163,7 +163,7 @@ public class PokecenterDig {
         return null;
     }
 
-    static String check(Game game, AddressSpace bus) {
+    static String check(Game game, Bus bus) {
         String why = busy(game, bus);
         if (why != null) return why;
         Layout at = game.at;
@@ -179,7 +179,7 @@ public class PokecenterDig {
      * Queues the dig, whatever the player is doing (check first). False when there is nowhere to go: they never
      * entered a Pokémon Center. Already on the receptionist's tile, it still runs: it turns them to face her.
      */
-    static boolean queue(String userId, Game game, AddressSpace bus, String kind) {
+    static boolean queue(String userId, Game game, Bus bus, String kind) {
         Layout at = game.at;
         int group = u8(bus, at.mapGroup), number = u8(bus, at.mapGroup + 1);
         boolean upstairs = group == game.pc2f[0] && number == game.pc2f[1];
@@ -301,14 +301,14 @@ public class PokecenterDig {
      * one person playing both ends has to switch windows. The other link timeouts (the same variable, link only) only
      * get longer. The game is told by its ROM header; anything but Gold, Silver or Crystal is left alone.
      */
-    public static Consumer<AddressSpace> patientReceptionist(BooleanSupplier linked) {
+    public static Consumer<Bus> patientReceptionist(BooleanSupplier linked) {
         return new Consumer<>() {
             Boolean crystal;
             int[] pc2f;
             int extensions;
 
             @Override
-            public void accept(AddressSpace bus) {
+            public void accept(Bus bus) {
                 if (!linked.getAsBoolean()) return;
                 if (crystal == null) {
                     byte[] title = new byte[15];
@@ -345,7 +345,7 @@ public class PokecenterDig {
         return DIG_BANK * 0x4000 + address - 0x4000;
     }
 
-    private static int u8(AddressSpace bus, int address) {
+    private static int u8(Bus bus, int address) {
         return bus.getByte(address) & 0xFF;
     }
 }
