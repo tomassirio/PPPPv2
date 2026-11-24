@@ -71,6 +71,7 @@ class EmulatorHostTest {
         host.insert("test", TestRom.write(dir), sav);
         host.powerOn();
         host.setSpeed(4.0);
+        host.press(Button.WAIT, 30, 0); // past the boot ROM
 
         int before = host.readByte(0xC001);
         host.press(Button.A, 6, 6);
@@ -90,7 +91,7 @@ class EmulatorHostTest {
         assertThat(Files.readAllBytes(sav)[0] & 0xFF).isEqualTo(counter);
 
         host.powerOn(); // battery loaded on power-on
-        host.press(Button.WAIT, 1, 0); // let the ROM enable cartridge RAM
+        host.press(Button.WAIT, 30, 0); // past the boot ROM: let the ROM enable cartridge RAM
         assertThat(host.readByte(0xA000)).isEqualTo(counter);
     }
 
@@ -98,7 +99,7 @@ class EmulatorHostTest {
     void readsWramBankOneOrNothing() throws Exception {
         host.insert("bank2", TestRom.write(dir, "bank2.gbc", TestRom.wramBanks(2), true), dir.resolve("bank2.sav"));
         host.powerOn();
-        host.press(Button.WAIT, 2, 0);
+        host.press(Button.WAIT, 30, 0); // past the boot ROM
         assertThat(host.readBytes(0xD000, 1)).isNull(); // bank 2 is switched in
         assertThat(host.readBytes(0xCFFF, 2)).isNull(); // any range touching D000-DFFF
         assertThat(host.readBytes(0xC000, 1)).isNotNull(); // bank 0 is fixed
@@ -107,7 +108,7 @@ class EmulatorHostTest {
 
         host.insert("bank0", TestRom.write(dir, "bank0.gbc", TestRom.wramBanks(0), true), dir.resolve("bank0.sav"));
         host.powerOn();
-        host.press(Button.WAIT, 2, 0);
+        host.press(Button.WAIT, 30, 0); // past the boot ROM
         assertThat(host.readBytes(0xD000, 1)).containsExactly(0x11); // SVBK 0 selects bank 1
     }
 

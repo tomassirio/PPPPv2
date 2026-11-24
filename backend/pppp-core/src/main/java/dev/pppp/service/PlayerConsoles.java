@@ -1,7 +1,7 @@
 package dev.pppp.service;
 
 import dev.pppp.emulator.Button;
-import eu.rekawek.coffeegb.core.AddressSpace;
+import dev.pppp.emulator.Bus;
 import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
@@ -518,7 +518,7 @@ public class PlayerConsoles {
     }
 
     /** Runs task on the player's console between frames with its bus, to read and write. Null when their console is not in memory. */
-    public <T> T withBus(String userId, Function<AddressSpace, T> task) {
+    public <T> T withBus(String userId, Function<Bus, T> task) {
         Console c = consoles.get(userId);
         try {
             return c == null ? null : c.host().withBus(task);

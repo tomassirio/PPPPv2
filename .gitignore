@@ -12,3 +12,6 @@ data/
 kubeconfig
 *.kubeconfig
 kubeconfig*.y*ml
+# SameBoy, its boot ROM and our JNI glue: built by backend/pppp-emulator/native/build.sh
+backend/pppp-emulator/native/build/
+backend/pppp-emulator/src/main/resources/native/

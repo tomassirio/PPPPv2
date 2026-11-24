@@ -12,6 +12,12 @@ import java.nio.file.Path;
 public final class TestRom {
     private TestRom() {}
 
+    /** The header logo ($104-$133) the boot ROM shows and checks. */
+    private static final int[] LOGO = {
+            0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
+            0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
+            0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E};
+
     private static final int[] PROGRAM = {
             0x3E, 0x80, 0xE0, 0x26, // NR52 = $80     APU on
             0x3E, 0x77, 0xE0, 0x24, // NR50 = $77     full master volume
@@ -116,6 +122,8 @@ public final class TestRom {
     /** cgb: a Game Boy Color-only cartridge (header byte $143 = $C0). */
     static Path write(Path dir, String name, int[] program, boolean cgb) throws IOException {
         byte[] rom = new byte[0x8000];
+        // The logo every cartridge carries: without it the CGB boot ROM runs the game as an original Game Boy one.
+        for (int i = 0; i < LOGO.length; i++) rom[0x104 + i] = (byte) LOGO[i];
         if (cgb) rom[0x143] = (byte) 0xC0;
         rom[0x100] = 0x00;                          // NOP
         rom[0x101] = (byte) 0xC3;                   // JP $0150

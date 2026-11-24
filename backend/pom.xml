@@ -25,7 +25,6 @@
 
     <properties>
         <java.version>21</java.version>
-        <coffeegb.version>2.1.8</coffeegb.version>
     </properties>
 
     <dependencyManagement>
@@ -39,11 +38,6 @@
                 <groupId>dev.pppp</groupId>
                 <artifactId>pppp-core</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>eu.rekawek.coffeegb</groupId>
-                <artifactId>core</artifactId>
-                <version>${coffeegb.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

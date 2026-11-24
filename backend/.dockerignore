@@ -1,1 +1,3 @@
-target/
+**/target
+pppp-emulator/native/build
+pppp-emulator/src/main/resources/native

@@ -1,25 +1,9 @@
 package dev.pppp.emulator;
 
-import eu.rekawek.coffeegb.core.AddressSpace;
-import eu.rekawek.coffeegb.core.Gameboy;
-import eu.rekawek.coffeegb.core.Gameboy.GameboyConfiguration;
-import eu.rekawek.coffeegb.core.events.EventBus;
-import eu.rekawek.coffeegb.core.events.EventBusImpl;
-import eu.rekawek.coffeegb.core.gpu.Display;
-import eu.rekawek.coffeegb.core.ir.InfraredEndpoint;
-import eu.rekawek.coffeegb.core.memory.cart.Rom;
-import eu.rekawek.coffeegb.core.memory.cart.battery.BatteryPersistenceFailedEvent;
-import eu.rekawek.coffeegb.core.memory.cart.battery.BatteryStorage;
-import eu.rekawek.coffeegb.core.serial.Peer2PeerSerialEndpoint;
-import eu.rekawek.coffeegb.core.serial.SerialEndpoint;
-import eu.rekawek.coffeegb.core.sound.Sound;
-import eu.rekawek.coffeegb.core.sound.StereoPcmConverter;
-import eu.rekawek.coffeegb.core.state.bess.BessCodec;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,8 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The single authoritative emulator (Coffee GB core). One dedicated thread owns the {@link Gameboy}
- * and runs it frame by frame; every other call is handed to that thread and runs between frames.
+ * One Game Boy Color (SameBoy's core, through {@link SameBoy}). One dedicated thread owns the machine and runs it
+ * frame by frame; every other call is handed to that thread and runs between frames.
  * Invalid console transitions throw {@link IllegalStateException} (HTTP 409); bad arguments throw
  * {@link IllegalArgumentException} (HTTP 400). Plain Java: the app module owns its lifecycle.
  */
@@ -56,19 +40,14 @@ public class EmulatorHost {
     private static final Logger log = LoggerFactory.getLogger(EmulatorHost.class);
     /** One LCD frame: 154 lines x 456 dots. 4194304 / 70224 = 59.73 fps. */
     private static final int TICKS_PER_FRAME = 70224;
-    private static final long FRAME_NANOS = 1_000_000_000L * TICKS_PER_FRAME / Gameboy.TICKS_PER_SEC;
-    private static final int PIXELS = Display.DISPLAY_WIDTH * Display.DISPLAY_HEIGHT;
+    private static final long FRAME_NANOS = 1_000_000_000L * TICKS_PER_FRAME / 4_194_304;
+    private static final int PIXELS = SameBoy.WIDTH * SameBoy.HEIGHT;
     /** Mono, so 18 listeners cost ~44 KB/s each; GB audio is near-mono and tops out well below 11 kHz. */
     private static final int AUDIO_SAMPLE_RATE = 22050;
-    /**
-     * Linked consoles advance alternately, one scanline each, so neither runs more than 456 ticks ahead
-     * of the other; a serial bit lasts 512 ticks at the normal link clock.
-     */
-    private static final int LINK_SLICE = 456;
 
     // Lifecycle fields are guarded by `this`; the machine fields belong to the emulator thread.
     private String cartridgeId;
-    private Rom rom;
+    private byte[] rom;
     private Path batterySave;
     private Thread thread;
     private volatile boolean paused;
@@ -82,10 +61,10 @@ public class EmulatorHost {
     private final BlockingQueue<Runnable> tasks = new LinkedBlockingQueue<>();
     private final List<Consumer<int[]>> frameListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<short[]>> audioListeners = new CopyOnWriteArrayList<>();
-    private final List<Consumer<AddressSpace>> frameHooks = new CopyOnWriteArrayList<>();
+    private final List<Consumer<Bus>> frameHooks = new CopyOnWriteArrayList<>();
 
-    private Gameboy gb;
-    private EventBusImpl bus;
+    /** SameBoy's console handle; 0 while off. */
+    private long h;
     private boolean running;
     private long frame;
     /** The real emulation rate: frames counted over the last second, as a multiple of the Game Boy's 59.7 fps. */
@@ -109,11 +88,10 @@ public class EmulatorHost {
      * the next frame starts. A release waits until the button has counted for MIN_HOLD_FRAMES, so a tap shorter
      * than a frame is still seen by the game.
      */
-    private final Map<eu.rekawek.coffeegb.core.joypad.Button, Long> held = new ConcurrentHashMap<>();
-    private final Set<eu.rekawek.coffeegb.core.joypad.Button> releasing = ConcurrentHashMap.newKeySet();
+    private final Map<Button, Long> held = new ConcurrentHashMap<>();
+    private final Set<Button> releasing = ConcurrentHashMap.newKeySet();
     private static final int MIN_HOLD_FRAMES = 3;
-    private StereoPcmConverter pcm;
-    private byte[] pcmBytes = new byte[0];
+    private final short[] audio = new short[8192];
 
     /** Inserts a ROM. Console must be OFF. batterySave is where the cartridge's .sav lives (may not exist yet). */
     public synchronized void insert(String cartridgeId, Path rom, Path batterySave) {
@@ -124,17 +102,16 @@ public class EmulatorHost {
     public synchronized void insert(String cartridgeId, Path rom, Path batterySave, UnaryOperator<byte[]> patch) {
         requireOff("insert a cartridge");
         try {
-            this.rom = new Rom(patch.apply(Files.readAllBytes(rom)), rom.toFile());
+            this.rom = patch.apply(Files.readAllBytes(rom));
         } catch (IOException e) {
             throw new IllegalArgumentException("Unreadable ROM: " + e.getMessage(), e);
         }
         try {
-            // Coffee GB refuses battery paths with symlinked components (e.g. macOS /var), so resolve them.
-            Path dir = Files.createDirectories(batterySave.toAbsolutePath().getParent()).toRealPath();
-            this.batterySave = dir.resolve(batterySave.getFileName());
+            Files.createDirectories(batterySave.toAbsolutePath().getParent());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        this.batterySave = batterySave;
         this.cartridgeId = cartridgeId;
     }
 
@@ -150,8 +127,10 @@ public class EmulatorHost {
     public void patchRom(Map<Integer, Integer> bytes) {
         if (bytes.isEmpty()) return;
         call(() -> {
-            int[] image = rom.getRom();
-            bytes.forEach((offset, value) -> image[offset] = value);
+            bytes.forEach((offset, value) -> {
+                rom[offset] = (byte) (int) value; // a reset boots the patched cartridge too
+                SameBoy.patchRom(h, offset, value);
+            });
             return null;
         });
     }
@@ -174,20 +153,16 @@ public class EmulatorHost {
     public static synchronized void link(EmulatorHost a, EmulatorHost b) {
         if (a == b) throw new IllegalArgumentException("A console cannot link to itself");
         if (a.peer != null || b.peer != null) throw new IllegalStateException("Console is already linked");
-        var endA = new SharedThreadCable();
-        var endB = new SharedThreadCable();
-        endA.init(endB);
         // b first: once its thread has handed over, a's thread is the only one touching b's machine.
         b.call(() -> {
             b.speed = 1.0;
-            b.gb.setSerialEndpoint(endB);
             b.driver = a;
             return null;
         });
         try {
             a.call(() -> {
                 a.speed = 1.0;
-                a.gb.setSerialEndpoint(endA);
+                SameBoy.link(a.h, b.h);
                 a.follower = b;
                 return null;
             });
@@ -207,8 +182,7 @@ public class EmulatorHost {
         EmulatorHost f = d == host ? other : host;
         d.call(() -> {
             d.follower = null;
-            d.gb.setSerialEndpoint(SerialEndpoint.NULL_ENDPOINT);
-            f.gb.setSerialEndpoint(SerialEndpoint.NULL_ENDPOINT);
+            SameBoy.unlink(d.h);
             f.driver = null; // f's own thread takes its machine back
             return null;
         });
@@ -293,7 +267,7 @@ public class EmulatorHost {
      */
     public void hold(Button button, boolean down) {
         if (button == Button.WAIT) return;
-        var b = eu.rekawek.coffeegb.core.joypad.Button.valueOf(button.name());
+        var b = button;
         if (down) {
             releasing.remove(b);
             held.putIfAbsent(b, -1L);
@@ -310,8 +284,7 @@ public class EmulatorHost {
     /** Holds the button for holdFrames, releases for releaseFrames, blocking the caller until done. Console must be ON. */
     public void press(Button button, int holdFrames, int releaseFrames) {
         if (holdFrames < 0 || releaseFrames < 0) throw new IllegalArgumentException("Negative frame count");
-        Press p = new Press(button == Button.WAIT ? null : eu.rekawek.coffeegb.core.joypad.Button.valueOf(button.name()),
-                holdFrames, releaseFrames);
+        Press p = new Press(button == Button.WAIT ? null : button, holdFrames, releaseFrames);
         call(() -> {
             if (press != null) throw new IllegalStateException("Another press is in progress");
             press = p;
@@ -320,46 +293,45 @@ public class EmulatorHost {
         await(p.done);
     }
 
-    /** Snapshot (BESS format) taken on the emulator thread between frames. Console must be ON. */
+    /** Snapshot (SameBoy's format, BESS inside) taken on the emulator thread between frames. Console must be ON. */
     public byte[] saveState() {
-        return call(() -> {
-            Gameboy copy = bessWorker();
-            try {
-                copy.restoreState(gb.captureState());
-                return BessCodec.write(copy.captureBessState());
-            } finally {
-                copy.discardUnstarted();
-            }
-        });
+        return call(() -> SameBoy.saveState(h));
     }
 
-    /** Console must be ON with the same cartridge the state was taken from. */
+    /**
+     * Console must be ON with the same cartridge the state was taken from. SameBoy's own states and BESS (as Coffee GB,
+     * the earlier core, parked them) both load.
+     */
     public void loadState(byte[] state) {
         call(() -> {
-            Gameboy copy = bessWorker();
-            try {
-                copy.restoreBessState(BessCodec.read(state));
-                gb.restoreState(copy.captureState());
-            } catch (IOException e) {
-                throw new IllegalArgumentException("Corrupt save state: " + e.getMessage(), e);
-            } catch (IllegalArgumentException e) { // e.g. "BESS state belongs to a different ROM"
-                throw new IllegalStateException("Save state does not fit this console: " + e.getMessage(), e);
-            } finally {
-                copy.discardUnstarted();
-            }
+            int error = SameBoy.loadState(h, state);
+            if (error != 0) throw new IllegalStateException("Save state does not fit this console (SameBoy error " + error + ")");
             return null;
         });
     }
 
-    /** Writes the cartridge RAM to its .sav file. No-op when off or the cartridge has no battery. */
+    /** Writes the cartridge RAM (and its clock) to its .sav file. No-op when off or the cartridge has no battery. */
     public void flushBattery() {
         try {
             call(() -> {
-                gb.flushCartridge();
+                writeBattery();
                 return null;
             });
         } catch (IllegalStateException off) {
             // no-op when off
+        }
+    }
+
+    /** On the emulator thread: the save RAM to the .sav file, atomically. */
+    private void writeBattery() {
+        byte[] ram = SameBoy.battery(h);
+        if (ram == null) return;
+        try {
+            Path tmp = batterySave.resolveSibling(batterySave.getFileName() + ".tmp");
+            Files.write(tmp, ram);
+            Files.move(tmp, batterySave, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException e) {
+            log.error("Battery save failed for {}: {}", batterySave, e.getMessage());
         }
     }
 
@@ -386,13 +358,12 @@ public class EmulatorHost {
             throw new IllegalArgumentException("Range not readable: " + Integer.toHexString(address) + "+" + length);
         }
         return call(() -> {
-            var bus = gb.getAddressSpace();
             // SVBK (FF70) reads back the switched-in bank (0 means 1) without side effects; FF in DMG mode,
             // which has no banks.
-            int svbk = bus.getByte(0xFF70);
+            int svbk = SameBoy.read(h, 0xFF70);
             if (address <= 0xDFFF && end >= 0xD000 && svbk != 0xFF && (svbk & 7) > 1) return null;
             byte[] out = new byte[length];
-            for (int i = 0; i < length; i++) out[i] = (byte) bus.getByte(address + i);
+            for (int i = 0; i < length; i++) out[i] = (byte) SameBoy.read(h, address + i);
             return out;
         });
     }
@@ -409,7 +380,7 @@ public class EmulatorHost {
      * Runs hook on the emulator thread after every frame with the bus, to read and write memory. A Game Boy Color
      * game may have any WRAM bank in at D000-DFFF (SVBK, FF70): check it before touching that range.
      */
-    public void afterFrame(Consumer<AddressSpace> hook) {
+    public void afterFrame(Consumer<Bus> hook) {
         frameHooks.add(hook);
     }
 
@@ -417,8 +388,8 @@ public class EmulatorHost {
      * Runs task once on the emulator thread between frames with the bus, to read and write memory in one go (the same
      * WRAM bank caveat as {@link #afterFrame}). Console must be ON.
      */
-    public <T> T withBus(Function<AddressSpace, T> task) {
-        return call(() -> task.apply(gb.getAddressSpace()));
+    public <T> T withBus(Function<Bus, T> task) {
+        return call(() -> task.apply(bus()));
     }
 
     /**
@@ -439,31 +410,6 @@ public class EmulatorHost {
         unlink(this);
         synchronized (this) {
             if (thread != null) powerOffUnlinked();
-        }
-    }
-
-    /**
-     * Coffee GB's in-process cable, minus its one cost: plugged in, it claims no quiet time, so both machines
-     * drop out of PERFORMANCE mode and step every tick (about 5x slower each). Here both machines run on the
-     * driver's thread, one {@link #LINK_SLICE} at a time, and a peer's bit only lands (synchronously, through
-     * the port's external-clock receiver) while the peer runs. During a console's own runTicks nothing can
-     * reach its cable, and Coffee GB never fast-forwards past the end of a runTicks call, so "quiet for the
-     * whole request" is true. The port still stops at each of its own clock edges when it drives a transfer.
-     */
-    static final class SharedThreadCable extends Peer2PeerSerialEndpoint {
-        @Override
-        public int performanceQuietSpanLimit(int requested) {
-            return Math.max(requested, 0);
-        }
-
-        @Override
-        public int performanceExternalClockWaitSpanLimit(int requested) {
-            return Math.max(requested, 0);
-        }
-
-        @Override
-        public int performanceClockCapabilities() {
-            return PERFORMANCE_CLOCK_IDLE | PERFORMANCE_CLOCK_INTERNAL | PERFORMANCE_CLOCK_EXTERNAL_WAIT;
         }
     }
 
@@ -512,23 +458,19 @@ public class EmulatorHost {
 
     private void step() {
         EmulatorHost f = follower;
+        long w0 = System.nanoTime(), c0 = CPU.getCurrentThreadCpuTime();
         if (f == null) {
             beginFrame();
-            long w0 = System.nanoTime(), c0 = CPU.getCurrentThreadCpuTime();
-            gb.runTicks(TICKS_PER_FRAME);
-            tEmulateCpu += CPU.getCurrentThreadCpuTime() - c0;
-            tEmulate += System.nanoTime() - w0;
-            endFrame();
-            return;
+            SameBoy.runFrame(h);
+        } else { // linked: both machines in lockstep, the cable between them (sameboy_jni.c)
+            beginFrame();
+            f.beginFrame();
+            SameBoy.runLinkedFrame(h, f.h);
         }
-        beginFrame();
-        f.beginFrame();
-        for (int t = 0; t < TICKS_PER_FRAME; t += LINK_SLICE) {
-            gb.runTicks(LINK_SLICE);
-            f.gb.runTicks(LINK_SLICE);
-        }
+        tEmulateCpu += CPU.getCurrentThreadCpuTime() - c0;
+        tEmulate += System.nanoTime() - w0;
         endFrame();
-        f.endFrame();
+        if (f != null) f.endFrame();
     }
 
     private void beginFrame() {
@@ -541,15 +483,31 @@ public class EmulatorHost {
             }
         }
         Press p = press;
-        Set<eu.rekawek.coffeegb.core.joypad.Button> down = new HashSet<>(held.keySet());
-        if (p != null && p.button != null && p.frames < p.hold) down.add(p.button);
-        if (!down.equals(pressed)) {
-            gb.setPressedButtons(Set.copyOf(down));
+        int down = 0;
+        for (Button b : held.keySet()) down |= key(b);
+        if (p != null && p.button != null && p.frames < p.hold) down |= key(p.button);
+        if (down != pressed) {
+            SameBoy.keys(h, down);
             pressed = down;
         }
     }
 
-    private Set<eu.rekawek.coffeegb.core.joypad.Button> pressed = Set.of();
+    private int pressed;
+
+    /** SameBoy's key bit: right, left, up, down, A, B, select, start. */
+    private static int key(Button b) {
+        return switch (b) {
+            case RIGHT -> 1;
+            case LEFT -> 1 << 1;
+            case UP -> 1 << 2;
+            case DOWN -> 1 << 3;
+            case A -> 1 << 4;
+            case B -> 1 << 5;
+            case SELECT -> 1 << 6;
+            case START -> 1 << 7;
+            case WAIT -> 0;
+        };
+    }
 
     private void endFrame() {
         Press p = press;
@@ -564,9 +522,10 @@ public class EmulatorHost {
             measureFrames = 0;
         }
         long h0 = System.nanoTime();
-        for (Consumer<AddressSpace> h : frameHooks) {
+        Bus b = bus();
+        for (Consumer<Bus> h : frameHooks) {
             try {
-                h.accept(gb.getAddressSpace());
+                h.accept(b);
             } catch (RuntimeException e) {
                 log.warn("Frame hook failed", e);
             }
@@ -574,6 +533,7 @@ public class EmulatorHost {
         long l0 = System.nanoTime();
         tHooks += l0 - h0;
         if (frame % 2 == 0 && !frameListeners.isEmpty()) {
+            SameBoy.pixels(h, pixels);
             for (Consumer<int[]> l : frameListeners) {
                 try {
                     l.accept(pixels.clone());
@@ -582,6 +542,7 @@ public class EmulatorHost {
                 }
             }
         }
+        sound();
         tListeners += System.nanoTime() - l0;
         if (p != null) {
             p.frames++;
@@ -593,31 +554,23 @@ public class EmulatorHost {
     }
 
     private void startMachine() {
-        pressed = Set.of(); // a new machine starts with nothing pressed; the next frame applies what is held
-        bus = new EventBusImpl(null, "pppp", false);
-        pcm = new StereoPcmConverter(AUDIO_SAMPLE_RATE);
-        bus.register(this::sound, Sound.SoundSampleEvent.class);
-        bus.register(e -> e.toRgb(pixels, false), Display.DmgFrameReadyEvent.class);
-        bus.register(e -> e.toRgb(pixels), Display.GbcFrameReadyEvent.class);
-        bus.register(e -> log.error("Battery {} failed for {}: {}",e.operation(), e.fileName(), e.message()),
-                BatteryPersistenceFailedEvent.class);
-        gb = config().build();
-        gb.init(bus, SerialEndpoint.NULL_ENDPOINT, InfraredEndpoint.NULL_ENDPOINT, null);
+        pressed = 0; // a new machine starts with nothing pressed; the next frame applies what is held
+        byte[] battery = null;
+        try {
+            if (Files.isRegularFile(batterySave)) battery = Files.readAllBytes(batterySave);
+        } catch (IOException e) {
+            log.error("Battery load failed for {}: {}", batterySave, e.getMessage());
+        }
+        // Always a Game Boy Color: original Game Boy carts get the CGB boot ROM's colour palette (Pokémon Red: reds).
+        h = SameBoy.create(rom, battery, AUDIO_SAMPLE_RATE);
     }
 
-    /** Posted synchronously from runTicks, about once per frame; the buffer is reused by the APU. */
-    private void sound(Sound.SoundSampleEvent e) {
+    /** The frame's sound to the listeners: mono at AUDIO_SAMPLE_RATE, ~369 samples. */
+    private void sound() {
+        int n = SameBoy.drainAudio(h, audio);
         // ponytail: other speeds are dropped, not pitch-corrected; resample by speed here if friends miss the music at 2x.
-        if (audioListeners.isEmpty() || speed != 1.0) return;
-        int max = pcm.maximumPcmBytes(e.buffer().length / 2, e.clockSpec());
-        if (pcmBytes.length < max) pcmBytes = new byte[max];
-        int n = pcm.render(e.buffer(), e.clockSpec(), 100, false, pcmBytes) / 4;
-        short[] mono = new short[n];
-        for (int i = 0, b = 0; i < n; i++, b += 4) {
-            int left = (short) ((pcmBytes[b] & 0xFF) | pcmBytes[b + 1] << 8);
-            int right = (short) ((pcmBytes[b + 2] & 0xFF) | pcmBytes[b + 3] << 8);
-            mono[i] = (short) ((left + right) >> 1);
-        }
+        if (n == 0 || audioListeners.isEmpty() || speed != 1.0) return;
+        short[] mono = java.util.Arrays.copyOf(audio, n);
         for (Consumer<short[]> l : audioListeners) {
             try {
                 l.accept(mono);
@@ -633,37 +586,34 @@ public class EmulatorHost {
             press.done.completeExceptionally(new IllegalStateException("Console was reset or powered off"));
             press = null;
         }
-        gb.close();
-        bus.close();
+        writeBattery();
+        SameBoy.destroy(h);
+        h = 0;
     }
 
-    private GameboyConfiguration config() {
-        // Always a Game Boy Color: original Game Boy carts get the CGB boot ROM's colour palette.
-        return new GameboyConfiguration(rom)
-                .setGameboyType(eu.rekawek.coffeegb.core.GameboyType.CGB)
-                // The CGB boot ROM picks the original cart's palette from its title (Pokémon Red: reds); skipping it
-                // leaves the generic green/blue one. FAST_FORWARD runs it without the logo delay.
-                .setBootstrapMode(Gameboy.BootstrapMode.FAST_FORWARD)
-                .setExecutionMode(eu.rekawek.coffeegb.core.ExecutionMode.PERFORMANCE)
-                .setBatteryStorage(BatteryStorage.direct(batterySave), null);
-    }
+    /** The machine's memory as the CPU sees it. */
+    private Bus bus() {
+        long machine = h;
+        return new Bus() {
+            public int getByte(int address) {
+                return SameBoy.read(machine, address);
+            }
 
-    /** An isolated machine for BESS conversion; it never touches the battery file. */
-    private Gameboy bessWorker() {
-        Gameboy copy = config().forBessTransfer(gb).build();
-        copy.init(EventBus.NULL_EVENT_BUS, SerialEndpoint.NULL_ENDPOINT, InfraredEndpoint.NULL_ENDPOINT, null);
-        return copy;
+            public void setByte(int address, int value) {
+                SameBoy.write(machine, address, value);
+            }
+        };
     }
 
     // ---- plumbing ----
 
     private static final class Press {
-        final eu.rekawek.coffeegb.core.joypad.Button button;
+        final Button button;
         final int hold, release;
         final CompletableFuture<Void> done = new CompletableFuture<>();
         int frames;
 
-        Press(eu.rekawek.coffeegb.core.joypad.Button button, int hold, int release) {
+        Press(Button button, int hold, int release) {
             this.button = button;
             this.hold = hold;
             this.release = release;

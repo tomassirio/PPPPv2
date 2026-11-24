@@ -2,7 +2,7 @@ package dev.pppp.service.game;
 
 import dev.pppp.repository.PlayerRepository;
 import dev.pppp.service.PlayerConsoles;
-import eu.rekawek.coffeegb.core.AddressSpace;
+import dev.pppp.emulator.Bus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -67,7 +67,7 @@ public class AaaaMail {
      * Adds the Mails to the mailbox and its backup. False (nothing written) before the first save, or while the
      * mailbox has no room for all of them (the next try may find room).
      */
-    static boolean write(AddressSpace bus) {
+    static boolean write(Bus bus) {
         bus.setByte(RAMG, SRAM_ENABLE);
         try {
             bus.setByte(RAMB, 1);
