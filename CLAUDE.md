@@ -120,7 +120,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   the numbers on a pill and the Google button, sized to fit one screen. `GET /api/v1/me` is open: 204 when signed out.
   Tab titles: "<page> · PPPPv2". `FrameEncoder` writes palette PNGs by hand (BEST_SPEED,
   RGB past 256 colours): ~15x cheaper than ImageIO, which at 120 frames/s took the CPU a 4x console needed on the
-  Pi (it measured 0.9x; the speed chip shows the measured rate, `GET /api/v1/me/speed`). GameScreen coalesces /ws/screen: messages only store the
+  Pi (it measured 0.9x; `GET /api/v1/me/speed`). GameScreen coalesces /ws/screen: messages only store the
   newest picture and name tags, one draw per animation frame (handling each of 120/s at 4x queued up on phones). Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order, looping; a third
   of the width or a flick switches, else it springs back; not
   from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
@@ -143,7 +143,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   waits on Mt. Silver as Red: `V1Red`) into each Gen 2 player's PC mailbox and its backup, once (`aaaaMail` in
   `pibs:player:{userId}`), after their first save, while they are free in the overworld (`PokecenterDig.busy`),
   opening and closing save RAM as the game does. `AaaaMailTest` runs it on the real ROMs and parked games in data/.
-- Speed: the chip offers 1x and Fast (the server's 4x: as fast as it manages) and shows the measured rate; a Pi 4
+- Speed: the chip offers 1x and Fast (the server's 4x: as fast as it manages, ~3x on the Pi since SameBoy; `GET /api/v1/me/speed` still reports the measured rate); a Pi 4
   core ran a Gen 2 console at about 1.2x on Coffee GB (`GET /api/v1/me/speed` timing: all of it in the emulator);
   hence SameBoy (2.1.0): ~2.7x cheaper per frame on a Mac, Pi numbers still to measure.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
