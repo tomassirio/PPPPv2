@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * AAAA (PPPP v1's player, who now waits on Mt. Silver as Red: V1Red) thanks every Gold, Silver and Crystal player with
- * three Portrait Mails (Articuno, AAAA's lead) in their PC's mailbox, once, after their game has been saved.
+ * a Portrait Mail (Articuno, AAAA's lead) in their PC's mailbox, once, after their game has been saved.
  * <p>
  * Written into the cartridge's save RAM while the player is free in the overworld (PokecenterDig.busy: no battle,
  * menu, dialog or step, so the game's own save RAM is closed), opening and closing it as the game's OpenSRAM and
@@ -32,11 +32,8 @@ public class AaaaMail {
     private static final int LINE = 16, NEXT = 0x4E, END = 0x50, SPACE = 0x7F;
     private static final int ARTICUNO = 144, PORTRAITMAIL = 0xB7, AUTHOR_ID = 1;
 
-    /** The three Mails, in the order they appear in the mailbox. */
-    static final String[][] TEXT = {
-            {"Thank you for", "playing PPPP v1!"},
-            {"I'll be waiting", "for you at the"},
-            {"top of Mt.Silver", "Pib."}};
+    /** The Mail (one is two lines of 16; a list so more could follow in mailbox order). */
+    static final String[][] TEXT = {{"Thank you, Pib!", "Mt.Silver awaits"}};
 
     private final PlayerConsoles consoles;
     private final PlayerRepository players;
@@ -64,7 +61,7 @@ public class AaaaMail {
     }
 
     /**
-     * Adds the Mails to the mailbox and its backup. False (nothing written) before the first save, or while the
+     * Adds the Mail to the mailbox and its backup. False (nothing written) before the first save, or while the
      * mailbox has no room for all of them (the next try may find room).
      */
     static boolean write(Bus bus) {
@@ -111,6 +108,7 @@ public class AaaaMail {
         return switch (c) {
             case ' ' -> SPACE;
             case '!' -> 0xE7;
+            case ',' -> 0xF4;
             case '.' -> 0xE8;
             case '\'' -> 0xE0;
             case '-' -> 0xE3;

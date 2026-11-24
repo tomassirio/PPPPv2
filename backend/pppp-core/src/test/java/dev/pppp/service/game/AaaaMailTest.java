@@ -77,20 +77,20 @@ class AaaaMailTest {
                 bus.setByte(0x0000, 0x0A);
                 bus.setByte(0x4000, 0);
                 int[] r = {bus.getByte(AaaaMail.MAILBOX_COUNT), bus.getByte(AaaaMail.BACKUP),
-                        bus.getByte(AaaaMail.MAILBOXES + before * 0x2F), bus.getByte(AaaaMail.MAILBOXES + (before + 2) * 0x2F + 0x2E)};
+                        bus.getByte(AaaaMail.MAILBOXES + before * 0x2F), bus.getByte(AaaaMail.MAILBOXES + (before + AaaaMail.TEXT.length - 1) * 0x2F + 0x2E)};
                 bus.setByte(0x0000, 0x00);
                 return r;
             });
             System.out.println("AAAA's Mail delivered in " + state.getParent().getFileName() + "'s " + cart + " (mailbox " + before + " -> " + after[0] + ")");
-            assertThat(after[0]).as("mailbox count").isEqualTo(before + 3);
-            assertThat(after[1]).as("backup count").isEqualTo(before + 3);
+            assertThat(after[0]).as("mailbox count").isEqualTo(before + AaaaMail.TEXT.length);
+            assertThat(after[1]).as("backup count").isEqualTo(before + AaaaMail.TEXT.length);
             assertThat(after[2]).as("first Mail's first letter").isEqualTo(0x93); // T
-            assertThat(after[3]).as("third Mail's item").isEqualTo(0xB7);
+            assertThat(after[3]).as("last Mail's item").isEqualTo(0xB7);
 
             Thread.sleep(2000); // the game keeps running with it
             host.flushBattery();
             byte[] saved = Files.readAllBytes(sav);
-            assertThat(saved[AaaaMail.MAILBOX_COUNT - 0xA000] & 0xFF).as("in the battery save").isEqualTo(before + 3);
+            assertThat(saved[AaaaMail.MAILBOX_COUNT - 0xA000] & 0xFF).as("in the battery save").isEqualTo(before + AaaaMail.TEXT.length);
             String still = host.withBus(bus -> PokecenterDig.busy(game, bus));
             assertThat(still).as("still free in the overworld").isNull();
         } finally {

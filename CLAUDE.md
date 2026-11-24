@@ -139,7 +139,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   phones: the record as stat tiles, Trade/Battle tiles with a hint, "Nobody is waiting" as an empty state. Held
   sideways the icon rail stays. Settings (key bindings) is hidden on touch screens. A player's picked speed survives
   their console rebooting (`PlayerConsoles.speeds`, memory only; plugging a cable clears it).
-- Done: AAAA's Mail. `AaaaMail` (core, every 10 s) puts three Portrait Mails (Articuno) from AAAA (v1's player, who
+- Done: AAAA's Mail. `AaaaMail` (core, every 10 s) puts a Portrait Mail (Articuno; "Thank you, Pib! / Mt.Silver awaits") from AAAA (v1's player, who
   waits on Mt. Silver as Red: `V1Red`) into each Gen 2 player's PC mailbox and its backup, once (`aaaaMail` in
   `pibs:player:{userId}`), after their first save, while they are free in the overworld (`PokecenterDig.busy`),
   opening and closing save RAM as the game does. `AaaaMailTest` runs it on the real ROMs and parked games in data/.
