@@ -35,6 +35,15 @@ public class PlayerRepository {
         return game == null ? null : game.toString();
     }
 
+    /** Whether AAAA's Mail has reached this player's PC mailbox (AaaaMail); a reset forgets it with the rest. */
+    public boolean aaaaMail(String userId) {
+        return redis.opsForHash().hasKey(key(userId), "aaaaMail");
+    }
+
+    public void markAaaaMail(String userId) {
+        redis.opsForHash().put(key(userId), "aaaaMail", String.valueOf(System.currentTimeMillis()));
+    }
+
     /** The trainer sprite key the player walks as, or null for the game's own. */
     public String sprite(String userId) {
         Object sprite = redis.opsForHash().get(key(userId), "sprite");

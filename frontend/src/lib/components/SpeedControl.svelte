@@ -1,13 +1,20 @@
 <!-- Emulation speed of the player's own console (PUT /api/v1/me/speed): a chip with the current speed; clicking it
      opens the choices inline on the same strip, picking one closes it again. Locked to 1x while a link
      cable is plugged in: both consoles then run in step, and the backend set them back to 1x when it plugged in.
-     Sound plays at 1x only. -->
+     Sound plays at 1x only. Two choices: 1x, and Fast (4x on the server: as fast as it manages, up to 4x). Fast
+     always shows the speed the console really reaches (GET /me/speed), since a Raspberry Pi core manages only
+     about 1.2x of a Gen 2 game. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
 	import { link } from '#lib/link.svelte.ts';
 
 	let { speed = 1 }: { speed?: number | null } = $props();
-	const SPEEDS = [1, 2, 4];
+	/** [value sent to the server, label]. Fast is the server's 4x: as fast as it can go, up to 4x. */
+	const SPEEDS: [number, string][] = [
+		[1, '1×'],
+		[4, 'Fast']
+	];
+	const label = (s: number) => SPEEDS.find(([v]) => v === s)?.[1] ?? `${s}×`;
 
 	let current = $state(1);
 	let error = $state('');
@@ -25,7 +32,7 @@
 		if (linked) open = false;
 	});
 
-	// Above 1x: what the console really manages (GET /me/speed every 2 s), shown when it falls clearly short.
+	// Above 1x: what the console really manages (GET /me/speed every 2 s), always shown next to the label.
 	let actual = $state<number | null>(null);
 	type Timing = { emulateWallMs: number; emulateCpuMs: number; hooksMs: number; listenersMs: number; tasksMs: number; idleMs: number };
 	let timing = $state<Timing | null>(null);
@@ -50,7 +57,7 @@
 		poll();
 		return () => clearInterval(t);
 	});
-	const short = $derived(actual !== null && actual > 0 && actual < current * 0.85);
+	const shown = $derived(current > 1 && actual !== null && actual > 0);
 
 	async function set(s: number) {
 		open = false;
@@ -81,18 +88,18 @@
 		type="button"
 		class="current"
 		aria-expanded={open}
-		aria-label="Game speed {current}×{linked ? ', locked while the link cable is plugged in' : ''}"
+		aria-label="Game speed {label(current)}{shown ? `, running at ${actual!.toFixed(1)}×` : ''}{linked ? ', locked while the link cable is plugged in' : ''}"
 		title={linked ? 'Speed is locked to 1× while the link cable is plugged in' : error || 'Game speed (sound plays at 1× only)'}
 		disabled={linked}
 		onclick={() => (open = !open)}
 	>
 		<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5l9 7-9 7zM12 5l9 7-9 7z" /></svg>
-		{current}×{#if short}<span class="actual" title="Running at {actual!.toFixed(1)}×: the server can't keep up. {breakdown}">· {actual!.toFixed(1)}×</span>{/if}
+		{label(current)}{#if shown}<span class="actual" title="Running at {actual!.toFixed(1)}×, as fast as the server manages. {breakdown}">· {actual!.toFixed(1)}×</span>{/if}
 	</button>
 	{#if open}
 		<span class="choices" role="group" aria-label="Pick a speed">
-			{#each SPEEDS as s (s)}
-				<button type="button" aria-pressed={current === s} onclick={() => set(s)}>{s}×</button>
+			{#each SPEEDS as [s, name] (s)}
+				<button type="button" aria-pressed={current === s} onclick={() => set(s)}>{name}</button>
 			{/each}
 		</span>
 	{/if}

@@ -139,12 +139,16 @@ public class PokecenterDig {
                 && u8(bus, at.mapGroup + 2) == RECEPTIONIST_Y;
     }
 
-    private Game game(String userId) {
+    Game game(String userId) {
         String cartridge = consoles.game(userId);
         return cartridge == null ? null : games.computeIfAbsent(cartridge, this::load).orElse(null);
     }
 
-    static String check(Game game, AddressSpace bus) {
+    /**
+     * Why the player is not free in the overworld (null when they are): WRAM bank 1 out, a battle, a link room, a
+     * menu, dialog or event, or mid-step. Then the game touches nothing else (its save RAM is closed).
+     */
+    static String busy(Game game, AddressSpace bus) {
         Layout at = game.at;
         int svbk = bus.getByte(SVBK);
         if (svbk != 0xFF && (svbk & 7) > 1) return "busy"; // WRAM bank 1 is out: the game is mid-routine
@@ -156,6 +160,14 @@ public class PokecenterDig {
             return "in a menu, a dialog or an event";
         }
         if (u8(bus, at.mapStatus) != MAPSTATUS_HANDLE || u8(bus, at.mapStatus + 1) != MAPEVENTS_ON) return "on the move";
+        return null;
+    }
+
+    static String check(Game game, AddressSpace bus) {
+        String why = busy(game, bus);
+        if (why != null) return why;
+        Layout at = game.at;
+        int group = u8(bus, at.mapGroup), number = u8(bus, at.mapGroup + 1);
         if ((u8(bus, at.statusFlags2) & BUG_CONTEST_TIMER) != 0) return "in the Bug-Catching Contest";
         if (game.maps.pokecenter(group, number)) return null;
         int env = game.maps.environment(group, number);
