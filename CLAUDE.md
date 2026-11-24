@@ -139,6 +139,13 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   phones: the record as stat tiles, Trade/Battle tiles with a hint, "Nobody is waiting" as an empty state. Held
   sideways the icon rail stays. Settings (key bindings) is hidden on touch screens. A player's picked speed survives
   their console rebooting (`PlayerConsoles.speeds`, memory only; plugging a cable clears it).
+- Done: notes on the ground (Dark Souls style). Holding A ~0.7 s while free in the overworld (Gamepad, nobody nearby)
+  opens `NoteComposer`: a phrase + one word (Pokémon from the ROM, items, things; `NoteService.PHRASES/ITEMS/THINGS`,
+  `GET /api/v1/notes/words`), left on the tile the player stands still on (`GET /api/v1/notes/spot` 409 otherwise,
+  `POST /api/v1/notes`). Keyed by pret map constant + tile, so all three games share them; 10 newest per player, one
+  per tile. Redis hash `pibs:notes` (id -> JSON), raters in set `pibs:notes:good:{id}`. `/ws/screen`'s text message
+  carries `notes` in view (`NoteService.visible`, via `Ghosts.where`): orange glows on the screen; standing on one shows
+  it with Good (`POST /{id}/good`) or Remove (`DELETE /{id}`, author or admin).
 - Done: first-time help on upright phones (`lib/tour.svelte.ts`, `Coach.svelte` coach marks, seen ids in localStorage
   `pppp.tour`): the /play tour (screen, burger, swipe, strips, triangle, Fast/Reset) once, then single tips the first
   time the Link cable / Your run panel opens, someone is nearby, a progress card or @mention arrives, or the console

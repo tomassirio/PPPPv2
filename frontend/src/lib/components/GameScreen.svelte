@@ -16,6 +16,8 @@
 	import { game } from '#lib/game.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { tip } from '#lib/tour.svelte.ts';
+	import { api } from '#lib/api.ts';
+	import type { ScreenNote } from '#lib/notes.svelte.ts';
 
 	const BUBBLE_MS = 5000;
 
@@ -43,6 +45,12 @@
 	);
 	// Who is on screen this frame (sprite top left, screen pixels; the player first, then ghosts), and their latest chat line.
 	let ghosts = $state<ScreenPlayer[]>([]);
+	// Notes in view (lib/notes.svelte.ts), and the one the player stands on.
+	let notes = $state<ScreenNote[]>([]);
+	const reading = $derived(notes.find((n) => n.here) ?? null);
+	$effect(() => {
+		if (reading && !reading.mine && !watch) tip('note');
+	});
 	export function nearby() {
 		return nearbyPlayers(ghosts);
 	}
@@ -83,7 +91,9 @@
 		function paint() {
 			painting = false;
 			if (nextGhosts !== null) {
-				ghosts = JSON.parse(nextGhosts).ghosts ?? [];
+				const m = JSON.parse(nextGhosts);
+				ghosts = m.ghosts ?? [];
+				notes = m.notes ?? [];
 				ghosts.forEach((g) => needPicture(g.user));
 				nextGhosts = null;
 			}
@@ -158,6 +168,10 @@
 		<div class="screen">
 			<canvas bind:this={canvas} width="160" height="144" aria-label={watch ? `${nameOf(watch)}'s screen` : 'Live game screen'}></canvas>
 			{#if !overlay}
+				<!-- Notes on the ground: a glowing mark on each tile that has one, as Dark Souls' messages. -->
+				{#each notes as n (n.id)}
+					<span class="note-mark" class:mine={n.mine} style:left="{((n.x + 8) / 160) * 100}%" style:top="{((n.y + 12) / 144) * 100}%" aria-hidden="true"></span>
+				{/each}
 				{#each ghosts as g (g.user)}
 					{@const left = `${((g.x + 8) / 160) * 100}%`}
 					{#if said[g.user]}
@@ -223,6 +237,19 @@
 					<div class="overlay pixel" aria-hidden="true">{overlay}</div>
 				{/if}
 			{/if}
+			{#if reading && !overlay && !watch}
+				<div class="note-read" role="status">
+					<p class="note-text">“{reading.text}”</p>
+					<p class="note-meta">
+						<span>{reading.mine ? 'Your note' : ''}{#if !reading.mine}<Name user={reading.user} />{/if} · 👍 {reading.good}</span>
+						{#if reading.mine}
+							<button type="button" onclick={() => api('DELETE', `/notes/${reading.id}`).catch(() => {})}>Remove</button>
+						{:else if !reading.rated}
+							<button type="button" onclick={() => api('POST', `/notes/${reading.id}/good`).catch(() => {})}>Good</button>
+						{/if}
+					</p>
+				</div>
+			{/if}
 			{#if !watch}<GodMessage />{/if}
 			<p class="sr-only" role="status">{overlay ?? ''}</p>
 		</div>
@@ -237,6 +264,79 @@
 </div>
 
 <style>
+	/* A note on the ground: an orange glow, pulsing, at the foot of its tile. */
+	.note-mark {
+		position: absolute;
+		width: 6%;
+		aspect-ratio: 2;
+		translate: -50% -50%;
+		border-radius: 50%;
+		background: radial-gradient(closest-side, #fff6d0, #ffb347 45%, rgb(255 140 40 / 0) 100%);
+		filter: drop-shadow(0 0 4px #ff9d2e);
+		pointer-events: none;
+		animation: note-glow 2s ease-in-out infinite;
+	}
+	.note-mark.mine {
+		background: radial-gradient(closest-side, #fff, #ffd56b 45%, rgb(255 200 80 / 0) 100%);
+	}
+	@keyframes note-glow {
+		50% {
+			opacity: 0.55;
+			scale: 0.85;
+		}
+	}
+	/* Standing on one: its words across the foot of the screen, in the game's own type. */
+	.note-read {
+		position: absolute;
+		left: 3%;
+		right: 3%;
+		bottom: 3%;
+		z-index: 3;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: rgb(20 14 6 / 0.82);
+		border: 2px solid #ffb347;
+		box-shadow: 0 0 14px rgb(255 157 46 / 0.5);
+		color: #fff3dc;
+		text-align: center;
+		animation: note-in 0.3s ease-out;
+	}
+	@keyframes note-in {
+		from {
+			opacity: 0;
+			translate: 0 6px;
+		}
+	}
+	.note-text {
+		margin: 0 0 6px;
+		font: clamp(9px, 2.6cqw, 14px) / 1.5 var(--pixel-font);
+		text-shadow: 0 0 8px #ff9d2e;
+	}
+	.note-meta {
+		margin: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		font-size: 12px;
+		opacity: 0.9;
+	}
+	.note-meta button {
+		padding: 3px 10px;
+		border: 1px solid #ffb347;
+		border-radius: 999px;
+		background: transparent;
+		color: #ffd9a3;
+		font: 700 12px var(--body-font);
+		cursor: pointer;
+		pointer-events: auto;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.note-mark,
+		.note-read {
+			animation: none;
+		}
+	}
 	.fit {
 		container-type: inline-size;
 		display: flex;

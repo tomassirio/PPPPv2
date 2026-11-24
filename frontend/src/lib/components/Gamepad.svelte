@@ -15,6 +15,7 @@
 	import ShellPicker from './ShellPicker.svelte';
 	import { konamiPress } from '#lib/konami.svelte.ts';
 	import { controls, setControlsLow } from '#lib/controls.svelte.ts';
+	import { openComposer } from '#lib/notes.svelte.ts';
 
 	let { talk }: { talk: () => boolean } = $props();
 
@@ -51,11 +52,21 @@
 	const down = new SvelteSet<Button>();
 	$effect(() => useInput());
 
+	// Holding A (nobody nearby) for HOLD_MS while free in the overworld: leave a note on this tile (notes.svelte.ts).
+	const HOLD_MS = 700;
+	let holdTimer: ReturnType<typeof setTimeout> | undefined;
+
 	function press(b: Button) {
 		if (down.has(b)) return;
 		if (b === 'a' && talk()) {
 			releaseAll();
 			return;
+		}
+		if (b === 'a') {
+			clearTimeout(holdTimer);
+			holdTimer = setTimeout(() => {
+				if (down.has('a')) openComposer().then((opened) => opened && releaseAll());
+			}, HOLD_MS);
 		}
 		down.add(b);
 		konamiPress(b);
@@ -63,6 +74,7 @@
 	}
 
 	function release(b: Button) {
+		if (b === 'a') clearTimeout(holdTimer);
 		if (!down.delete(b)) return;
 		sendKey(b, false);
 	}

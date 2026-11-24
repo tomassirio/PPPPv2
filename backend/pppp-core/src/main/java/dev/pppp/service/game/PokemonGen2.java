@@ -218,6 +218,11 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     }
 
     /** "Gold", "Silver" or "Crystal", by the header title. */
+    /** The 251 species names, Pokédex order, as this ROM spells them. */
+    List<String> speciesNames() {
+        return List.copyOf(java.util.Arrays.asList(names).subList(1, DEX_SIZE + 1)); // names[0] is unused (null)
+    }
+
     String version() {
         return at.crystal ? "Crystal" : rom[0x13C] == 'G' ? "Gold" : "Silver"; // POKEMON_GLD / POKEMON_SLV
     }

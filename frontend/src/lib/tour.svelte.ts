@@ -107,6 +107,11 @@ export const TIPS: Record<string, Step> = {
 		title: 'You were mentioned',
 		text: 'Someone wrote your name in the chat. Chat is in the menu.'
 	},
+	note: {
+		target: ['.note-read'],
+		title: 'A note from another Pib',
+		text: 'Someone left this here. Rate it Good if it helped. Hold A anywhere in the overworld to leave your own.'
+	},
 	away: {
 		target: ['.away button'],
 		title: 'Paused while you were away',

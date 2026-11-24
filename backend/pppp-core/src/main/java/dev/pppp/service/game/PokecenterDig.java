@@ -154,7 +154,9 @@ public class PokecenterDig {
         if (svbk != 0xFF && (svbk & 7) > 1) return "busy"; // WRAM bank 1 is out: the game is mid-routine
         if (u8(bus, at.battleMode) != 0) return "in a battle";
         int group = u8(bus, at.mapGroup), number = u8(bus, at.mapGroup + 1);
-        if (u8(bus, at.linkMode) != 0 || LINK_ROOMS.contains(game.maps.mapId(group, number))) return "in a link room";
+        String map = game.maps.mapId(group, number);
+        if (map == null) return "nowhere yet"; // the title screen or the new-game intro: no map loaded
+        if (u8(bus, at.linkMode) != 0 || LINK_ROOMS.contains(map)) return "in a link room";
         if (u8(bus, at.scriptRunning) != 0 || u8(bus, at.scriptRunning - 1) == SCRIPT_READ
                 || u8(bus, at.windowStackSize) != 0 || u8(bus, at.reentryScript) != 0) {
             return "in a menu, a dialog or an event";

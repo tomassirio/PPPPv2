@@ -147,6 +147,18 @@ public class Ghosts {
         return onScreen.getOrDefault(userId, List.of());
     }
 
+    /** Where a free player stands: map and world pixels of their sprite's top left (16 per step). */
+    public record Where(String map, int x, int y) {}
+
+    /**
+     * Where the player stood in the frame just drawn, or null in a menu, a text box, a battle, a link room or while a
+     * new map loads (no one on their screen then, not even themselves).
+     */
+    public Where where(String userId) {
+        Spot s = spots.get(userId);
+        return s == null || onScreen(userId).isEmpty() ? null : new Where(s.map, s.x, s.y);
+    }
+
     /** The player left: they vanish from everyone's screen. */
     public void leave(String userId) {
         spots.remove(userId);

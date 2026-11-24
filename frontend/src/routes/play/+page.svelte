@@ -11,6 +11,7 @@
 	import { controls } from '#lib/controls.svelte.ts';
 	import PlayStrips from '#lib/components/PlayStrips.svelte';
 	import Coach from '#lib/components/Coach.svelte';
+	import NoteComposer from '#lib/components/NoteComposer.svelte';
 	import { offer, tip, TOUR } from '#lib/tour.svelte.ts';
 	import { api } from '#lib/api.ts';
 	import { on } from '#lib/events.ts';
@@ -502,6 +503,7 @@
 	{/if}
 	<PokeballRain />
 	<Coach />
+	<NoteComposer />
 {:else if loadFailed}
 	<section class="load-error" role="alert">
 		<p>Couldn't load your session. The server may be restarting.</p>
