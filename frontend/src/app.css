@@ -34,6 +34,8 @@
 	--r-rare: #5b9bf0;
 	--r-epic: #b07ce8;
 	--r-legendary: #f2b53c;
+	/* The board seen through an atomic controller shell: light enough to show on a dark page. */
+	--pcb: rgb(196 210 200 / 0.68);
 	--pixel-font: 'Press Start 2P', monospace;
 	--body-font: Inter, system-ui, sans-serif;
 	color-scheme: dark;
@@ -65,6 +67,7 @@
 	--r-rare: #2a64c8;
 	--r-epic: #7d3fc0;
 	--r-legendary: #a86f00;
+	--pcb: rgb(40 70 55 / 0.22);
 	color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
@@ -93,6 +96,7 @@
 		--r-rare: #2a64c8;
 		--r-epic: #7d3fc0;
 		--r-legendary: #a86f00;
+		--pcb: rgb(40 70 55 / 0.22);
 		color-scheme: light;
 	}
 }

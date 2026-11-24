@@ -244,7 +244,7 @@
 			linear-gradient(rgb(28 52 40 / 0.5), rgb(28 52 40 / 0.5)) 80% 60% / 22% 1.5px no-repeat,
 			linear-gradient(rgb(28 52 40 / 0.5), rgb(28 52 40 / 0.5)) 12% 55% / 18% 1.5px no-repeat,
 			repeating-linear-gradient(90deg, rgb(28 52 40 / 0.18) 0 1px, transparent 1px 41px),
-			rgb(40 70 55 / 0.22);
+			var(--pcb);
 	}
 	.shell::after {
 		z-index: -1;

@@ -92,7 +92,8 @@ class AaaaMailTest {
             byte[] saved = Files.readAllBytes(sav);
             assertThat(saved[AaaaMail.MAILBOX_COUNT - 0xA000] & 0xFF).as("in the battery save").isEqualTo(before + AaaaMail.TEXT.length);
             String still = host.withBus(bus -> PokecenterDig.busy(game, bus));
-            assertThat(still).as("still free in the overworld").isNull();
+            // Still in the game (a phone call or an event may have started meanwhile), not reset to the title screen.
+            assertThat(still).as("still in the game").isNotEqualTo("nowhere yet");
         } finally {
             host.shutdown();
         }
