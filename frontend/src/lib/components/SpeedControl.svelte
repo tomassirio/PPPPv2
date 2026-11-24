@@ -27,12 +27,24 @@
 
 	// Above 1x: what the console really manages (GET /me/speed every 2 s), shown when it falls clearly short.
 	let actual = $state<number | null>(null);
+	type Timing = { emulateWallMs: number; emulateCpuMs: number; hooksMs: number; listenersMs: number; tasksMs: number; idleMs: number };
+	let timing = $state<Timing | null>(null);
+	const ms = (v: number) => Math.round(v);
+	// Where the console's last second went (on hover): emulating (wall / its own CPU), hooks, pictures, tasks, idle.
+	const breakdown = $derived(
+		timing
+			? `Last second: emulating ${ms(timing.emulateWallMs)} ms (CPU ${ms(timing.emulateCpuMs)} ms), hooks ${ms(timing.hooksMs)}, pictures ${ms(timing.listenersMs)}, tasks ${ms(timing.tasksMs)}, idle ${ms(timing.idleMs)}`
+			: ''
+	);
 	$effect(() => {
 		actual = null;
 		if (current <= 1 || linked) return;
 		const poll = () =>
-			api<{ speed: number | null; actual: number | null }>('GET', '/me/speed')
-				.then((r) => (actual = r.actual))
+			api<{ speed: number | null; actual: number | null; timing: Timing | null }>('GET', '/me/speed')
+				.then((r) => {
+					actual = r.actual;
+					timing = r.timing;
+				})
 				.catch(() => {});
 		const t = setInterval(poll, 2000);
 		poll();
@@ -75,7 +87,7 @@
 		onclick={() => (open = !open)}
 	>
 		<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5l9 7-9 7zM12 5l9 7-9 7z" /></svg>
-		{current}×{#if short}<span class="actual" title="Running at {actual!.toFixed(1)}×: the server can't keep up">· {actual!.toFixed(1)}×</span>{/if}
+		{current}×{#if short}<span class="actual" title="Running at {actual!.toFixed(1)}×: the server can't keep up. {breakdown}">· {actual!.toFixed(1)}×</span>{/if}
 	</button>
 	{#if open}
 		<span class="choices" role="group" aria-label="Pick a speed">

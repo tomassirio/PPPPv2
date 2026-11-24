@@ -461,6 +461,12 @@ public class PlayerConsoles {
         return c == null ? null : c.host().status().speed();
     }
 
+    /** Where the player's console thread's last second went, or null when it is not in memory (or just started). */
+    public EmulatorHost.Timing timing(String userId) {
+        Console c = consoles.get(userId);
+        return c == null ? null : c.host().timing();
+    }
+
     /** How fast the player's console really runs (1.0 = a real Game Boy), or null when it is not in memory. */
     public Double measuredSpeed(String userId) {
         Console c = consoles.get(userId);

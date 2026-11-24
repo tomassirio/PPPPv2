@@ -92,6 +92,16 @@ public class EmulatorHost {
     private volatile double measured;
     private long measureStart = System.nanoTime();
     private long measureFrames;
+    /**
+     * Where the emulator thread's last second went, in ms: emulating (wall and the thread's own CPU time: far more
+     * wall than CPU means the thread was waiting for a core, e.g. a container's CPU limit), frame hooks, frame
+     * listeners, queued tasks, and idle (parked until the next frame is due).
+     */
+    public record Timing(double emulateWallMs, double emulateCpuMs, double hooksMs, double listenersMs, double tasksMs,
+                         double idleMs) {}
+    private volatile Timing timing;
+    private long tEmulate, tEmulateCpu, tHooks, tListeners, tTasks, tIdle;
+    private static final java.lang.management.ThreadMXBean CPU = java.lang.management.ManagementFactory.getThreadMXBean();
     private final int[] pixels = new int[PIXELS];
     private Press press;
     /**
@@ -261,6 +271,11 @@ public class EmulatorHost {
             throw new IllegalArgumentException("Speed must be between 0.25 and 4.0");
         }
         speed = multiplier;
+    }
+
+    /** Where the emulator thread's last second went (null before the first second). */
+    public Timing timing() {
+        return timing;
     }
 
     /** How fast the console really runs now (1.0 = a real Game Boy); 0 while paused or off. */
@@ -464,7 +479,9 @@ public class EmulatorHost {
                     continue;
                 }
                 Runnable task;
+                long t0 = System.nanoTime();
                 while (running && driver == null && (task = tasks.poll()) != null) task.run();
+                tTasks += System.nanoTime() - t0;
                 EmulatorHost f = follower;
                 while (running && f != null && f == follower && (task = f.tasks.poll()) != null) task.run();
                 if (!running) break;
@@ -478,7 +495,11 @@ public class EmulatorHost {
                 step();
                 deadline += (long) (FRAME_NANOS / speed);
                 long wait = deadline - System.nanoTime();
-                if (wait > 0) LockSupport.parkNanos(wait);
+                if (wait > 0) {
+                    long p0 = System.nanoTime();
+                    LockSupport.parkNanos(wait);
+                    tIdle += System.nanoTime() - p0;
+                }
                 else if (wait < -100_000_000L) deadline = System.nanoTime(); // too far behind: don't catch up in a burst
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -493,7 +514,10 @@ public class EmulatorHost {
         EmulatorHost f = follower;
         if (f == null) {
             beginFrame();
+            long w0 = System.nanoTime(), c0 = CPU.getCurrentThreadCpuTime();
             gb.runTicks(TICKS_PER_FRAME);
+            tEmulateCpu += CPU.getCurrentThreadCpuTime() - c0;
+            tEmulate += System.nanoTime() - w0;
             endFrame();
             return;
         }
@@ -534,9 +558,12 @@ public class EmulatorHost {
         long now = System.nanoTime();
         if (now - measureStart >= 1_000_000_000L) {
             measured = measureFrames * (double) FRAME_NANOS / (now - measureStart);
+            timing = new Timing(tEmulate / 1e6, tEmulateCpu / 1e6, tHooks / 1e6, tListeners / 1e6, tTasks / 1e6, tIdle / 1e6);
+            tEmulate = tEmulateCpu = tHooks = tListeners = tTasks = tIdle = 0;
             measureStart = now;
             measureFrames = 0;
         }
+        long h0 = System.nanoTime();
         for (Consumer<AddressSpace> h : frameHooks) {
             try {
                 h.accept(gb.getAddressSpace());
@@ -544,6 +571,8 @@ public class EmulatorHost {
                 log.warn("Frame hook failed", e);
             }
         }
+        long l0 = System.nanoTime();
+        tHooks += l0 - h0;
         if (frame % 2 == 0 && !frameListeners.isEmpty()) {
             for (Consumer<int[]> l : frameListeners) {
                 try {
@@ -553,6 +582,7 @@ public class EmulatorHost {
                 }
             }
         }
+        tListeners += System.nanoTime() - l0;
         if (p != null) {
             p.frames++;
             if (p.frames >= p.hold + p.release) {

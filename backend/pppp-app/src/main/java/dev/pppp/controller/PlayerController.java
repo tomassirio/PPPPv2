@@ -31,8 +31,8 @@ public class PlayerController {
     /** game is null until picked; available is what the admin has uploaded; speed is null while the console is off. */
     public record MyGame(String game, List<Cartridge> available, Double speed) {}
     public record Speed(double speed) {}
-    /** speed: picked; actual: measured over the last second (null while the console is not in memory). */
-    public record SpeedNow(Double speed, Double actual) {}
+    /** speed: picked; actual: measured over the last second; timing: where that second went (null while off). */
+    public record SpeedNow(Double speed, Double actual, dev.pppp.emulator.EmulatorHost.Timing timing) {}
     public record Pick(String cartridgeId) {}
     public record InputRequest(String command, Integer repeat) {}
 
@@ -70,7 +70,7 @@ public class PlayerController {
     @GetMapping("/api/v1/me/speed")
     public SpeedNow speedNow(Authentication auth) {
         String id = CurrentUser.id(auth);
-        return new SpeedNow(consoles.speed(id), consoles.measuredSpeed(id));
+        return new SpeedNow(consoles.speed(id), consoles.measuredSpeed(id), consoles.timing(id));
     }
 
     @PutMapping("/api/v1/me/speed")
