@@ -8,7 +8,7 @@ export type Shell = {
 	dpad: string;
 	ab: string;
 	pill: string;
-	/** The see-through ("atomic") plastic of the same colour, when there is one (the picker's Solid / Atomic switch). */
+	/** A hand-tuned see-through ("atomic") plastic for the picker's Atomic switch; others get their colour at 60%. */
 	atomic?: string;
 };
 
@@ -39,9 +39,12 @@ const KEY = 'pppp.shell', ATOMIC_KEY = 'pppp.shellAtomic';
 /** Shells folded into another's atomic version: a saved one picks that colour, atomic. */
 const RETIRED: Record<string, string> = { atomic: 'purple', 'clear-purple': 'purple', 'clear-black': 'black', 'clear-green': 'green', clear: 'white' };
 
-/** The colour as worn: its atomic plastic when asked for and it has one ("Atomic Purple"). */
+/** The colour as worn. Atomic: its see-through plastic (hand-tuned where set, else its own colour at 60%); the
+ * clear shells are see-through already and stay as they are. */
 export function variant(s: Shell, atomic: boolean): Shell {
-	return atomic && s.atomic ? { ...s, name: `Atomic ${s.name}`, shell: s.atomic } : s;
+	if (!atomic || s.shell.includes('/')) return s;
+	const clear = s.atomic ?? `rgb(${[1, 3, 5].map((i) => parseInt(s.shell.slice(i, i + 2), 16)).join(' ')} / 0.6)`;
+	return { ...s, name: `Atomic ${s.name}`, shell: clear };
 }
 
 /** The saved colour (its base, by id) and whether atomic is on. */

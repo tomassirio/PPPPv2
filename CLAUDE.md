@@ -150,7 +150,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   {gift, quantity, to}. Queued in Redis list `pibs:gifts:{userId}` ("id:qty"); every 10 s a running, free (PokecenterDig.busy)
   console gets the oldest into its PC item list in WRAM (`PokemonGen2.pcItems`, stacks to 99, 50 entries), then
   `MYSTERY_GIFT {user, name, quantity}` shows a "Mystery Gift!" card (GameToasts). The player saves to keep it.
-  No Pokémon or decorations yet.
+  Event Pokémon too (`MysteryGifts.EVENTS`, `GiftMon`): GS Ball Celebi Lv30, Crystal's Odd Egg (odds and moves from
+  data/events/odd_eggs.asm, shinies included), event Mew Lv5, Surfing Pikachu Lv5; built as a party_struct (stats,
+  exp by growth rate, PP, OT AAAA ID 1 so they obey by badges) into the party once it has room, Pokédex marked.
+  Admin panel: chips (Items / Event Pokémon) + a quantity stepper. No decorations yet.
 - Done: the release number at the foot of the account menu (`UserMenu`, desktop and phones): `__APP_VERSION__`, baked in
   by Vite from `PPPP_VERSION` (deploy.yml passes it as a build-arg to the frontend image; "dev" locally).
 - Done: notes on the ground (Dark Souls style). Holding A ~0.7 s while free in the overworld (Gamepad, nobody nearby)

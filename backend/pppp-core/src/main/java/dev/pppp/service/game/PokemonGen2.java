@@ -224,6 +224,44 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         return 0;
     }
 
+    /** The species id (= Pokédex number) this ROM names so, any case, or 0. */
+    int speciesId(String name) {
+        for (int i = 1; i <= DEX_SIZE; i++) if (name.equalsIgnoreCase(names[i])) return i;
+        return 0;
+    }
+
+    /** The move id this ROM names so ("Dizzy Punch"; any case), or 0. */
+    int moveId(String name) {
+        for (int i = 1; i < moveNames.length; i++) if (name.equalsIgnoreCase(moveNames[i])) return i;
+        return 0;
+    }
+
+    /** A move's PP from the Moves table (6th of its 7 bytes). */
+    int movePp(int move) {
+        return rom[(at.crystal ? rom(0x10, 0x5AFB) : rom(0x10, 0x5AFE)) + (move - 1) * MOVE_SIZE + 5] & 0xFF;
+    }
+
+    /** A species' BaseData entry (BASE_DATA_SIZE bytes: dex number, the six base stats, ..., growth rate at 22). */
+    byte[] baseData(int species) {
+        int base = at.romBaseData + (species - 1) * BASE_DATA_SIZE;
+        return java.util.Arrays.copyOfRange(rom, base, base + BASE_DATA_SIZE);
+    }
+
+    /** A species' name as the ROM spells it, in the game's characters (PokemonNames: 10 bytes, "@"-padded). */
+    byte[] rawName(int species) {
+        int at0 = at.romNames + (species - 1) * 10;
+        return java.util.Arrays.copyOfRange(rom, at0, at0 + 10);
+    }
+
+    /** wPartyCount (wPartySpecies, wPartyMons, wPartyMonOT, wPartyMonNicknames follow); wPokedexCaught (wPokedexSeen +32). */
+    int partyCount() {
+        return at.partyCount;
+    }
+
+    int dexCaught() {
+        return at.dexCaught;
+    }
+
     /** wNumPCItems: the PC's item count, then (item, quantity) pairs ending in -1 (MAX_PC_ITEMS at most). */
     int pcItems() {
         return at.tmsHms + PC_ITEMS;

@@ -20,15 +20,30 @@ import org.springframework.stereotype.Service;
  * Mystery Gifts: an admin sends one of CATALOG (fair items, each with a quantity cap) to a player or to everyone. It
  * waits in Redis (GiftRepository) until that player's Gold, Silver or Crystal console runs with them free in the
  * overworld, then lands in the PC's item storage (wNumPCItems: added to a stack of the same item, up to 99, or a new
- * entry while there is room), and MYSTERY_GIFT {user, name, quantity} tells their browser. The PC list is in WRAM:
- * the player saves the game to keep it, as with anything picked up.
+ * entry while there is room) or, for an event Pokémon (EVENTS), the party once it has room; MYSTERY_GIFT {user, name,
+ * quantity, pokemon} tells their browser. Both live in WRAM: the player saves the game to keep them.
  */
 @Service
 public class MysteryGifts {
     private static final Logger log = LoggerFactory.getLogger(MysteryGifts.class);
 
-    /** id, the item as the games name it, the most an admin may send at once. */
-    public record Gift(String id, String name, int max) {}
+    /** id, the item as the games name it (or the event Pokémon), the most an admin may send at once, pokemon: an event Pokémon. */
+    public record Gift(String id, String name, int max, boolean pokemon) {
+        Gift(String id, String name, int max) {
+            this(id, name, max, false);
+        }
+    }
+
+    /**
+     * Event Pokémon, as Gen 2's distributions gave them (fixed movesets), one at a time, into the party (GiftMon): the
+     * GS Ball's Celebi, Crystal's Odd Egg (a baby that knows Dizzy Punch, sometimes shiny), the event Mew and Pokémon
+     * Stadium's Surfing Pikachu. By gift id; the Odd Egg rolls its baby when it is delivered.
+     */
+    static final Map<String, java.util.function.Function<java.util.Random, GiftMon.Spec>> EVENTS = Map.of(
+            "celebi", r -> new GiftMon.Spec("Celebi", 30, List.of("Heal Bell", "Safeguard", "AncientPower", "Future Sight"), false, false),
+            "odd-egg", GiftMon::oddEgg,
+            "mew", r -> new GiftMon.Spec("Mew", 5, List.of("Pound"), false, false),
+            "surfing-pikachu", r -> new GiftMon.Spec("Pikachu", 5, List.of("ThunderShock", "Growl", "Surf"), false, false));
 
     public static final List<Gift> CATALOG = List.of(
             new Gift("rare-candy", "Rare Candy", 3),
@@ -49,7 +64,12 @@ public class MysteryGifts {
             new Gift("gold-berry", "Gold Berry", 5),
             new Gift("moomoo-milk", "Moomoo Milk", 5),
             new Gift("nugget", "Nugget", 3),
-            new Gift("amulet-coin", "Amulet Coin", 1));
+            new Gift("amulet-coin", "Amulet Coin", 1),
+            new Gift("celebi", "Celebi (GS Ball, Lv 30)", 1, true),
+            new Gift("odd-egg", "Odd Egg", 1, true),
+            new Gift("mew", "Mew (Lv 5)", 1, true),
+            new Gift("surfing-pikachu", "Surfing Pikachu (Lv 5)", 1, true));
+    private final java.util.Random random = new java.util.Random();
 
     private static final int MAX_PC_ITEMS = 50, MAX_STACK = 99, END = 0xFF;
 
@@ -102,15 +122,25 @@ public class MysteryGifts {
             String[] parts = next.split(":");
             Gift gift = CATALOG.stream().filter(g -> g.id().equals(parts[0])).findFirst().orElse(null);
             int quantity = parts.length > 1 ? Integer.parseInt(parts[1]) : 1;
-            int item = gift == null ? 0 : game.maps().itemId(gift.name());
-            if (item == 0) { // not in this game, or retired from the catalog: dropped
+            if (gift == null) { // retired from the catalog: dropped
                 gifts.pop(id);
                 continue;
             }
-            Boolean done = consoles.withBus(id, bus -> PokecenterDig.busy(game, bus) == null && put(bus, game.maps().pcItems(), item, quantity));
+            Boolean done;
+            if (gift.pokemon()) { // into the party once it has room
+                GiftMon.Spec spec = EVENTS.get(gift.id()).apply(random);
+                done = consoles.withBus(id, bus -> PokecenterDig.busy(game, bus) == null && GiftMon.add(bus, game.maps(), spec, random));
+            } else {
+                int item = game.maps().itemId(gift.name());
+                if (item == 0) { // not in this game: dropped
+                    gifts.pop(id);
+                    continue;
+                }
+                done = consoles.withBus(id, bus -> PokecenterDig.busy(game, bus) == null && put(bus, game.maps().pcItems(), item, quantity));
+            }
             if (Boolean.TRUE.equals(done)) {
                 gifts.pop(id);
-                events.publishEvent(new LiveEvent("MYSTERY_GIFT", Map.of("user", id, "name", gift.name(), "quantity", quantity)));
+                events.publishEvent(new LiveEvent("MYSTERY_GIFT", Map.of("user", id, "name", gift.name(), "quantity", quantity, "pokemon", gift.pokemon())));
                 log.info("Mystery Gift {}x {} delivered to {}", quantity, gift.name(), id);
             }
         }

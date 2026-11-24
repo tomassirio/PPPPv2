@@ -29,9 +29,11 @@
 	);
 	// A Mystery Gift an admin sent just landed in their PC (backend MysteryGifts).
 	$effect(() =>
-		on('MYSTERY_GIFT', (g: { user: string; name: string; quantity: number }) => {
+		on('MYSTERY_GIFT', (g: { user: string; name: string; quantity: number; pokemon?: boolean }) => {
 			if (g.user !== session.me?.id) return;
-			queue = [...queue, { user: g.user, type: 'GIFT', detail: `${g.quantity}× ${g.name}`, points: 0, at: Date.now() }].slice(-5);
+			const name = g.name.replace(/\s*\(.*\)$/, ''); // "Celebi (GS Ball, Lv 30)" -> "Celebi"
+			const detail = g.pokemon ? `${name === 'Odd Egg' ? 'An Odd Egg' : name} joined your party` : `${g.quantity}× ${name} in your PC`;
+			queue = [...queue, { user: g.user, type: 'GIFT', detail, points: 0, at: Date.now() }].slice(-5);
 			navigator.vibrate?.([20, 30, 20, 30, 60]);
 		})
 	);
@@ -83,7 +85,7 @@
 			case 'MENTION':
 				return `${nameOf(e.user)}: ${e.detail}`;
 			case 'GIFT':
-				return `${e.detail} in your PC. Save to keep it!`;
+				return `${e.detail}. Save to keep it!`;
 			default:
 				return e.detail;
 		}
