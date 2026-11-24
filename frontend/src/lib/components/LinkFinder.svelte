@@ -18,6 +18,9 @@
 	type Viewer = { id: string; name: string; picture: string | null };
 	let viewers = $state<Viewer[]>([]);
 	let dialog = $state<HTMLDialogElement>();
+	// A backdrop click closes it, only when the press began there too: a touch that opened it (A on the pad) ends with a
+	// click on the freshly shown backdrop.
+	let downOnBackdrop = false;
 
 	$effect(() => watchLink());
 	$effect(() => watchBoard());
@@ -61,7 +64,8 @@
 	class="panel"
 	aria-labelledby={headingId}
 	onclose={() => (open = false)}
-	onclick={(e) => e.target === dialog && dialog.close()}
+	onpointerdown={(e) => (downOnBackdrop = e.target === dialog)}
+	onclick={(e) => e.target === dialog && downOnBackdrop && dialog.close()}
 >
 	<div class="body">
 		<header>

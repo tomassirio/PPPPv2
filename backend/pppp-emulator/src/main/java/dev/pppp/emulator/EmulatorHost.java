@@ -82,6 +82,8 @@ public class EmulatorHost {
     private long tEmulate, tEmulateCpu, tHooks, tListeners, tTasks, tIdle;
     private static final java.lang.management.ThreadMXBean CPU = java.lang.management.ManagementFactory.getThreadMXBean();
     private final int[] pixels = new int[PIXELS];
+    /** What SameBoy was last told: draw this frame, make sound (a fresh machine does both). */
+    private boolean drawing = true, hearing = true;
     private Press press;
     /**
      * Buttons held down from outside (a key or a finger on the pad) -> the frame they first counted on, or -1 until
@@ -490,6 +492,10 @@ public class EmulatorHost {
             SameBoy.keys(h, down);
             pressed = down;
         }
+        // Only the frames listeners get are drawn, and sound made only when someone hears it (1x): ~5% less work.
+        boolean draw = (frame + 1) % 2 == 0 && !frameListeners.isEmpty(), hear = speed == 1.0 && !audioListeners.isEmpty();
+        if (draw != drawing) SameBoy.render(h, drawing = draw);
+        if (hear != hearing) SameBoy.sound(h, hearing = hear);
     }
 
     private int pressed;
@@ -555,6 +561,7 @@ public class EmulatorHost {
 
     private void startMachine() {
         pressed = 0; // a new machine starts with nothing pressed; the next frame applies what is held
+        drawing = hearing = true;
         byte[] battery = null;
         try {
             if (Files.isRegularFile(batterySave)) battery = Files.readAllBytes(batterySave);

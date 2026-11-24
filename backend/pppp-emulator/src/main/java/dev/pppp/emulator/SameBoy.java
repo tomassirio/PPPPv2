@@ -62,6 +62,12 @@ final class SameBoy {
 
     static native void unlink(long h);
 
+    /** Whether the frames from now on are drawn (off: emulated the same, no pixels). */
+    static native void render(long h, boolean on);
+
+    /** Whether samples are made from now on (off: the APU runs, makes none). */
+    static native void sound(long h, boolean on);
+
     /** The last frame, 160x144 0xRRGGBB. */
     static native void pixels(long h, int[] out);
 

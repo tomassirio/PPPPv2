@@ -69,6 +69,9 @@
 	let custom = $state(false);
 
 	let dialog = $state<HTMLDialogElement>();
+	// A backdrop click closes it, only when the press began there too: a touch that opened it (A on the pad) ends with a
+	// click on the freshly shown backdrop.
+	let downOnBackdrop = false;
 	let listening = $state<Button | null>(null);
 	let note = $state('');
 
@@ -131,7 +134,8 @@
 		note = '';
 		custom = false;
 	}}
-	onclick={(e) => e.target === dialog && dialog.close()}
+	onpointerdown={(e) => (downOnBackdrop = e.target === dialog)}
+	onclick={(e) => e.target === dialog && downOnBackdrop && dialog.close()}
 >
 	<div class="body">
 		<header>

@@ -21,6 +21,7 @@ typedef struct Console {
     struct Console *peer; /* the other end of the link cable, or NULL */
     bool bitOut;          /* the bit this console put on the cable */
     long long ticks;      /* 8 MHz ticks run, for lockstep */
+    int sampleRate;
 } Console;
 
 static Console *of(jlong handle) { return (Console *) (intptr_t) handle; }
@@ -71,6 +72,7 @@ JNIEXPORT jlong JNICALL Java_dev_pppp_emulator_SameBoy_create(JNIEnv *env, jclas
     GB_set_border_mode(c->gb, GB_BORDER_NEVER);
     GB_set_color_correction_mode(c->gb, GB_COLOR_CORRECTION_DISABLED);
     GB_set_vblank_callback(c->gb, onVblank);
+    c->sampleRate = sampleRate;
     GB_set_sample_rate(c->gb, sampleRate);
     GB_apu_set_sample_callback(c->gb, onSample);
     GB_set_serial_transfer_bit_start_callback(c->gb, bitStart);
@@ -120,6 +122,18 @@ JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_unlink(JNIEnv *env, jclass
     Console *c = of(h);
     if (c->peer) c->peer->peer = NULL;
     c->peer = NULL;
+}
+
+/** Off: the PPU still runs, but draws no pixels (a frame nobody will see). */
+JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_render(JNIEnv *env, jclass cls, jlong h, jboolean on) {
+    GB_set_rendering_disabled(of(h)->gb, !on);
+}
+
+/** Off: the APU still runs, but makes no samples. */
+JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_sound(JNIEnv *env, jclass cls, jlong h, jboolean on) {
+    Console *c = of(h);
+    GB_set_sample_rate(c->gb, on ? c->sampleRate : 0);
+    if (!on) c->audioCount = 0;
 }
 
 JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_pixels(JNIEnv *env, jclass cls, jlong h, jintArray out) {

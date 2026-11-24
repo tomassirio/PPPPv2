@@ -143,7 +143,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   waits on Mt. Silver as Red: `V1Red`) into each Gen 2 player's PC mailbox and its backup, once (`aaaaMail` in
   `pibs:player:{userId}`), after their first save, while they are free in the overworld (`PokecenterDig.busy`),
   opening and closing save RAM as the game does. `AaaaMailTest` runs it on the real ROMs and parked games in data/.
-- Speed: the chip offers 1x and Fast (the server's 4x: as fast as it manages, ~3x on the Pi since SameBoy; `GET /api/v1/me/speed` still reports the measured rate); a Pi 4
+- Speed: one Fast toggle (`SpeedControl`; on = the server's 4x: as fast as it manages, ~3x on the Pi since SameBoy; `GET /api/v1/me/speed` still reports the measured rate); a Pi 4
   core ran a Gen 2 console at about 1.2x on Coffee GB (`GET /api/v1/me/speed` timing: all of it in the emulator);
   hence SameBoy (2.1.0): ~2.7x cheaper per frame on a Mac, Pi numbers still to measure.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
