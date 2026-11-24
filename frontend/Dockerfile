@@ -4,6 +4,9 @@ WORKDIR /src
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 COPY . .
+# The release number shown in the account menu (deploy.yml passes it).
+ARG PPPP_VERSION=dev
+ENV PPPP_VERSION=$PPPP_VERSION
 RUN npm run build
 
 FROM nginx:1.27-alpine

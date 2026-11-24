@@ -4,10 +4,13 @@ import { loadEnv } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 // PPPP_BACKEND from the shell or a .env file.
-const backend = loadEnv('', '.', 'PPPP_').PPPP_BACKEND ?? 'http://localhost:8080';
+const env = loadEnv('', '.', 'PPPP_'); // also reads the shell's PPPP_* variables
+const backend = env.PPPP_BACKEND ?? 'http://localhost:8080';
 
 
 export default defineConfig({
+	// The release number, from the image build (deploy.yml passes it); "dev" locally.
+	define: { __APP_VERSION__: JSON.stringify(env.PPPP_VERSION ?? 'dev') },
 	plugins: [
 		sveltekit({
 			compilerOptions: {

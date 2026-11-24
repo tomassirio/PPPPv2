@@ -139,6 +139,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   phones: the record as stat tiles, Trade/Battle tiles with a hint, "Nobody is waiting" as an empty state. Held
   sideways the icon rail stays. Settings (key bindings) is hidden on touch screens. A player's picked speed survives
   their console rebooting (`PlayerConsoles.speeds`, memory only; plugging a cable clears it).
+- Done: the release number at the foot of the account menu (`UserMenu`, desktop and phones): `__APP_VERSION__`, baked in
+  by Vite from `PPPP_VERSION` (deploy.yml passes it as a build-arg to the frontend image; "dev" locally).
 - Done: notes on the ground (Dark Souls style). Holding A ~0.7 s while free in the overworld (Gamepad, nobody nearby)
   opens `NoteComposer`: a phrase + one word (Pokémon from the ROM, items, things; `NoteService.PHRASES/ITEMS/THINGS`,
   `GET /api/v1/notes/words`), left on the tile the player stands still on (`GET /api/v1/notes/spot` 409 otherwise,

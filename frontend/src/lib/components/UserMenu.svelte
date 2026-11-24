@@ -119,12 +119,22 @@
 				>
 			{/if}
 			<button type="button" class="item" onclick={logout}>Sign out</button>
+			<p class="version">PPPPv2 · {__APP_VERSION__ === 'dev' ? 'dev' : `v${__APP_VERSION__}`}</p>
 		</div>
 	{/if}
 	<SettingsDialog bind:open={settingsOpen} />
 </div>
 
 <style>
+	.version {
+		margin: 4px 0 0;
+		padding: 8px 12px 4px;
+		border-top: 1px solid var(--border);
+		color: var(--muted);
+		font-size: 11px;
+		text-align: center;
+		letter-spacing: 0.04em;
+	}
 	/* Settings: key bindings, and on upright phones the strips under the controller. A touch screen wider than a phone
 	   has nothing to set there. */
 	@media (hover: none) and (pointer: coarse) and (min-width: 761px) {

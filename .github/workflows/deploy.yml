@@ -124,6 +124,8 @@ jobs:
           context: ${{ matrix.app }}
           platforms: linux/arm64
           push: true
+          build-args: |
+            PPPP_VERSION=${{ needs.version.outputs.version }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/ppppv2-${{ matrix.app }}:${{ needs.version.outputs.version }}
             ghcr.io/${{ github.repository_owner }}/ppppv2-${{ matrix.app }}:${{ github.sha }}
