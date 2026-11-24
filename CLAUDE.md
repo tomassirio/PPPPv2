@@ -118,7 +118,9 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   segmented control, the sorts as chips scrolling sideways; each table row a small card (no sideways scroll). Profiles on phones: the header a centred stack, the tabs
   share the width ("Stats"). Sign-in on phones: the handheld with the full banner on its bezel (tapping its screen is START),
   the numbers on a pill and the Google button, sized to fit one screen. `GET /api/v1/me` is open: 204 when signed out.
-  Tab titles: "<page> · PPPPv2". GameScreen coalesces /ws/screen: messages only store the
+  Tab titles: "<page> · PPPPv2". `FrameEncoder` writes palette PNGs by hand (BEST_SPEED,
+  RGB past 256 colours): ~15x cheaper than ImageIO, which at 120 frames/s took the CPU a 4x console needed on the
+  Pi (it measured 0.9x; the speed chip shows the measured rate, `GET /api/v1/me/speed`). GameScreen coalesces /ws/screen: messages only store the
   newest picture and name tags, one draw per animation frame (handling each of 120/s at 4x queued up on phones). Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order, looping; a third
   of the width or a flick switches, else it springs back; not
   from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
