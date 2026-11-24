@@ -10,6 +10,8 @@
 	import { dexBanners } from '#lib/dex.svelte.ts';
 	import { controls } from '#lib/controls.svelte.ts';
 	import PlayStrips from '#lib/components/PlayStrips.svelte';
+	import Coach from '#lib/components/Coach.svelte';
+	import { offer, tip, TOUR } from '#lib/tour.svelte.ts';
 	import { api } from '#lib/api.ts';
 	import { on } from '#lib/events.ts';
 	import { isEmote } from '#lib/chat/bubble.ts';
@@ -61,6 +63,20 @@
 	}
 	$effect(() => {
 		if (link.state?.session) talking = false;
+	});
+	// First-time help on upright phones (lib/tour.svelte.ts): the tour once the Game Boy is up, then tips as things
+	// first come up.
+	$effect(() => {
+		if (!me || !myGame?.game) return;
+		const t = setTimeout(() => offer('tour', TOUR), 1500);
+		return () => clearTimeout(t);
+	});
+	$effect(() => {
+		if (tab === 'link') tip('link');
+		else if (tab === 'run') tip('run');
+	});
+	$effect(() => {
+		if (screen?.nearby().length) tip('nearby');
 	});
 	// The desktop's right-hand card.
 	type SideTab = 'scores' | 'activity' | 'chat';
@@ -485,6 +501,7 @@
 		<LinkFinder bind:open={talking} nearby={screen?.nearby() ?? []} />
 	{/if}
 	<PokeballRain />
+	<Coach />
 {:else if loadFailed}
 	<section class="load-error" role="alert">
 		<p>Couldn't load your session. The server may be restarting.</p>

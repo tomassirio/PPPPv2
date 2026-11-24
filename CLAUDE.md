@@ -139,6 +139,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   phones: the record as stat tiles, Trade/Battle tiles with a hint, "Nobody is waiting" as an empty state. Held
   sideways the icon rail stays. Settings (key bindings) is hidden on touch screens. A player's picked speed survives
   their console rebooting (`PlayerConsoles.speeds`, memory only; plugging a cable clears it).
+- Done: first-time help on upright phones (`lib/tour.svelte.ts`, `Coach.svelte` coach marks, seen ids in localStorage
+  `pppp.tour`): the /play tour (screen, burger, swipe, strips, triangle, Fast/Reset) once, then single tips the first
+  time the Link cable / Your run panel opens, someone is nearby, a progress card or @mention arrives, or the console
+  was paused away. Settings (phones) has "Show the tour again".
 - Done: AAAA's Mail. `AaaaMail` (core, every 10 s) puts a Portrait Mail (Articuno; "Thank you, Pib! / Mt.Silver awaits") from AAAA (v1's player, who
   waits on Mt. Silver as Red: `V1Red`) into each Gen 2 player's PC mailbox and its backup, once (`aaaaMail` in
   `pibs:player:{userId}`), after their first save, while they are free in the overworld (`PokecenterDig.busy`),

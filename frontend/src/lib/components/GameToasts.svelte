@@ -14,6 +14,7 @@
 	import type { ChatMessage } from '#lib/chat/messages.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import RarityBall from '#lib/components/RarityBall.svelte';
+	import { tip } from '#lib/tour.svelte.ts';
 
 	const SHOW_MS = 4200;
 	const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -36,6 +37,9 @@
 			navigator.vibrate?.([30, 40, 30]);
 		})
 	);
+	$effect(() => {
+		if (current) tip(current.type === 'MENTION' ? 'mention' : 'toast');
+	});
 	$effect(() => {
 		if (!current) return;
 		const t = setTimeout(() => (queue = queue.slice(1)), SHOW_MS);

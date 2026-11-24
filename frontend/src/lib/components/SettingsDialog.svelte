@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { BUTTONS, keyName, PRESETS, rebind, RESERVED_KEYS, type Bindings, type Button } from '#lib/play.ts';
 	import { keys, loadKeys, setBindings } from '#lib/keys.svelte.ts';
+	import { replayTour } from '#lib/tour.svelte.ts';
 	import { controls, setStrips, STRIP_IDS, STRIP_NAMES, stripsThatFit, type StripId } from '#lib/controls.svelte.ts';
 	// As many as this screen has room for (at most three).
 	const limit = $derived(stripsThatFit());
@@ -200,6 +201,10 @@
 			{/if}
 		</section>
 
+		<section class="strips-section tour-section">
+			<button type="button" class="replay" onclick={() => (dialog?.close(), replayTour())}>Show the tour again</button>
+		</section>
+
 		<section class="keys-section" aria-labelledby="keys-h">
 			<h3 id="keys-h">Keyboard</h3>
 			<div class="layouts" role="group" aria-label="Layout">
@@ -265,6 +270,17 @@
 	/* Strips: upright phones only. Keyboard: not on touch screens. */
 	.strips-section {
 		display: none;
+	}
+	.replay {
+		width: 100%;
+		min-height: 40px;
+		margin-top: 12px;
+		border: 2px solid var(--border);
+		border-radius: 10px;
+		background: transparent;
+		color: var(--text);
+		font: 600 14px var(--body-font);
+		cursor: pointer;
 	}
 	@media (max-width: 760px) {
 		.strips-section {

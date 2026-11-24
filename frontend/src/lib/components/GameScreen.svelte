@@ -15,6 +15,7 @@
 	import { board } from '#lib/board.svelte.ts';
 	import { game } from '#lib/game.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
+	import { tip } from '#lib/tour.svelte.ts';
 
 	const BUBBLE_MS = 5000;
 
@@ -28,6 +29,9 @@
 	// The server shut the console down because nobody touched it for a while (close code 4408): no reconnecting
 	// until the player says so. Continue bumps `wake`, which opens the screen (and the console) again.
 	let away = $state(false);
+	$effect(() => {
+		if (away && !watch) tip('away');
+	});
 	let wake = $state(0);
 	let continueButton = $state<HTMLButtonElement>();
 	$effect(() => {
