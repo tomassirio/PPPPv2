@@ -205,6 +205,15 @@
 		margin: 0 0 8px;
 		font-size: 13px;
 	}
+	/* Phones: as wide as the card it opens under (90vw anchored at its right edge spilled off the left side). */
+	@media (max-width: 760px) {
+		.pop {
+			left: 0;
+			right: 0;
+			width: auto;
+			box-sizing: border-box;
+		}
+	}
 	.card {
 		background: var(--panel);
 		border: 1px solid var(--border);

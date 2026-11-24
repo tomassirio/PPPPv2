@@ -118,11 +118,12 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   segmented control, the sorts as chips scrolling sideways; each table row a small card (no sideways scroll). Profiles on phones: the header a centred stack, the tabs
   share the width ("Stats"). Sign-in on phones: the handheld with the full banner on its bezel (tapping its screen is START),
   the numbers on a pill and the Google button, sized to fit one screen. `GET /api/v1/me` is open: 204 when signed out.
-  Tab titles: "<page> · PPPPv2". The screen stream is 30 pictures a second at any speed
-  (`EmulatorHost.onFrame`: every 2*speed-th frame); 120 a second at 4x lagged on phones and looked like 1x. Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order; a third
+  Tab titles: "<page> · PPPPv2". GameScreen coalesces /ws/screen: messages only store the
+  newest picture and name tags, one draw per animation frame (handling each of 120/s at 4x queued up on phones). Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order, looping; a third
   of the width or a flick switches, else it springs back; not
   from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
   phones (record as stat tiles, Trade/Battle tiles with a hint); "Nobody is waiting" is an empty state on every size.
+  Chat: only admins see system lines and emotes in the list (and the System / Emotes switches).
   `FindButton` is the one "Find someone online" button (Link cable card, /watch, profiles).
   On phones Link cable and Your run are exactly the height left under the screen (size containers) and drop parts by
   height container queries instead of scrolling; Scoreboard, Activity and Chat scroll their lists.
@@ -130,7 +131,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   Settings on phones, as many as the measured room fits (48px each, at most 3; `controls.room`, `stripsThatFit`) of
   Location, Party, Latest activity, Badges, Pokédex, Rank, dragged into order;
   `controls.svelte.ts`, per browser). Strips give way before the screen when height runs out, the last first, and hide
-  when cut short; the triangle in the controller's corner puts them under the screen and the controller at the bottom. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order; a third
+  when cut short; the triangle in the controller's corner puts them under the screen and the controller at the bottom. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order, looping; a third
   of the width or a flick switches, else it springs back; not
   from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
   phones: the record as stat tiles, Trade/Battle tiles with a hint, "Nobody is waiting" as an empty state. Held

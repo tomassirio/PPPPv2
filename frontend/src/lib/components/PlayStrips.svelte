@@ -160,15 +160,18 @@
 		border: 2px solid var(--border-strong);
 		background: var(--sunk);
 	}
-	/* The town map (tap the sign) opens above the strip, over the screen: the strip must not clip it. */
+	/* The town map (tap the sign) opens over everything: the strip must not clip it. */
 	.s-location {
 		overflow: visible;
 	}
+	/* The town map opens in the middle of the screen, wherever the strip sits (above or below the controller). */
 	.s-location :global(.pop) {
-		top: auto;
-		bottom: calc(100% + 8px);
+		position: fixed;
+		top: 50%;
 		left: 50%;
-		translate: -50% 0;
+		translate: -50% -50%;
+		max-width: calc(100vw - 24px);
+		z-index: 60;
 	}
 	.s-location.linked {
 		border-color: var(--link);

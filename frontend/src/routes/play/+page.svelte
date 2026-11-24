@@ -156,7 +156,7 @@
 		if (scoresShown) newScores = false;
 	});
 	// Upright phones: the panel under the screen follows a sideways drag, with the next / previous one (menu order)
-	// coming in beside it; let go past a third of the width (or flick) and it moves on, otherwise it springs back. Not
+	// coming in beside it, in a loop; let go past a third of the width (or flick) and it moves on, else it springs back. Not
 	// from the screen, the game's own buttons, a text field, a dialog or anything that scrolls sideways itself: those
 	// keep their gestures. Vertical moves stay native scrolling (touch-action: pan-y on the panels). Panels are found
 	// by data-panel; while dragging, the neighbour is shown with inline styles over the same box, then the tab switches.
@@ -221,7 +221,9 @@
 			d.cur = cur;
 			d.w = cur.offsetWidth;
 		}
-		const next = PANEL_IDS[PANEL_IDS.indexOf(tab) + (dx < 0 ? 1 : -1)];
+		// A loop: past Chat comes Play again, and before Play comes Chat.
+		const n = PANEL_IDS.length;
+		const next = PANEL_IDS[(PANEL_IDS.indexOf(tab) + (dx < 0 ? 1 : -1) + n) % n];
 		if (next !== d.next) {
 			if (d.nb) d.nb.removeAttribute('style');
 			d.next = next;
@@ -239,7 +241,7 @@
 				});
 			}
 		}
-		d.dx = d.nb ? dx : dx / 3; // the first and last panel only give a little
+		d.dx = d.nb ? dx : dx / 3; // a panel missing from the page only gives a little
 		d.cur!.style.translate = `${d.dx}px 0`;
 		if (d.nb) d.nb.style.translate = `${d.dx + (dx < 0 ? 1 : -1) * (d.w! + GAP)}px 0`;
 	}

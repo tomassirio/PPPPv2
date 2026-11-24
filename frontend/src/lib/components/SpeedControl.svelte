@@ -25,6 +25,21 @@
 		if (linked) open = false;
 	});
 
+	// Above 1x: what the console really manages (GET /me/speed every 2 s), shown when it falls clearly short.
+	let actual = $state<number | null>(null);
+	$effect(() => {
+		actual = null;
+		if (current <= 1 || linked) return;
+		const poll = () =>
+			api<{ speed: number | null; actual: number | null }>('GET', '/me/speed')
+				.then((r) => (actual = r.actual))
+				.catch(() => {});
+		const t = setInterval(poll, 2000);
+		poll();
+		return () => clearInterval(t);
+	});
+	const short = $derived(actual !== null && actual > 0 && actual < current * 0.85);
+
 	async function set(s: number) {
 		open = false;
 		if (s === current || linked) return;
@@ -60,7 +75,7 @@
 		onclick={() => (open = !open)}
 	>
 		<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5l9 7-9 7zM12 5l9 7-9 7z" /></svg>
-		{current}×
+		{current}×{#if short}<span class="actual" title="Running at {actual!.toFixed(1)}×: the server can't keep up">· {actual!.toFixed(1)}×</span>{/if}
 	</button>
 	{#if open}
 		<span class="choices" role="group" aria-label="Pick a speed">
@@ -79,6 +94,10 @@
 		padding: 2px;
 		border-radius: 6px;
 		background: rgba(255, 255, 255, 0.08);
+	}
+	.actual {
+		color: #f0b429;
+		font-weight: 700;
 	}
 	.choices {
 		display: inline-flex;

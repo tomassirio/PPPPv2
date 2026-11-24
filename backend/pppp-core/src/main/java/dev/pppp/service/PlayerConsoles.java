@@ -461,6 +461,12 @@ public class PlayerConsoles {
         return c == null ? null : c.host().status().speed();
     }
 
+    /** How fast the player's console really runs (1.0 = a real Game Boy), or null when it is not in memory. */
+    public Double measuredSpeed(String userId) {
+        Console c = consoles.get(userId);
+        return c == null ? null : c.host().measuredSpeed();
+    }
+
     /** Pulls the player's link cable and parks both consoles. Returns who was at the other end, or null when not linked. */
     public String unlink(String userId) {
         String peer;

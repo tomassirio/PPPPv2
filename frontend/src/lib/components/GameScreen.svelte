@@ -70,6 +70,30 @@
 		// Decode one frame at a time; while busy keep only the newest.
 		let busy = false;
 		let pending: Blob | null = null;
+		// Messages only store the newest picture and name tags; one paint per animation frame uses them. Handling
+		// each message fully (at 4x: 120 pictures plus tag updates a second) could not keep up on phones, and the
+		// browser queues messages rather than dropping them, so the game played back late and in slow motion.
+		let nextBlob: Blob | null = null;
+		let nextGhosts: string | null = null;
+		let painting = false;
+		function paint() {
+			painting = false;
+			if (nextGhosts !== null) {
+				ghosts = JSON.parse(nextGhosts).ghosts ?? [];
+				ghosts.forEach((g) => needPicture(g.user));
+				nextGhosts = null;
+			}
+			const blob = nextBlob;
+			nextBlob = null;
+			if (!blob) return;
+			if (busy) pending = blob;
+			else draw(blob);
+		}
+		function schedule() {
+			if (painting) return;
+			painting = true;
+			requestAnimationFrame(paint);
+		}
 
 		async function draw(blob: Blob) {
 			busy = true;
@@ -101,13 +125,9 @@
 			ws.onmessage = (e) => {
 				notPlaying = false;
 				attempt = 0;
-				if (typeof e.data === 'string') {
-					ghosts = JSON.parse(e.data).ghosts ?? [];
-					ghosts.forEach((g) => needPicture(g.user));
-					return;
-				}
-				if (busy) pending = e.data;
-				else draw(e.data);
+				if (typeof e.data === 'string') nextGhosts = e.data;
+				else nextBlob = e.data;
+				schedule();
 			};
 			ws.onclose = (e) => {
 				connected = false;

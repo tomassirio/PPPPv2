@@ -69,7 +69,10 @@
 		}
 	});
 	const emote = (m: ChatMessage) => m.kind === 'USER' && isEmote(m.text);
-	const shown = $derived(messages.filter((m) => (showSystem || !isSystem(m)) && (showEmotes || !emote(m))));
+	// Only admins see system lines and emotes in the list (and the switches for them); players only see people.
+	const shown = $derived(
+		messages.filter((m) => (admin && showSystem) || !isSystem(m)).filter((m) => (admin && showEmotes) || !emote(m))
+	);
 
 	const nearBottom = () => list.scrollHeight - list.scrollTop - list.clientHeight < 60;
 	/** True while the reader sits at the bottom; only their own scrolling changes it. */
@@ -219,9 +222,12 @@
 >
 	<header>
 		<h2>Chat</h2>
-		<label class="toggle"><input type="checkbox" bind:checked={showSystem} /> System messages</label>
-		<label class="toggle"><input type="checkbox" bind:checked={showEmotes} /> Emotes</label>
 		{#if admin}
+			<!-- Admins only: switch system lines and emotes into the list. -->
+			<div class="filters" role="group" aria-label="Show in the list">
+				<button type="button" class="filter" aria-pressed={showSystem} onclick={() => (showSystem = !showSystem)}>System</button>
+				<button type="button" class="filter" aria-pressed={showEmotes} onclick={() => (showEmotes = !showEmotes)}>Emotes</button>
+			</div>
 			<label class="mute-pick">
 				Mute for
 				<select bind:value={muteMinutes}>
@@ -339,17 +345,31 @@
 		text-transform: uppercase;
 		color: var(--muted);
 	}
-	.toggle {
+	.filters {
 		margin-left: auto;
 		display: flex;
-		align-items: center;
-		gap: 6px;
-		font-size: 12px;
-		color: var(--muted);
+		gap: 4px;
 	}
-	.toggle input {
-		margin: 0;
-		accent-color: var(--accent-text);
+	.filter {
+		height: 26px;
+		padding: 0 10px;
+		border-radius: 999px;
+		border: 1px solid var(--border);
+		background: none;
+		color: var(--muted);
+		font: inherit;
+		font-size: 12px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.filter[aria-pressed='true'] {
+		border-color: var(--accent-text);
+		background: var(--accent-tint);
+		color: var(--accent-text);
+	}
+	.filter:focus-visible {
+		outline: 2px solid var(--accent-text);
+		outline-offset: 2px;
 	}
 	/* First in the line but floated right, so long messages wrap under it. */
 	.head {
@@ -540,8 +560,7 @@
 	}
 	button:focus-visible,
 	textarea:focus-visible,
-	select:focus-visible,
-	input:focus-visible {
+	select:focus-visible {
 		outline: 2px solid var(--accent-text);
 		outline-offset: 2px;
 	}
@@ -577,8 +596,9 @@
 	}
 	/* Phones: the send button and the checkbox in the player's plate colour (set on the play page). */
 	@media (max-width: 760px), (orientation: landscape) and (max-height: 520px) {
-		.toggle input {
-			accent-color: var(--plate, var(--accent-text));
+		.filter[aria-pressed='true'] {
+			border-color: var(--plate, var(--accent-text));
+			color: var(--plate, var(--accent-text));
 		}
 		form button {
 			background: var(--plate, var(--accent));

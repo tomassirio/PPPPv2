@@ -22,7 +22,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 /**
- * /ws/screen: the signed-in player's own console, 30 frames a second (EmulatorHost.onFrame) as PNG binary messages.
+ * /ws/screen: the signed-in player's own console, every second emulated frame as a PNG binary message.
  * Connecting wakes the console; closing the player's last socket leaves it running (PlayerConsoles.leave: it pauses
  * after an hour untouched). Each socket has a one-frame
  * handoff, so a slow client just skips frames; nothing here blocks an emulator thread.

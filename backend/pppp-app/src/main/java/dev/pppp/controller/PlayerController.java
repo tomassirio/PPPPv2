@@ -31,6 +31,8 @@ public class PlayerController {
     /** game is null until picked; available is what the admin has uploaded; speed is null while the console is off. */
     public record MyGame(String game, List<Cartridge> available, Double speed) {}
     public record Speed(double speed) {}
+    /** speed: picked; actual: measured over the last second (null while the console is not in memory). */
+    public record SpeedNow(Double speed, Double actual) {}
     public record Pick(String cartridgeId) {}
     public record InputRequest(String command, Integer repeat) {}
 
@@ -65,6 +67,12 @@ public class PlayerController {
     }
 
     /** 1, 2 or 4 (400 otherwise); 409 while the console is off or a link cable is plugged in. */
+    @GetMapping("/api/v1/me/speed")
+    public SpeedNow speedNow(Authentication auth) {
+        String id = CurrentUser.id(auth);
+        return new SpeedNow(consoles.speed(id), consoles.measuredSpeed(id));
+    }
+
     @PutMapping("/api/v1/me/speed")
     public Speed speed(@RequestBody Speed req, Authentication auth) {
         consoles.setSpeed(CurrentUser.id(auth), req.speed());
