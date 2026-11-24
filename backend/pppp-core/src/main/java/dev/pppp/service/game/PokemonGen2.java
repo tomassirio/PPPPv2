@@ -536,7 +536,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         // As in PokemonRed: a named player and well-formed lists rule out boot, the title screen and loading.
         int name = at.playerId + 2, first = ram.u8(name);
         if (first < 0x80 || first > 0xBF
-                || PokemonRed.text(ram.slice(name, NAME_LENGTH), 0, NAME_LENGTH).length() == NAME_LENGTH) {
+                || !PokemonRed.terminated(ram.slice(name, NAME_LENGTH))) {
             return null;
         }
         int count = ram.u8(at.partyCount), species = at.partyCount + 1, mons = at.partyCount + 8;

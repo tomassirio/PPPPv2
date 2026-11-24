@@ -157,4 +157,13 @@ class PokemonRedTest {
         assertThat(img.getRGB(15, 15)).isEqualTo(0xFFE04848);
         assertThat(img.getRGB(1, 0) >>> 24).isZero(); // colour 0 is transparent
     }
+
+    @Test
+    void decodesTheNamingScreensGlyphs() {
+        // "To" + MN, as a player can name themselves; then PK, '&', '/' and the terminator.
+        byte[] name = {(byte) 0x93, (byte) 0xAE, (byte) 0xE2, (byte) 0xE1, (byte) 0xE9, (byte) 0xF3, 0x50, 0, 0, 0, 0};
+        assertThat(PokemonRed.text(name, 0, name.length)).isEqualTo("Toᴹᴺᴾᴷ&/");
+        assertThat(PokemonRed.terminated(name)).isTrue();
+        assertThat(PokemonRed.terminated(new byte[] {(byte) 0x80, (byte) 0x80})).isFalse();
+    }
 }

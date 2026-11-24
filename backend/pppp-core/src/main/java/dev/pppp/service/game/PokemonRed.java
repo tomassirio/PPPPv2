@@ -85,7 +85,7 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
     public State read(Ram ram) {
         // Armed only with a named player and a well-formed party list: rules out boot, the title screen and loading.
         int first = ram.u8(PLAYER_NAME);
-        if (first < 0x80 || first > 0xBF || text(ram.slice(PLAYER_NAME, NAME_LENGTH), 0, NAME_LENGTH).length() == NAME_LENGTH) {
+        if (first < 0x80 || first > 0xBF || !terminated(ram.slice(PLAYER_NAME, NAME_LENGTH))) {
             return null;
         }
         int count = ram.u8(PARTY_COUNT);
@@ -262,7 +262,17 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
         return null;
     }
 
-    /** Decodes the game's character set up to the 0x50 terminator; unknown glyphs become '?'. */
+    /** Whether the bytes hold the 0x50 terminator (a name the game has finished writing). */
+    static boolean terminated(byte[] b) {
+        for (byte c : b) if ((c & 0xFF) == 0x50) return true;
+        return false;
+    }
+
+    /**
+     * Decodes the game's character set (pret constants/charmap.asm, everything the naming screen offers) up to the 0x50
+     * terminator; unknown glyphs become '?'. The PK and MN glyphs become the superscript pairs "ᴾᴷ" and "ᴹᴺ", which
+     * read alike in plain text wherever names go (notifications, chat, the scoreboard).
+     */
     static String text(byte[] b, int from, int max) {
         StringBuilder sb = new StringBuilder();
         for (int i = from; i < from + max; i++) {
@@ -283,7 +293,26 @@ final class PokemonRed implements GameProfile<PokemonRed.State> {
                 case 0xEF -> "♂";
                 case 0xF5 -> "♀";
                 case 0xF4 -> ",";
-                case 0xBA -> "é";
+                case 0xBA, 0xEA -> "é";
+                case 0x9A -> "(";
+                case 0x9B -> ")";
+                case 0x9C -> ":";
+                case 0x9D -> ";";
+                case 0x9E -> "[";
+                case 0x9F -> "]";
+                case 0xD0 -> "'d";
+                case 0xD1 -> "'l";
+                case 0xD2 -> "'m";
+                case 0xD3 -> "'r";
+                case 0xD5 -> "'t";
+                case 0xD6 -> "'v";
+                case 0xE1 -> "ᴾᴷ";
+                case 0xE2 -> "ᴹᴺ";
+                case 0xE9 -> "&";
+                case 0xF0 -> "¥";
+                case 0xF1 -> "×";
+                case 0xF2 -> ".";
+                case 0xF3 -> "/";
                 default -> "?";
             });
         }
