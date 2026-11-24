@@ -11,7 +11,12 @@
 	import face from '#lib/assets/konami-face.webp';
 	import SignInAbout from '#lib/components/SignInAbout.svelte';
 	import SignInScene from '#lib/components/SignInScene.svelte';
-	import { bootChime, fanfare, loadTeaser, type Teaser } from '#lib/teaser.js';
+	import { fanfare, loadTeaser, type Teaser } from '#lib/teaser.js';
+	import SignInIntro from '#lib/components/SignInIntro.svelte';
+	import TitleMusic from '#lib/components/TitleMusic.svelte';
+	import hoOhCry from '#lib/assets/cries/ho-oh.mp3';
+	import lugiaCry from '#lib/assets/cries/lugia.mp3';
+	import suicuneCry from '#lib/assets/cries/suicune.mp3';
 	import goldTitle from '#lib/assets/titles/gold.webp';
 	import silverTitle from '#lib/assets/titles/silver.webp';
 	import crystalTitle from '#lib/assets/titles/crystal.webp';
@@ -26,9 +31,25 @@
 	const denied = $derived(error === 'denied' || requested);
 
 	let booting = $state(true);
+	// The opening over the map (SignInIntro) until a key, a tap or INTRO_MS; then the device and the card come in and
+	// the device boots. Reduced motion: straight to the device.
+	const INTRO_MS = 4800;
+	const LEAVE_MS = 550;
+	let intro = $state<'on' | 'leaving' | 'off'>('on');
+	function endIntro() {
+		if (intro !== 'on') return false;
+		intro = 'leaving';
+		setTimeout(() => (intro = 'off'), LEAVE_MS);
+		return true;
+	}
+	$effect(() => {
+		if (intro !== 'off' || !booting) return;
+		const t = setTimeout(() => (booting = false), BOOT_MS);
+		return () => clearTimeout(t);
+	});
 	let held = $state<string | null>(null);
 	let dir = $state<string | null>(null);
-	let start: HTMLAnchorElement;
+	let start = $state<HTMLAnchorElement>();
 
 	// Konami code (↑↑↓↓←→←→ B A; keys: arrows, X, Z; or taps): a wild PIBSIGNO. appears and the shell goes rainbow.
 	const KONAMI = ['up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'b', 'a'];
@@ -82,13 +103,16 @@
 	let screen = $state(0);
 	const showing = $derived(SCREENS[screen]);
 
-	// Sound is only allowed after a gesture: the first key or tap plays the power-on chime.
-	let chimed = false;
+	// Sound is only allowed after a gesture: the first key or tap plays the cry of the cartridge on show (Ho-Oh, Lugia,
+	// Suicune; recorded from each ROM), as the game would at START.
+	const CRIES = { gold: hoOhCry, silver: lugiaCry, crystal: suicuneCry };
+	let cried = false;
 	function activity() {
-		if (!chimed) {
-			chimed = true;
-			bootChime();
-		}
+		if (cried) return;
+		cried = true;
+		const cry = new Audio(CRIES[showing.id]);
+		cry.volume = 0.5;
+		cry.play().catch(() => {});
 	}
 
 	function skip() {
@@ -99,7 +123,7 @@
 
 	function signIn() {
 		held = 'start';
-		setTimeout(() => start.click(), 120);
+		setTimeout(() => start?.click(), 120);
 	}
 
 	const ARROWS: Record<string, string> = {
@@ -116,6 +140,7 @@
 		if (e.metaKey || e.ctrlKey || e.altKey) return;
 		activity();
 		if (t.closest('input, textarea, select, [contenteditable]')) return;
+		if (endIntro()) return e.preventDefault();
 		// Any key skips the boot; only Enter/Space stop there (no sign-in mid-boot). Arrows, Z and X still count for the code.
 		if (skip() && !ARROWS[e.key] && !FACE_KEYS[e.code]) return e.preventDefault();
 		if (e.key === 'Enter' || e.key === ' ') {
@@ -157,8 +182,11 @@
 		loadMe()
 			.then((me) => me && goto('/play'))
 			.catch(() => {});
-		if (matchMedia('(prefers-reduced-motion: reduce)').matches) booting = false;
-		const t = setTimeout(() => (booting = false), BOOT_MS);
+		if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			intro = 'off';
+			booting = false;
+		}
+		const t = setTimeout(endIntro, INTRO_MS);
 		// The teaser is public; refreshed while the page is open. Fails quietly (the page works without it).
 		const refresh = () => loadTeaser().then((v) => (teaser = v), () => {});
 		refresh();
@@ -175,11 +203,14 @@
 	});
 </script>
 
-<svelte:window {onkeydown} {onkeyup} onpointerdown={() => (skip(), activity())} onpointerup={release} onblur={release} />
+<svelte:window {onkeydown} {onkeyup} onpointerdown={() => (endIntro() || skip(), activity())} onpointerup={release} onblur={release} />
 
 <SignInScene {teaser} legend={showing.id} />
+<TitleMusic />
+{#if intro !== 'off'}<SignInIntro legend={showing.id} leaving={intro === 'leaving'} />{/if}
 
-<main>
+{#if intro === 'off'}
+<main in:fade={{ duration: 400 }}>
 	<div class="device" class:booting class:glitch class:asked={requested} style:--shell={showing.shell}>
 		<div class="shell" aria-hidden="true"></div>
 
@@ -281,6 +312,7 @@
 		</div>
 	{/if}
 </main>
+{/if}
 
 <style>
 	main {

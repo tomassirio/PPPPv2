@@ -84,8 +84,6 @@ export function chime(notes: [number, number][], volume = 0.06) {
 	}
 }
 
-/** Power-on: two quick rising notes. */
-export const bootChime = () => chime([[1046.5, 0.09], [2093, 0.35]]);
 /** Konami: a rising arpeggio. */
 export const fanfare = () =>
 	chime([[523.3, 0.1], [659.3, 0.1], [784, 0.1], [1046.5, 0.1], [784, 0.1], [1046.5, 0.4]]);
