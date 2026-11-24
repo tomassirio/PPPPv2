@@ -99,7 +99,10 @@ class AudioWebSocketTest {
 
             assertThat(header.get(5, TimeUnit.SECONDS))
                     .isEqualTo("{\"sampleRate\":22050,\"channels\":1,\"format\":\"s16le\"}");
-            byte[] chunk = chunks.poll(5, TimeUnit.SECONDS);
+            // The first chunk can be short: sound is only made once someone listens (EmulatorHost), from the next frame
+            // on, and that frame may end early. The next one is a whole frame.
+            byte[] first = chunks.poll(5, TimeUnit.SECONDS), chunk = chunks.poll(5, TimeUnit.SECONDS);
+            assertThat(first).isNotNull();
             assertThat(chunk).isNotNull();
             assertThat(chunk.length).isEven().isBetween(600, 900); // ~1 frame: 22050 / 59.73 * 2 bytes
 
