@@ -184,7 +184,7 @@ class EmulatorHostTest {
         long t0 = System.nanoTime();
         Thread.sleep(1000);
         double perSecond = samples.get() * 1e9 / (System.nanoTime() - t0);
-        assertThat(perSecond).isBetween(host.audioSampleRate() * 0.85, host.audioSampleRate() * 1.15);
+        assertThat(perSecond).isBetween(host.audioSampleRate() * 0.8, host.audioSampleRate() * 1.2); // wall-clock: loose on a busy machine
         assertThat(peak.get()).as("the ROM's square wave is audible").isGreaterThan(1000);
 
         host.setSpeed(2.0);

@@ -210,13 +210,45 @@
 <style>
 	.shell {
 		position: relative;
-		background: var(--shell);
+		isolation: isolate; /* the board and the plastic below sit under the buttons */
 		box-shadow: inset 0 0 0 1px var(--pad-edge);
 		border-radius: 16px 16px 48px 16px;
 		padding: 24px;
 		display: flex;
 		flex-direction: column;
 		gap: 24px;
+	}
+	/* The plastic (::after) over the board inside (::before): an opaque shell hides the board, an atomic (see-through)
+	   one shows its traces, chip, button membranes and screws, as on a Game Boy Color in Atomic Purple. */
+	.shell::before,
+	.shell::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		pointer-events: none;
+	}
+	.shell::before {
+		z-index: -2;
+		opacity: 0.6;
+		background:
+			radial-gradient(circle at 6% 8%, #c9ccd2 0 2px, #2a2d33 2.5px 4.5px, transparent 5px),
+			radial-gradient(circle at 94% 8%, #c9ccd2 0 2px, #2a2d33 2.5px 4.5px, transparent 5px),
+			radial-gradient(circle at 6% 92%, #c9ccd2 0 2px, #2a2d33 2.5px 4.5px, transparent 5px),
+			radial-gradient(circle at 70% 92%, #c9ccd2 0 2px, #2a2d33 2.5px 4.5px, transparent 5px),
+			linear-gradient(#1b1d22, #1b1d22) 47% 12% / 16% 13% no-repeat,
+			linear-gradient(#25282e, #25282e) 52% 70% / 26% 6% no-repeat,
+			linear-gradient(rgb(28 52 40 / 0.5), rgb(28 52 40 / 0.5)) 30% 20% / 1.5px 55% no-repeat,
+			linear-gradient(rgb(28 52 40 / 0.5), rgb(28 52 40 / 0.5)) 30% 75% / 40% 1.5px no-repeat,
+			linear-gradient(rgb(28 52 40 / 0.5), rgb(28 52 40 / 0.5)) 62% 25% / 1.5px 50% no-repeat,
+			linear-gradient(rgb(28 52 40 / 0.5), rgb(28 52 40 / 0.5)) 80% 60% / 22% 1.5px no-repeat,
+			linear-gradient(rgb(28 52 40 / 0.5), rgb(28 52 40 / 0.5)) 12% 55% / 18% 1.5px no-repeat,
+			repeating-linear-gradient(90deg, rgb(28 52 40 / 0.18) 0 1px, transparent 1px 41px),
+			rgb(40 70 55 / 0.22);
+	}
+	.shell::after {
+		z-index: -1;
+		background: var(--shell);
 	}
 	.row {
 		display: flex;
@@ -226,10 +258,29 @@
 		padding: 0 8px;
 	}
 	.dpad {
+		position: relative;
 		display: grid;
 		grid-template-columns: repeat(3, 52px);
 		grid-template-rows: repeat(3, 52px);
 		grid-template-areas: '. up .' 'left hub right' '. down .';
+	}
+	/* Atomic shells (--guts 1): the rubber membranes under the D-pad and A/B show through the plastic. */
+	.dpad::before,
+	.round::before {
+		content: '';
+		position: absolute;
+		border-radius: 50%;
+		border: 4px solid rgb(20 24 30 / calc(var(--guts, 0) * 0.45));
+		z-index: -1;
+		pointer-events: none;
+	}
+	.dpad::before {
+		inset: -10px;
+	}
+	/* A/B sit in their own (rotated) layer, so their rings are drawn over the plastic: fainter to match. */
+	.round::before {
+		inset: -7px;
+		border-color: rgb(20 24 30 / calc(var(--guts, 0) * 0.22));
 	}
 	.hub {
 		grid-area: hub;
@@ -268,6 +319,7 @@
 		transform: rotate(-20deg);
 	}
 	.round {
+		position: relative;
 		width: 64px;
 		height: 64px;
 		border-radius: 50%;

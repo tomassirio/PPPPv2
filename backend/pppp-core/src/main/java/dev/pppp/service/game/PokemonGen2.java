@@ -218,6 +218,17 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
     }
 
     /** "Gold", "Silver" or "Crystal", by the header title. */
+    /** The item id this ROM names so ("Rare Candy"; any case), or 0. */
+    int itemId(String name) {
+        for (int i = 1; i < itemNames.length; i++) if (name.equalsIgnoreCase(itemNames[i])) return i;
+        return 0;
+    }
+
+    /** wNumPCItems: the PC's item count, then (item, quantity) pairs ending in -1 (MAX_PC_ITEMS at most). */
+    int pcItems() {
+        return at.tmsHms + PC_ITEMS;
+    }
+
     /** The 251 species names, Pokédex order, as this ROM spells them. */
     List<String> speciesNames() {
         return List.copyOf(java.util.Arrays.asList(names).subList(1, DEX_SIZE + 1)); // names[0] is unused (null)

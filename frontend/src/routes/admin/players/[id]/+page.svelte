@@ -10,6 +10,7 @@
 	import { isAdmin, loadMe, session } from '#lib/session.svelte.ts';
 	import { notice, act } from '#lib/components/admin/admin.svelte.ts';
 	import Avatar from '#lib/components/Avatar.svelte';
+	import GiftsPanel from '#lib/components/admin/GiftsPanel.svelte';
 	import FeedIcon from '#lib/components/FeedIcon.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
@@ -293,6 +294,8 @@
 					</div>
 				</form>
 			</section>
+
+			<GiftsPanel to={id} />
 
 			<section class="panel danger-zone" aria-labelledby="danger-h">
 				<h2 id="danger-h" class="pixel">Danger zone</h2>

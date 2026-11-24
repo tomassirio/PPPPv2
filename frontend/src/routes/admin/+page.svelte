@@ -5,6 +5,7 @@
 	import { notice } from '#lib/components/admin/admin.svelte.ts';
 	import CartridgesPanel from '#lib/components/admin/CartridgesPanel.svelte';
 	import SettingsPanel from '#lib/components/admin/SettingsPanel.svelte';
+	import GiftsPanel from '#lib/components/admin/GiftsPanel.svelte';
 	import PeoplePanel from '#lib/components/admin/PeoplePanel.svelte';
 	import AccessRequestsPanel from '#lib/components/admin/AccessRequestsPanel.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
@@ -59,6 +60,7 @@
 			<div class="column">
 				<h2 class="group">Game</h2>
 				<CartridgesPanel />
+				<GiftsPanel />
 			</div>
 			<div class="column">
 				<h2 class="group">Access &amp; settings</h2>

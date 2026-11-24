@@ -139,6 +139,18 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   phones: the record as stat tiles, Trade/Battle tiles with a hint, "Nobody is waiting" as an empty state. Held
   sideways the icon rail stays. Settings (key bindings) is hidden on touch screens. A player's picked speed survives
   their console rebooting (`PlayerConsoles.speeds`, memory only; plugging a cable clears it).
+- Done: the end credits name only "TOMÁS SIRIO" (`Credits.patch` at insert: every CreditsStringsPointers entry before
+  .End, 70 Crystal / 50 Gold-Silver, points at one string over SATOSHI TAJIRI's bytes; the font's unused Ä tile is
+  redrawn as Á). Controller colours: the picker is a popover (never clipped); a Solid / Atomic switch picks the
+  see-through plastic for colours that have one (`Shell.atomic`, `variant`, localStorage `pppp.shellAtomic`); atomic
+  shells show the board inside (Gamepad `::before`, membranes via `--guts`).
+- Done: Mystery Gifts. Admins send one of `MysteryGifts.CATALOG` (19 fair items, each with a cap: Rare Candy 3,
+  stones 1, Max Repel 10, ...; names resolved per ROM by `PokemonGen2.itemId`) to one player (admin player page) or
+  everyone who picked a game (admin page, confirm; a chat line says so): `GET/POST /api/v1/admin/gifts`
+  {gift, quantity, to}. Queued in Redis list `pibs:gifts:{userId}` ("id:qty"); every 10 s a running, free (PokecenterDig.busy)
+  console gets the oldest into its PC item list in WRAM (`PokemonGen2.pcItems`, stacks to 99, 50 entries), then
+  `MYSTERY_GIFT {user, name, quantity}` shows a "Mystery Gift!" card (GameToasts). The player saves to keep it.
+  No Pokémon or decorations yet.
 - Done: the release number at the foot of the account menu (`UserMenu`, desktop and phones): `__APP_VERSION__`, baked in
   by Vite from `PPPP_VERSION` (deploy.yml passes it as a build-arg to the frontend image; "dev" locally).
 - Done: notes on the ground (Dark Souls style). Holding A ~0.7 s while free in the overworld (Gamepad, nobody nearby)

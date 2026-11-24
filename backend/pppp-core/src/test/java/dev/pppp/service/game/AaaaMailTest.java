@@ -56,7 +56,7 @@ class AaaaMailTest {
         try {
             host.loadState(Files.readAllBytes(state));
             String why = host.withBus(bus -> PokecenterDig.busy(game, bus));
-            for (int i = 0; i < 200 && why != null; i++) {
+            for (int i = 0; i < 200 && why != null && !why.equals("nowhere yet"); i++) { // title screen or intro: skipped below
                 if (why.equals("busy")) Thread.sleep(20); // Crystal swaps WRAM banks many times a second: a moment later
                 else host.press(Button.B, 6, 30); // a menu or dialog left open: close it
                 why = host.withBus(bus -> PokecenterDig.busy(game, bus));

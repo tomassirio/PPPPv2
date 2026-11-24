@@ -27,6 +27,14 @@
 			if (e.user === session.me?.id) queue = [...queue, e].slice(-5);
 		})
 	);
+	// A Mystery Gift an admin sent just landed in their PC (backend MysteryGifts).
+	$effect(() =>
+		on('MYSTERY_GIFT', (g: { user: string; name: string; quantity: number }) => {
+			if (g.user !== session.me?.id) return;
+			queue = [...queue, { user: g.user, type: 'GIFT', detail: `${g.quantity}× ${g.name}`, points: 0, at: Date.now() }].slice(-5);
+			navigator.vibrate?.([20, 30, 20, 30, 60]);
+		})
+	);
 	// @mentions: their username or their nickname without spaces, as the bubbles read them.
 	$effect(() =>
 		on('CHAT_MESSAGE', (m: ChatMessage) => {
@@ -56,7 +64,8 @@
 		HALL_OF_FAME: 'Hall of Fame!',
 		LINK_WIN: 'Link battle won!',
 		LINK_LOSS: 'Link battle',
-		MENTION: 'You were mentioned'
+		MENTION: 'You were mentioned',
+		GIFT: 'Mystery Gift!'
 	};
 	// The card's main line: the thing itself, not a sentence about "You".
 	function line(e: ScoreEvent): string {
@@ -73,6 +82,8 @@
 				return e.detail ? `${nameOf(e.detail)} won this time` : 'Better luck next time';
 			case 'MENTION':
 				return `${nameOf(e.user)}: ${e.detail}`;
+			case 'GIFT':
+				return `${e.detail} in your PC. Save to keep it!`;
 			default:
 				return e.detail;
 		}
@@ -90,7 +101,7 @@
 		}
 		return null;
 	}
-	const tier = (e: ScoreEvent) => (e.type === 'MENTION' ? 'ping' : tierOf(e));
+	const tier = (e: ScoreEvent) => (e.type === 'MENTION' ? 'ping' : e.type === 'GIFT' ? 'legendary' : tierOf(e));
 	const loud = (e: ScoreEvent) => tier(e) === 'epic' || tier(e) === 'legendary';
 	let broken = $state(false);
 	$effect(() => {
@@ -111,7 +122,9 @@
 				out:fly={{ y: -12, duration: still ? 0 : 200 }}
 			>
 				<span class="art" aria-hidden="true">
-					{#if current.type === 'MENTION'}
+					{#if current.type === 'GIFT'}
+						<span class="gift">🎁</span>
+					{:else if current.type === 'MENTION'}
 						<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
 							><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" /></svg
 						>
@@ -201,6 +214,10 @@
 		image-rendering: pixelated;
 		object-fit: contain;
 		filter: drop-shadow(0 2px 0 rgb(0 0 0 / 0.35));
+	}
+	.gift {
+		font-size: 26px;
+		line-height: 1;
 	}
 	.words {
 		flex: 1;

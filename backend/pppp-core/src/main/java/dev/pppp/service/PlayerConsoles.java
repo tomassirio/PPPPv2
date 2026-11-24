@@ -5,6 +5,7 @@ import dev.pppp.emulator.Bus;
 import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
+import dev.pppp.service.game.Credits;
 import dev.pppp.service.game.Ghosts;
 import dev.pppp.service.game.PlayerSprites;
 import dev.pppp.service.game.PokecenterDig;
@@ -575,7 +576,7 @@ public class PlayerConsoles {
         EmulatorHost host = new EmulatorHost();
         V1Red red = new V1Red();
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game),
-                rom -> PlayerSprites.patch(PokecenterDig.patch(red.patch(rom)), players.sprite(userId)));
+                rom -> PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(rom))), players.sprite(userId)));
         host.afterFrame(red::nicknames);
         host.afterFrame(PokecenterDig.patientReceptionist(host::isLinked));
         host.onFrame(pixels -> {
