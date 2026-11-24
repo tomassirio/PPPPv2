@@ -77,6 +77,7 @@ JNIEXPORT jlong JNICALL Java_dev_pppp_emulator_SameBoy_create(JNIEnv *env, jclas
     GB_set_serial_transfer_bit_end_callback(c->gb, bitEnd);
     GB_set_rtc_mode(c->gb, GB_RTC_MODE_SYNC_TO_HOST);
     GB_set_turbo_mode(c->gb, true, true); /* no pacing of its own: EmulatorHost paces */
+    GB_set_emulate_joypad_bouncing(c->gb, false); /* a tap is one press, as the game expects from a clean pad */
     return (jlong) (intptr_t) c;
 }
 
@@ -137,7 +138,7 @@ JNIEXPORT jint JNICALL Java_dev_pppp_emulator_SameBoy_drainAudio(JNIEnv *env, jc
 }
 
 JNIEXPORT jint JNICALL Java_dev_pppp_emulator_SameBoy_read(JNIEnv *env, jclass cls, jlong h, jint address) {
-    return GB_read_memory(of(h)->gb, (uint16_t) address);
+    return GB_safe_read_memory(of(h)->gb, (uint16_t) address); /* no side effects, unlike the CPU's read */
 }
 
 JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_write(JNIEnv *env, jclass cls, jlong h, jint address, jint value) {

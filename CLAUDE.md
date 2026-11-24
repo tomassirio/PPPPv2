@@ -84,8 +84,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   knowing Dizzy Punch), Untouchable (Will's room to the Hall of Fame with no party member at 0 HP), trades (a new
   OT+DVs in the party in TRADE_CENTER / TIME_CAPSULE). Kept in `pibs:history:{userId}` (JSON `TrainerLog`: phone
   contacts ever seen, eggs hatched, link partners, trades, cross-version, the Elite Four run, link battle record);
-  `ProgressRepository.delete` (player reset) removes it. Battery save: `PlayerConsoles.batterySave` flushes Coffee
-  GB's cartridge RAM to `saves/{user}/{cartridge}.sav` (it is otherwise written only on power off/reset, so the file
+  `ProgressRepository.delete` (player reset) removes it. Battery save: `PlayerConsoles.batterySave` flushes the
+  emulator's cartridge RAM to `saves/{user}/{cartridge}.sav` (it is otherwise written only on power off/reset, so the file
   is stale while the console runs) and reads it back, once a minute (every 5 s in the Battle Tower); a read counts
   when two in a row agree. `PokemonGen2.sram` reads the PC boxes (sBox is the box wCurBox names; its own sBoxN is
   stale; Gen 2 has no box in WRAM), sLinkBattleWins/Losses and Crystal's sBattleTowerChallengeState: Living History,
@@ -144,7 +144,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   `pibs:player:{userId}`), after their first save, while they are free in the overworld (`PokecenterDig.busy`),
   opening and closing save RAM as the game does. `AaaaMailTest` runs it on the real ROMs and parked games in data/.
 - Speed: the chip offers 1x and Fast (the server's 4x: as fast as it manages) and shows the measured rate; a Pi 4
-  core runs a Gen 2 console at about 1.2x (`GET /api/v1/me/speed` timing: all of it in Coffee GB).
+  core ran a Gen 2 console at about 1.2x on Coffee GB (`GET /api/v1/me/speed` timing: all of it in the emulator);
+  hence SameBoy (2.1.0): ~2.7x cheaper per frame on a Mac, Pi numbers still to measure.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, README
   (still describes v1).
@@ -171,13 +172,18 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 
 ## Backend (`backend/`)
 - Spring Boot 3.5, Java 21, Maven multi-module, MVC layers. Package root `dev.pppp`.
-  - `pppp-emulator`: `dev.pppp.emulator` — Coffee GB on its own thread. Plain Java, no Spring.
+  - `pppp-emulator`: `dev.pppp.emulator` — SameBoy (C) via JNI, one thread per console. No Spring.
+    `Bus` is our memory interface (getByte/setByte) for code that pokes a running game.
   - `pppp-core`: `model`, `exception`, `service`, `repository`, `job`, `config` — business logic. No web dependencies; Redis access only in `repository`.
   - `pppp-app`: `controller` (+ `ApiExceptionHandler`), `security`, `realtime` (WebSockets: events, screen, audio, input), `config`, `PpppApplication`.
   - Dependencies point one way: app -> core -> emulator.
 - Build/test: `cd backend && mvn -q test`. Run: `mvn -q package -DskipTests && java -jar pppp-app/target/pppp-app-*.jar` with the repo-root `.env` exported (`set -a; . ../.env; set +a`). Integration tests live in pppp-app: `@SpringBootTest @DirtiesContext @AutoConfigureMockMvc @Import(TestRedis.class)` (Testcontainers Redis; Docker required). `@DirtiesContext` gives each class its own context and Redis: shared contexts leak consoles and Redis state between classes.
 - Auth in tests: `.with(user("x@y.z").roles("PLAYER"))` or `oidcLogin()`; mutating calls need `.with(csrf())`.
-- Emulator: Coffee GB, `eu.rekawek.coffeegb:core` from Maven Central.
+- Emulator: SameBoy v1.0.5 (MIT) through `pppp-emulator/native/sameboy_jni.c` and `SameBoy.java`. Build it before
+  tests or a local run: `pppp-emulator/native/build.sh` (git, make, cc, a JDK, RGBDS for the fast CGB boot ROM;
+  `BOOT_ROM=<file>` skips RGBDS) writes `src/main/resources/native/<os>-<arch>/` + `cgb_boot.bin` (gitignored). The
+  Dockerfile builds the arm64 copy in its own stage; CI builds the runner's before `mvn test`. SameBoy loads Coffee GB's
+  parked BESS states. A fresh console runs the boot ROM first (~1 s): tests wait it out.
 
 ## Conventions
 - User id = lower-cased email: `CurrentUser.id(authentication)`.

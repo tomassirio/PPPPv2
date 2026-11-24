@@ -75,6 +75,14 @@ jobs:
           java-version: '21'
           cache: maven
 
+      # SameBoy (the emulator core, C) for the runner's own CPU, so the tests can run consoles; the image builds its
+      # own arm64 copy (backend/Dockerfile).
+      - name: Build SameBoy for the tests
+        if: matrix.app == 'backend'
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends rgbds
+          backend/pppp-emulator/native/build.sh
+
       # Integration tests start Redis with Testcontainers (Docker is on the runner). Tests that need the real
       # ROMs in data/ skip themselves.
       - name: Test backend

@@ -50,6 +50,8 @@ class PokecenterDigTest {
         try {
             host.loadState(Files.readAllBytes(state));
             host.setSpeed(4);
+            // A parked state may stop mid-frame with another WRAM bank in: run a few frames, as play does.
+            host.press(Button.WAIT, 10, 0);
             String why = host.withBus(bus -> PokecenterDig.check(game, bus));
             for (int i = 0; i < 20 && why != null && why.startsWith("in a menu"); i++) { // a menu left open: close it
                 host.press(Button.B, 6, 30);
