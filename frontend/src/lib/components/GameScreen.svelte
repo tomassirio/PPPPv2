@@ -17,7 +17,7 @@
 	import { session } from '#lib/session.svelte.ts';
 	import { tip } from '#lib/tour.svelte.ts';
 	import { api } from '#lib/api.ts';
-	import type { ScreenNote } from '#lib/notes.svelte.ts';
+	import { loadWords, type ScreenNote } from '#lib/notes.svelte.ts';
 
 	const BUBBLE_MS = 5000;
 
@@ -55,11 +55,15 @@
 		return nearbyPlayers(ghosts);
 	}
 	let said = $state<Record<string, { id: string; text: string }>>({});
-	// Who @mentions can name (their username, or their nickname without spaces) and the Pokémon names of the
-	// player's own game, for the bubbles.
+	// Who @mentions can name (their username, or their nickname without spaces) and every Pokémon's name (all 251,
+	// from the ROM: GET /notes/words; the player's own Pokédex names until it loads), each shown as its sprite.
+	let allSpecies = $state<string[]>([]);
+	$effect(() => {
+		loadWords().then((w) => (allSpecies = w.words['Pokémon'] ?? []), () => {});
+	});
 	const bubbleCtx = $derived<BubbleContext>({
 		players: board.rows.map((r) => ({ id: r.userId, handles: [usernameOf(r.userId).slice(1), nameOf(r.userId).replace(/\s+/g, '')] })),
-		species: (game.summary?.collection?.names ?? []).map((n) => n ?? '')
+		species: allSpecies.length ? allSpecies : (game.summary?.collection?.names ?? []).map((n) => n ?? '')
 	});
 
 	$effect(() =>

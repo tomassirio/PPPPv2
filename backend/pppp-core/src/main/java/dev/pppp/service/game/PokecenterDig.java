@@ -171,9 +171,11 @@ public class PokecenterDig {
         Layout at = game.at;
         int group = u8(bus, at.mapGroup), number = u8(bus, at.mapGroup + 1);
         if ((u8(bus, at.statusFlags2) & BUG_CONTEST_TIMER) != 0) return "in the Bug-Catching Contest";
-        if (game.maps.pokecenter(group, number)) return null;
-        int env = game.maps.environment(group, number);
-        if (env != TOWN && env != ROUTE && env != CAVE && env != DUNGEON) return "indoors, where neither Fly nor Dig works";
+        if (!game.maps.pokecenter(group, number)) {
+            int env = game.maps.environment(group, number);
+            if (env != TOWN && env != ROUTE && env != CAVE && env != DUNGEON) return "indoors, where neither Fly nor Dig works";
+        }
+        if (destination(game, bus) == null) return "there is no Pokémon Center to go to yet";
         return null;
     }
 
@@ -183,27 +185,15 @@ public class PokecenterDig {
      */
     static boolean queue(String userId, Game game, Bus bus, String kind) {
         Layout at = game.at;
-        int group = u8(bus, at.mapGroup), number = u8(bus, at.mapGroup + 1);
-        boolean upstairs = group == game.pc2f[0] && number == game.pc2f[1];
-        if (!upstairs) { // the 2F stairs lead back down into this Center (1F), or the respawn one
-            int g = group, n = number;
-            if (!game.maps.pokecenter(g, n)) {
-                int[] door = game.maps.pokecenterDoor(u8(bus, at.lastSpawn), u8(bus, at.lastSpawn + 1));
-                if (door == null) {
-                    log.info("No Pokémon Center to dig {} to", userId);
-                    return false;
-                }
-                g = door[2];
-                n = door[3];
-            }
-            int stairs = game.maps.warpTo(g, n, game.pc2f[0], game.pc2f[1]);
-            if (stairs == 0) {
-                log.warn("No stairs up in Pokémon Center {}:{}", g, n);
-                return false;
-            }
-            bus.setByte(at.backupWarp, stairs);
-            bus.setByte(at.backupWarp + 1, g);
-            bus.setByte(at.backupWarp + 2, n);
+        int[] to = destination(game, bus);
+        if (to == null) {
+            log.warn("No Pokémon Center to dig {} to", userId);
+            return false;
+        }
+        if (to.length > 0) { // the 2F stairs lead back down into this Center (1F), or the respawn one
+            bus.setByte(at.backupWarp, to[0]);
+            bus.setByte(at.backupWarp + 1, to[1]);
+            bus.setByte(at.backupWarp + 2, to[2]);
         }
         int script = "BATTLE".equals(kind) ? BATTLE_SCRIPT : TRADE_SCRIPT;
         bus.setByte(at.reentryScript + 1, DIG_BANK);
@@ -212,6 +202,70 @@ public class PokecenterDig {
         bus.setByte(at.reentryScript, 1); // last: the flag arms it
         log.info("Digging {} to the {} receptionist", userId, kind);
         return true;
+    }
+
+    /**
+     * Where the dig's 2F stairs lead back down to: {stairs warp, group, number} of this Pokémon Center (1F) or of the
+     * respawn one (wLastSpawnMap's door); {} when the player is upstairs already; null when there is none (they never
+     * entered a Pokémon Center, or its 2F stairs are not found).
+     */
+    static int[] destination(Game game, Bus bus) {
+        Layout at = game.at;
+        int g = u8(bus, at.mapGroup), n = u8(bus, at.mapGroup + 1);
+        if (g == game.pc2f[0] && n == game.pc2f[1]) return new int[0];
+        if (!game.maps.pokecenter(g, n)) {
+            int[] door = game.maps.pokecenterDoor(u8(bus, at.lastSpawn), u8(bus, at.lastSpawn + 1));
+            if (door == null) return null;
+            g = door[2];
+            n = door[3];
+        }
+        int stairs = game.maps.warpTo(g, n, game.pc2f[0], game.pc2f[1]);
+        if (stairs == 0) {
+            log.warn("No stairs up in Pokémon Center {}:{}", g, n);
+            return null;
+        }
+        return new int[] {stairs, g, n};
+    }
+
+    /**
+     * Opens the Cable Club in the player's running game, for testers: sets EVENT_GAVE_MYSTERY_EGG_TO_ELM (the flag the
+     * 2F receptionists and ProgressTracker.cableClubOpen check) while they are free in the overworld. They save in the
+     * game to keep it. Returns the blocker.
+     */
+    public String openCableClub(String userId) {
+        Game game = game(userId);
+        if (game == null) return "not Gold, Silver or Crystal";
+        return consoles.withBus(userId, bus -> {
+            String why = busy(game, bus);
+            if (why != null) return why;
+            int flag = Gen2Save.EVENT_GAVE_MYSTERY_EGG_TO_ELM, address = game.maps.eventFlagAddress(flag);
+            bus.setByte(address, bus.getByte(address) | 1 << flag % 8);
+            log.info("Cable Club opened for {}", userId);
+            return null;
+        });
+    }
+
+    /** Dev only: sends a free player to the map constant's tile (x, y), as Dig's teleport does. Returns the blocker. */
+    public String teleport(String userId, String map, int x, int y) {
+        Game game = game(userId);
+        if (game == null) return "not Gold, Silver or Crystal";
+        int[] to = game.maps.map(map);
+        if (to == null) return "no map " + map;
+        return consoles.withBus(userId, bus -> teleport(game, bus, to, x, y));
+    }
+
+    static String teleport(Game game, Bus bus, int[] to, int x, int y) {
+        String why = busy(game, bus);
+        if (why != null) return why;
+        Layout at = game.at;
+        bus.setByte(at.mapGroup, to[0]);
+        bus.setByte(at.mapGroup + 1, to[1]);
+        bus.setByte(at.mapGroup + 2, y);
+        bus.setByte(at.mapGroup + 3, x);
+        bus.setByte(at.defaultSpawnpoint, SPAWN_N_A); // else a teleport loads the spawn point's map instead
+        bus.setByte(at == CRYSTAL ? 0xFF9F : 0xFFA1, MAPSETUP_TELEPORT); // hMapEntryMethod (pokecrystal11.sym, pokegold.sym)
+        bus.setByte(at.mapStatus, 1); // MAPSTATUS_ENTER: the overworld loop loads the map
+        return null;
     }
 
     /**

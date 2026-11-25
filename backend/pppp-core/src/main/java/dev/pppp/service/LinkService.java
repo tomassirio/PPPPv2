@@ -356,6 +356,10 @@ public class LinkService {
      */
     private void requireCableClub(String asking, String userId) {
         if (tracker.cableClubOpen(userId)) return;
+        if (ProgressTracker.LOCKED.equals(tracker.cableClubMode(userId))) {
+            throw new IllegalStateException(asking.equals(userId) ? "An admin has closed your Cable Club for now"
+                    : name(userId) + "'s Cable Club is closed for now");
+        }
         throw new IllegalStateException(asking.equals(userId)
                 ? "Your Cable Club isn't open yet: bring Mr. Pokémon's Mystery Egg back to Prof. Elm first"
                 : name(userId) + "'s Cable Club isn't open yet");

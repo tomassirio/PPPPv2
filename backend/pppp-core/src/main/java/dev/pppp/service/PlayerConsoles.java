@@ -561,6 +561,15 @@ public class PlayerConsoles {
         }
     }
 
+    /** Players whose console is running now (not paused: idle, away or parked). */
+    public Set<String> awake() {
+        Set<String> out = new java.util.HashSet<>();
+        consoles.forEach((id, c) -> {
+            if (!c.host().status().paused()) out.add(id);
+        });
+        return out;
+    }
+
     /** Players whose console is in memory (running or paused). */
     public Set<String> running() {
         return Set.copyOf(consoles.keySet());

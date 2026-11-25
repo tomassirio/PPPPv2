@@ -386,12 +386,13 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
 
     /**
      * Whether the map is a Pokémon Center, told as EnterMapWarp.SetSpawn tells one: by its tileset,
-     * TILESET_POKECENTER (Gold 6, Crystal 7) or Crystal's TILESET_POKECOM_CENTER (15).
+     * TILESET_POKECENTER (Gold 6, Crystal 7) or Crystal's TILESET_POKECOM_CENTER ($15; 15 = $0F is
+     * TILESET_ELITE_FOUR_ROOM, the gyms' and the Elite Four's).
      */
     boolean pokecenter(int group, int number) {
         if (!known(group, number)) return false;
         int t = tileset[group][number];
-        return at.crystal ? t == 7 || t == 15 : t == 6;
+        return at.crystal ? t == 0x07 || t == 0x15 : t == 0x06;
     }
 
     /**
@@ -413,6 +414,11 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         int[][] w = warps[group][number];
         for (int i = 0; i < w.length; i++) if (w[i][3] == destGroup && w[i][4] == destNumber) return i + 1;
         return 0;
+    }
+
+    /** The wEventFlags byte holding the event flag (pret constants/event_flags.asm); its bit is flag % 8. */
+    int eventFlagAddress(int flag) {
+        return at.eventFlags + flag / 8;
     }
 
     /** The pret map constant at wMapGroup, wMapNumber (as "POKECENTER_2F"), or null. */

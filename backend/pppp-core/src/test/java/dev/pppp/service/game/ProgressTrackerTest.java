@@ -58,6 +58,7 @@ class ProgressTrackerTest {
         when(cartridges.require("red")).thenReturn(Files.write(dir.resolve("red.gb"), rom));
         when(cartridges.require("tetris")).thenReturn(Files.write(dir.resolve("tetris.gb"), new byte[0x8000]));
         when(consoles.running()).thenReturn(Set.of(ASH));
+        when(consoles.awake()).thenReturn(Set.of(ASH));
         when(consoles.game(ASH)).thenReturn("red");
         when(consoles.readBytes(eq(ASH), anyInt(), anyInt())).thenAnswer(i -> ram.ram().bytes());
         when(repo.progress(any())).thenAnswer(i -> stored.getOrDefault(i.<String>getArgument(0), Progress.EMPTY));
@@ -84,7 +85,7 @@ class ProgressTrackerTest {
     }
 
     ProgressTracker tracker() {
-        return new ProgressTracker(consoles, cartridges, repo, published::add);
+        return new ProgressTracker(consoles, cartridges, repo, published::add, mock(dev.pppp.repository.PlayerRepository.class));
     }
 
     List<String> scored() {

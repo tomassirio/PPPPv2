@@ -37,13 +37,22 @@ class DevLoginController {
     private final ProgressTracker tracker;
     private final ApplicationEventPublisher events;
     private final StringRedisTemplate redis;
+    private final dev.pppp.service.game.PokecenterDig dig;
 
     DevLoginController(PpppProperties props, ProgressTracker tracker, ApplicationEventPublisher events,
-                       StringRedisTemplate redis) {
+                       StringRedisTemplate redis, dev.pppp.service.game.PokecenterDig dig) {
+        this.dig = dig;
         this.props = props;
         this.tracker = tracker;
         this.events = events;
         this.redis = redis;
+    }
+
+    /** Sends a player's running, free console to a map tile (pret map constant, x/y as warp_event counts them). */
+    @GetMapping("/dev/warp")
+    String warp(@RequestParam String user, @RequestParam String map, @RequestParam int x, @RequestParam int y) {
+        String why = dig.teleport(user.toLowerCase(Locale.ROOT), map, x, y);
+        return why == null ? "ok" : why;
     }
 
     /** Drops the player's cached scoreboard data (it is read again from Redis) and, with type, adds a feed entry. */

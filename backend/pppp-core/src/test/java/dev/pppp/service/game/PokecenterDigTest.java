@@ -65,7 +65,7 @@ class PokecenterDigTest {
                 int[] now = host.withBus(bus -> new int[] {bus.getByte(mapGroup), bus.getByte(mapGroup + 1),
                         bus.getByte(mapGroup + 3), bus.getByte(mapGroup + 2), bus.getByte(game.at().backupWarp() + 1),
                         bus.getByte(game.at().backupWarp() + 2)});
-                assertThat(game.maps().mapId(now[0], now[1])).isEqualTo("POKECENTER_2F");
+                assertThat(game.maps().mapId(now[0], now[1])).as(state + " " + kind).isEqualTo("POKECENTER_2F");
                 assertThat(new int[] {now[2], now[3]}).as(kind).containsExactly(kind.equals("TRADE") ? 5 : 9, 3);
                 assertThat(game.maps().pokecenter(now[4], now[5])).as("stairs lead down into a Center").isTrue();
                 assertThat(host.<String>withBus(bus -> PokecenterDig.check(game, bus))).as("free again").isNull();
@@ -79,5 +79,33 @@ class PokecenterDigTest {
         } finally {
             host.shutdown();
         }
+    }
+
+    /**
+     * Only Pokémon Centers count as one, in every game: Crystal's TILESET_POKECOM_CENTER is $15, and 15 ($0F, the
+     * gyms' and Elite Four's tileset) once made Violet City's gym its "Center", so a player respawning there could not
+     * be dug to the Cable Club.
+     */
+    @ParameterizedTest(allowZeroInvocations = true)
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"pokemon-crystal-version-usa-europe-rev-1",
+            "pokemon-gold-version-usa-europe-sgb-enhanced-gb-compatible", "pokemon-silver-version-usa-europe-sgb-enhanced-gb-compatible"})
+    void onlyPokemonCentersAreCenters(String cart) throws Exception {
+        Path rom = DATA.resolve("roms").resolve(cart + ".gbc");
+        assumeTrue(Files.exists(rom), "no " + cart);
+        var game = PokecenterDig.game(Files.readAllBytes(rom)).orElseThrow();
+        var maps = game.maps();
+        int centers = 0;
+        for (int g = 1; g < 40; g++) {
+            for (int n = 1; n < 120; n++) {
+                if (!maps.pokecenter(g, n)) continue;
+                centers++;
+                assertThat(maps.mapId(g, n)).as(g + ":" + n).matches(".*(POKECENTER|POKECOM_CENTER).*");
+            }
+        }
+        assertThat(centers).isGreaterThan(20);
+        int[] violet = maps.map("VIOLET_CITY");
+        int[] door = maps.pokecenterDoor(violet[0], violet[1]);
+        assertThat(maps.mapId(door[2], door[3])).isEqualTo("VIOLET_POKECENTER_1F");
+        assertThat(maps.warpTo(door[2], door[3], game.pc2f()[0], game.pc2f()[1])).isPositive();
     }
 }

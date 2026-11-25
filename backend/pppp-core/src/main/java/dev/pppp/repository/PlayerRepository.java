@@ -54,6 +54,17 @@ public class PlayerRepository {
         redis.opsForHash().put(key(userId), "sprite", key);
     }
 
+    /** An admin's Cable Club setting: "OPEN" or "LOCKED", or null to follow their game. */
+    public String cableClub(String userId) {
+        Object c = redis.opsForHash().get(key(userId), "cableClub");
+        return c == null ? null : c.toString();
+    }
+
+    public void saveCableClub(String userId, String mode) {
+        if (mode == null) redis.opsForHash().delete(key(userId), "cableClub");
+        else redis.opsForHash().put(key(userId), "cableClub", mode);
+    }
+
     /** The colour they walk in (a PlayerSprites.COLORS name), or null for their trainer's own. */
     public String spriteColor(String userId) {
         Object c = redis.opsForHash().get(key(userId), "spriteColor");

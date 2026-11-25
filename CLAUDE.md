@@ -53,6 +53,15 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   Reset button on the bezel (`ResetControl`, `POST /api/v1/me/reset`, `PlayerConsoles.reset`): ends a link session,
   boots the cartridge again from its battery save. A console left in a link room without a cable for 60 s is reset by
   the link sweep (a chat line says so).
+  The dig's destination (`PokecenterDig.destination`: this Center, else wLastSpawnMap's door, and its 2F stairs) is part
+  of `check`, so accept refuses (409 "no Pokémon Center to go to yet") instead of linking someone it cannot dig.
+  `PokemonGen2.pokecenter`: Crystal tilesets $07 and $15 (TILESET_POKECOM_CENTER; 15 = $0F is the gyms' and Elite
+  Four's, which once made Violet Gym a "Center" and stranded the player).
+  Admin Cable Club setting (`pibs:player:{userId}` field `cableClub`: OPEN / LOCKED, absent = their game decides;
+  `ProgressTracker.cableClubMode`, cached): LOCKED refuses links and shows the club closed; OPEN allows them and, when
+  the console is free, sets the game's EVENT_GAVE_MYSTERY_EGG_TO_ELM (`PokecenterDig.openCableClub`; they save to keep
+  it). Admin player page "Link cable" card: game step, session/lobby, Auto/Open/Locked (`GET/PUT
+  /api/v1/admin/players/{id}/cable-club`). Dev only: `GET /dev/warp?user=&map=&x=&y=` teleports a free console.
   `PokecenterDig.patientReceptionist` (a frame hook per console) stretches the receptionist's "Please wait" from 8.5 s
   to about a minute while linked (`LinkWaitTest`).
   Trainer colour: Default (the sprite's own) or red/blue/green/brown/pink/silver (`PlayerSprites.COLORS`, Redis
@@ -138,7 +147,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   of the width or a flick switches, else it springs back; not
   from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
   phones (record as stat tiles, Trade/Battle tiles with a hint); "Nobody is waiting" is an empty state on every size.
-  Chat: only admins see system lines and emotes (the lone swaps: ok, gg, <3, :youlost: ...) in the list (and the
+  Chat bubbles show any of the 251 Pokémon names as its sprite (names from `/notes/words`). Chat: only admins see system lines and emotes (the lone swaps: ok, gg, <3, :youlost: ...) in the list (and the
   System / Emotes switches); formatted lines show with their markers taken out (`plainText`). The "Aa" button by the
   message box opens the formats and emotes (`FORMATS`, `EMOTES` in chat/bubble.ts; :youlost: kept a secret), click to insert.
   New chat from others while Chat is closed: a small bubble with the count in the controller's bottom-left corner

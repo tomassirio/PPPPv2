@@ -9,6 +9,7 @@ import dev.pppp.service.ChatService;
 import dev.pppp.service.CartridgeService;
 import dev.pppp.service.KeyBindingService;
 import dev.pppp.service.PlayerConsoles;
+import dev.pppp.service.game.ProgressTracker;
 import dev.pppp.service.PlayerResetService;
 import dev.pppp.service.game.PlayerSprites;
 import java.time.Duration;
@@ -43,9 +44,16 @@ public class PlayerController {
     private final KeyBindingService keys;
     private final EventPublisher events;
     private final ChatService chat;
+    private final dev.pppp.service.game.PokecenterDig dig;
+    private final ProgressTracker tracker;
+    private final dev.pppp.service.LinkService link;
 
     public PlayerController(PlayerConsoles consoles, CartridgeService cartridges, PlayerResetService resets, KeyBindingService keys,
-                            EventPublisher events, ChatService chat) {
+                            EventPublisher events, ChatService chat, dev.pppp.service.game.PokecenterDig dig,
+                            ProgressTracker tracker, dev.pppp.service.LinkService link) {
+        this.dig = dig;
+        this.tracker = tracker;
+        this.link = link;
         this.keys = keys;
         this.events = events;
         this.chat = chat;
@@ -144,6 +152,41 @@ public class PlayerController {
     public ResponseEntity<Void> reset(@PathVariable String userId, Authentication auth) {
         resets.reset(CurrentUser.id(auth), userId.toLowerCase(java.util.Locale.ROOT));
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * A player's link cable, for admins. mode: AUTO (their game decides: Elm got the Mystery Egg), OPEN or LOCKED (an
+     * admin's setting); gameStep: their game's way to the Cable Club (0-3, 3 open; -1 no such game); open: whether
+     * they can link now; linkedWith / ready: their session and lobby. note: why OPEN could not set the game's flag.
+     */
+    public record CableClub(String mode, int gameStep, boolean open, String linkedWith, String ready, String note) {}
+
+    public record CableClubRequest(String mode) {}
+
+    @GetMapping("/api/v1/admin/players/{userId}/cable-club")
+    public CableClub cableClub(@PathVariable String userId) {
+        return cableClubOf(userId.toLowerCase(java.util.Locale.ROOT), null);
+    }
+
+    /** Sets AUTO, OPEN or LOCKED; OPEN also sets the game's own flag when their console is free (they save to keep it). */
+    @PutMapping("/api/v1/admin/players/{userId}/cable-club")
+    public CableClub setCableClub(@PathVariable String userId, @RequestBody CableClubRequest body, Authentication auth) {
+        String id = userId.toLowerCase(java.util.Locale.ROOT);
+        String mode = body == null || body.mode() == null ? "AUTO" : body.mode().toUpperCase(java.util.Locale.ROOT);
+        tracker.setCableClubMode(id, mode.equals("AUTO") ? null : mode);
+        String note = null;
+        if (mode.equals(ProgressTracker.OPEN) && tracker.gameCableClub(id) >= 0 && tracker.gameCableClub(id) < 3) {
+            note = consoles.isAwake(id) ? dig.openCableClub(id) : "their Game Boy is not running";
+            if (note != null) note = "Their game's own Cable Club flag is not set yet (" + note + "): set Open again later";
+        }
+        chat.postAdmin(CurrentUser.id(auth) + " set " + id + "'s Cable Club to " + mode.toLowerCase(java.util.Locale.ROOT));
+        return cableClubOf(id, note);
+    }
+
+    private CableClub cableClubOf(String id, String note) {
+        String mode = tracker.cableClubMode(id);
+        return new CableClub(mode == null ? "AUTO" : mode, tracker.gameCableClub(id), tracker.cableClubOpen(id),
+                consoles.linkedWith(id), link.state(id).ready(), note);
     }
 
     public record GodMessage(String text) {}

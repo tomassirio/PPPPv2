@@ -91,6 +91,26 @@
 		if (sent) godText = '';
 	}
 
+	// Their link cable: where their game is on the way to the Cable Club, their session or lobby, and an admin's
+	// setting (Auto: the game decides; Open; Locked). GET/PUT /admin/players/{id}/cable-club.
+	type Club = { mode: 'AUTO' | 'OPEN' | 'LOCKED'; gameStep: number; open: boolean; linkedWith: string | null; ready: string | null; note: string | null };
+	let club = $state<Club | null>(null);
+	const clubUrl = () => `/admin/players/${encodeURIComponent(id)}/cable-club`;
+	async function loadClub() {
+		club = await api<Club>('GET', clubUrl()).catch(() => club);
+	}
+	$effect(() => {
+		void id;
+		loadClub();
+		const offs = ['LINK_SESSION', 'LOBBY_CHANGED', 'SCOREBOARD_CHANGED'].map((t) => on(t, () => loadClub()));
+		return () => offs.forEach((off) => off());
+	});
+	async function setClub(mode: Club['mode']) {
+		const next = await act(`Cable Club ${mode.toLowerCase()} for ${nameOf(id)}`, () => api<Club>('PUT', clubUrl(), { mode }));
+		if (next) club = next;
+	}
+	const GAME_STEPS = ['No starter yet', 'Has a starter', 'Has the Mystery Egg', 'Open (gave Elm the egg)'];
+
 	async function reset() {
 		const done = await act(
 			`Reset ${id}`,
@@ -216,6 +236,25 @@
 								{#if gb.save}<a class="btn" href="/api/v1/admin/sessions/{encodeURIComponent(id)}/save" download>Download save</a>{/if}
 								{#if gb.state !== 'CLOSED'}<button class="danger" onclick={closeGb}>Close Game Boy</button>{/if}
 							</div>
+							{#if club}
+								<div class="club" aria-labelledby="club-h" role="group">
+									<div class="club-head">
+										<h3 id="club-h" class="pixel">Link cable</h3>
+										<span class="chip" class:on={club.open}><span class="dot"></span>{club.open ? 'Can link' : 'Locked'}</span>
+									</div>
+									<dl>
+										<div><dt>Their game</dt><dd>{club.gameStep < 0 ? 'No Cable Club in this game' : GAME_STEPS[club.gameStep] ?? club.gameStep}</dd></div>
+										<div><dt>Now</dt><dd>{club.linkedWith ? `Linked with ${nameOf(club.linkedWith)}` : club.ready ? `Waiting in the lobby (${club.ready.toLowerCase()})` : 'Not linked'}</dd></div>
+									</dl>
+									<div class="seg" role="radiogroup" aria-label="Cable Club access">
+										{#each [['AUTO', 'Auto'], ['OPEN', 'Open'], ['LOCKED', 'Locked']] as [m, label] (m)}
+											<button type="button" role="radio" aria-checked={club.mode === m} class:sel={club.mode === m} onclick={() => setClub(m as Club['mode'])}>{label}</button>
+										{/each}
+									</div>
+									<p class="muted">Auto: their game decides. Open: they can link now (their game's flag is set while it's free; they save to keep it). Locked: no links.</p>
+									{#if club.note}<p class="warn">{club.note}</p>{/if}
+								</div>
+							{/if}
 							<div class="god" aria-labelledby="god-h" role="group">
 								<h3 id="god-h" class="pixel">God message</h3>
 								<p class="muted">Glows across {nameOf(id)}'s Game Boy screen for a few seconds. Nobody else sees it.</p>
@@ -565,6 +604,70 @@
 		white-space: nowrap;
 	}
 	/* The god message, under the Game Boy's facts: a purple-edged box. */
+	.club {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin-top: 4px;
+		padding: 12px;
+		border-radius: 12px;
+		border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+	}
+	.club-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+	.club h3 {
+		margin: 0;
+		font-size: 12px;
+	}
+	.club dl {
+		margin: 0;
+		display: grid;
+		gap: 4px;
+		font-size: 13px;
+	}
+	.club dl div {
+		display: flex;
+		gap: 8px;
+	}
+	.club dt {
+		color: var(--muted);
+		min-width: 80px;
+	}
+	.club dd {
+		margin: 0;
+	}
+	.club p {
+		margin: 0;
+		font-size: 12px;
+	}
+	.club .warn {
+		color: var(--warning, #e0b228);
+	}
+	.seg {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 4px;
+		padding: 3px;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+	}
+	.seg button {
+		border: none;
+		border-radius: 7px;
+		padding: 6px 0;
+		background: transparent;
+		color: var(--text);
+		font: 600 13px var(--body-font);
+		cursor: pointer;
+	}
+	.seg button.sel {
+		background: var(--accent);
+		color: var(--accent-contrast, #1a1a1a);
+	}
 	.god {
 		display: flex;
 		flex-direction: column;

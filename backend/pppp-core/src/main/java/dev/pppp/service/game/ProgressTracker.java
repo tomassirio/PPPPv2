@@ -91,7 +91,8 @@ public class ProgressTracker {
     private Set<String> online = Set.of(); // poll thread only
 
     public ProgressTracker(PlayerConsoles consoles, CartridgeService cartridges, ProgressRepository repo,
-                           ApplicationEventPublisher events) {
+                           ApplicationEventPublisher events, dev.pppp.repository.PlayerRepository players) {
+        this.players = players;
         this.consoles = consoles;
         this.cartridges = cartridges;
         this.repo = repo;
@@ -129,8 +130,9 @@ public class ProgressTracker {
                 log.warn("Progress poll failed for {}", userId, e);
             }
         }
-        if (!running.equals(online)) { // a console came into memory: the online flags changed
-            online = running;
+        Set<String> awake = consoles.awake();
+        if (!awake.equals(online)) { // a console started, paused or resumed: the online flags changed
+            online = awake;
             events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
         }
     }
@@ -207,9 +209,43 @@ public class ProgressTracker {
      * Crystal once they gave Elm the Mystery Egg (their last confirmed reading, kept while they are away).
      */
     public boolean cableClubOpen(String userId) {
+        String mode = cableClubMode(userId);
+        if (mode != null) return mode.equals(OPEN);
         if (!(profile(userId) instanceof PokemonGen2)) return true;
-        return cableClub(cards.computeIfAbsent(userId, repo::card), logs.computeIfAbsent(userId, repo::log))
-                >= TrainerCard.CABLE_CLUB_OPEN;
+        return gameCableClub(userId) >= TrainerCard.CABLE_CLUB_OPEN;
+    }
+
+    /** Where their game is on the way to the Cable Club (0-3, 3 open); -1 for games without one. */
+    public int gameCableClub(String userId) {
+        if (!(profile(userId) instanceof PokemonGen2)) return -1;
+        return cableClub(cards.computeIfAbsent(userId, repo::card), logs.computeIfAbsent(userId, repo::log));
+    }
+
+    public static final String OPEN = "OPEN", LOCKED = "LOCKED";
+    private final dev.pppp.repository.PlayerRepository players;
+    /** Admin Cable Club settings (pibs:player:{userId} cableClub), "" for none: read once per player. */
+    private final Map<String, String> clubModes = new ConcurrentHashMap<>();
+
+    /** An admin's Cable Club setting for the player: OPEN, LOCKED, or null (their game decides). */
+    public String cableClubMode(String userId) {
+        String m = clubModes.computeIfAbsent(userId, id -> java.util.Objects.requireNonNullElse(players.cableClub(id), ""));
+        return m.isEmpty() ? null : m;
+    }
+
+    /** Sets (OPEN, LOCKED) or clears (null) the admin's Cable Club setting; everyone's scoreboard shows the change. */
+    public void setCableClubMode(String userId, String mode) {
+        if (mode != null && !mode.equals(OPEN) && !mode.equals(LOCKED)) throw new IllegalArgumentException("Mode must be OPEN, LOCKED or AUTO");
+        players.saveCableClub(userId, mode);
+        clubModes.put(userId, mode == null ? "" : mode);
+        events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
+    }
+
+    /** The row's Cable Club step with the admin's setting applied: OPEN shows open, LOCKED never does. */
+    private int clubStep(String userId, int game) {
+        String mode = cableClubMode(userId);
+        if (OPEN.equals(mode)) return TrainerCard.CABLE_CLUB_OPEN;
+        if (LOCKED.equals(mode)) return Math.max(0, Math.min(game, TrainerCard.CABLE_CLUB_OPEN - 1));
+        return game;
     }
 
     /**
@@ -434,7 +470,7 @@ public class ProgressTracker {
 
     /** Every player who picked a game, where they last were. */
     public List<OnMap> onMap() {
-        Set<String> running = consoles.running();
+        Set<String> running = consoles.awake();
         List<OnMap> out = new ArrayList<>();
         for (String userId : repo.ranking()) {
             TrainerCard c = cards.computeIfAbsent(userId, repo::card);
@@ -527,7 +563,7 @@ public class ProgressTracker {
 
     /** Every player who picked a game, best Trainer Score first (then achievement points). */
     public List<ScoreRow> scoreboard() {
-        Set<String> running = consoles.running();
+        Set<String> running = consoles.awake(); // "online": playing now; a paused console is offline
         List<ScoreRow> rows = new ArrayList<>();
         for (String userId : repo.ranking()) {
             Progress p = awarded.computeIfAbsent(userId, repo::progress);
@@ -539,7 +575,8 @@ public class ProgressTracker {
             rows.add(new ScoreRow(userId, points(p) + linkPoints, p.badges().size(), p.caught().size(), p.seen().size(),
                     consoles.game(userId), running.contains(userId), t.score(), t.title(), t.grade(), points(a),
                     a.size(), members(c), c.location(), c.playTime(), c.johtoBadges(), c.kantoBadges(), c.trainerName(),
-                    ScoreRow.Link.of(log), profile(userId) instanceof PokemonGen2 ? cableClub(c, log) : -1));
+                    ScoreRow.Link.of(log), profile(userId) instanceof PokemonGen2 ? clubStep(userId, cableClub(c, log))
+                            : cableClubMode(userId) == null ? -1 : clubStep(userId, TrainerCard.CABLE_CLUB_OPEN)));
         }
         // Ranked by the uncapped total (activity points + achievement points); the capped Trainer Score order of
         // pibs:scoreboard breaks ties (the sort is stable).
