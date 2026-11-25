@@ -26,6 +26,11 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class LinkService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LinkService.class);
+    /** How often a running session is logged (rooms, dialogs, speed, cable traffic): what a stuck link needs. */
+    private static final long DIAGNOSE_MS = 10_000;
+    private final Map<String, Long> bits = new HashMap<>();
+    private long diagnosed;
     private static final Set<String> KINDS = Set.of("TRADE", "BATTLE");
 
     /** Non-final so tests need not wait a minute. */
@@ -185,6 +190,7 @@ public class LinkService {
         sessions.put(s.a(), s);
         sessions.put(s.b(), s);
         events.publishEvent(new LiveEvent("LINK_SESSION", s));
+        log.info("Link {} started: {} and {}", s.kind(), s.a(), s.b());
         chat.postSystem(name(s.a()) + " and " + name(s.b()) + " plugged in a link cable to "
                 + ("TRADE".equals(s.kind()) ? "trade" : "battle"));
     }
@@ -248,6 +254,16 @@ public class LinkService {
                 }
             }
         }
+        if (now - diagnosed >= DIAGNOSE_MS) {
+            diagnosed = now;
+            for (SessionEvent s : sessions.values().stream().distinct().toList()) {
+                try {
+                    diagnose(s);
+                } catch (RuntimeException e) {
+                    log.info("Link {} {} and {}: no diagnosis ({})", s.kind(), s.a(), s.b(), e.getMessage());
+                }
+            }
+        }
         for (SessionEvent s : sessions.values().stream().distinct().toList()) {
             boolean changed = false, finished = false;
             for (String id : List.of(s.a(), s.b())) {
@@ -267,6 +283,23 @@ public class LinkService {
                 events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.since(), "ROOM", null)));
             }
         }
+    }
+
+    /** One log line per session: each end's room, what holds them (a dialog, a step), speed, cable bits since last. */
+    private void diagnose(SessionEvent s) {
+        StringBuilder line = new StringBuilder("Link " + s.kind() + " " + (now() - s.since()) / 1000 + "s:");
+        for (String id : List.of(s.a(), s.b())) {
+            long b = consoles.serialBits(id), before = bits.getOrDefault(id, b);
+            bits.put(id, b);
+            Double speed = consoles.measuredSpeed(id);
+            line.append(String.format(" %s in %s (%s, %.2fx, +%d bits);", id, dig.map(id), java.util.Objects.requireNonNullElse(dig.blocker(id), "free"),
+                    speed == null ? 0 : speed, b - before));
+        }
+        log.info(line.toString());
+    }
+
+    private static long now() {
+        return System.currentTimeMillis();
     }
 
     /** The Time Capsule trades too (with Red, Blue and Yellow). */
@@ -295,6 +328,9 @@ public class LinkService {
         visited.remove(s.b());
         talk.remove(s.a());
         talk.remove(s.b());
+        bits.remove(s.a());
+        bits.remove(s.b());
+        log.info("Link {} {} and {} ended: {}", s.kind(), s.a(), s.b(), reason);
         consoles.pin(s.a(), false);
         consoles.pin(s.b(), false);
         consoles.unlink(userId); // parks both consoles

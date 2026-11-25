@@ -68,6 +68,9 @@ final class SameBoy {
     /** Whether samples are made from now on (off: the APU runs, makes none). */
     static native void sound(long h, boolean on);
 
+    /** Link cable bits this console clocked so far (a diagnostic). */
+    static native long serialBits(long h);
+
     /** The last frame, 160x144 0xRRGGBB. */
     static native void pixels(long h, int[] out);
 

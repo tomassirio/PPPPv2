@@ -196,6 +196,11 @@ public class EmulatorHost {
         return peer != null;
     }
 
+    /** Link cable bits this console has clocked since power-on (a diagnostic), read on its emulator thread. */
+    public long serialBits() {
+        return call(() -> SameBoy.serialBits(h));
+    }
+
     /** Pulls the link cable if plugged, flushes the battery save, then stops the emulator thread. */
     public void powerOff() {
         unlink(this); // before taking the monitor: unlinking runs on the driver's thread

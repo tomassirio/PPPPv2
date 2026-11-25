@@ -55,7 +55,7 @@ public class EventPublisher extends TextWebSocketHandler {
         // Sends come from many threads; a client that falls 5 s or 1 MB behind is dropped and reconnects.
         var socket = new ConcurrentWebSocketSessionDecorator(session, 5_000, 1 << 20);
         streams.put(session, new Stream(socket, CurrentUser.viewer(auth), CurrentUser.isAdmin(auth), sessionId));
-        log.info("Events socket opened for {} ({} open)", CurrentUser.id(auth), streams.size());
+        log.debug("Events socket opened for {} ({} open)", CurrentUser.id(auth), streams.size());
         publish("PRESENCE", viewers());
     }
 
@@ -142,7 +142,7 @@ public class EventPublisher extends TextWebSocketHandler {
     private void drop(WebSocketSession session) {
         Stream gone = streams.remove(session);
         if (gone == null) return;
-        log.info("Events socket closed for {} ({} open)", gone.viewer().id(), streams.size());
+        log.debug("Events socket closed for {} ({} open)", gone.viewer().id(), streams.size());
         publish("PRESENCE", viewers());
     }
 }

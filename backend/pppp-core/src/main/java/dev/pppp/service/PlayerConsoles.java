@@ -469,6 +469,16 @@ public class PlayerConsoles {
     }
 
     /** How fast the player's console really runs (1.0 = a real Game Boy), or null when it is not in memory. */
+    /** Link cable bits the player's console has clocked (diagnostics), or -1 when it is not running. */
+    public long serialBits(String userId) {
+        Console c = consoles.get(userId);
+        try {
+            return c == null ? -1 : c.host().serialBits();
+        } catch (IllegalStateException e) {
+            return -1; // switched off meanwhile
+        }
+    }
+
     public Double measuredSpeed(String userId) {
         Console c = consoles.get(userId);
         return c == null ? null : c.host().measuredSpeed();

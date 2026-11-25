@@ -21,6 +21,7 @@ typedef struct Console {
     struct Console *peer; /* the other end of the link cable, or NULL */
     bool bitOut;          /* the bit this console put on the cable */
     long long ticks;      /* 8 MHz ticks run, for lockstep */
+    long long bits;       /* link cable bits this console clocked, for diagnostics */
     int sampleRate;
 } Console;
 
@@ -41,6 +42,7 @@ static void bitStart(GB_gameboy_t *gb, bool bit) { ((Console *) GB_get_user_data
 
 static bool bitEnd(GB_gameboy_t *gb) {
     Console *c = GB_get_user_data(gb);
+    c->bits++;
     if (!c->peer) return true; /* no cable: the line idles high */
     bool in = GB_serial_get_data_bit(c->peer->gb);
     GB_serial_set_data_bit(c->peer->gb, c->bitOut);
@@ -134,6 +136,11 @@ JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_sound(JNIEnv *env, jclass 
     Console *c = of(h);
     GB_set_sample_rate(c->gb, on ? c->sampleRate : 0);
     if (!on) c->audioCount = 0;
+}
+
+/** Link cable bits this console has clocked since it was created (a plain read: a diagnostic, not synchronised). */
+JNIEXPORT jlong JNICALL Java_dev_pppp_emulator_SameBoy_serialBits(JNIEnv *env, jclass cls, jlong h) {
+    return of(h)->bits;
 }
 
 JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_pixels(JNIEnv *env, jclass cls, jlong h, jintArray out) {

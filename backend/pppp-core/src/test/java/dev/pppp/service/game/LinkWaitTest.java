@@ -27,6 +27,10 @@ class LinkWaitTest {
     }
 
     private static Player boot(String user, String cart) throws Exception {
+        return boot(user, cart, "BATTLE");
+    }
+
+    private static Player boot(String user, String cart, String kind) throws Exception {
         Path rom = DATA.resolve("roms/" + cart + ".gbc"), saves = DATA.resolve("saves/" + user);
         assumeTrue(Files.exists(rom) && Files.exists(saves.resolve(cart + ".state")), "no " + cart + " save for " + user);
         Path sav = Files.createTempDirectory("link-wait").resolve("game.sav");
@@ -38,12 +42,13 @@ class LinkWaitTest {
         host.loadState(Files.readAllBytes(saves.resolve(cart + ".state")));
         var game = PokecenterDig.game(Files.readAllBytes(rom)).orElseThrow();
         String why = host.withBus(bus -> PokecenterDig.check(game, bus));
-        for (int i = 0; i < 20 && why != null && why.startsWith("in a menu"); i++) {
-            host.press(Button.B, 6, 20);
+        for (int i = 0; i < 60 && why != null && (why.startsWith("in a menu") || why.equals("busy")); i++) {
+            if (why.equals("busy")) host.press(Button.WAIT, 2, 0); // mid-frame with another WRAM bank in: a moment later
+            else host.press(Button.B, 6, 20);
             why = host.withBus(bus -> PokecenterDig.check(game, bus));
         }
         assumeTrue(why == null, why);
-        assertThat(host.<Boolean>withBus(bus -> PokecenterDig.queue(user, game, bus, "BATTLE"))).isTrue();
+        assertThat(host.<Boolean>withBus(bus -> PokecenterDig.queue(user, game, bus, kind))).isTrue();
         return new Player(host, game);
     }
 
@@ -61,6 +66,29 @@ class LinkWaitTest {
             }
             assertThat(a.map()).isEqualTo("COLOSSEUM");
             assertThat(b.map()).isEqualTo("COLOSSEUM");
+        } finally {
+            a.host.shutdown();
+            b.host.shutdown();
+        }
+    }
+
+    /** Two Crystal games (last night's pair was Crystal with Crystal): both reach the room, trade and battle. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"TRADE", "BATTLE"})
+    void crystalWithCrystal(String kind) throws Exception {
+        Player a = boot("linktest@local", CRYSTAL, kind), b = boot("linktest@local", CRYSTAL, kind);
+        String room = kind.equals("TRADE") ? "TRADE_CENTER" : "COLOSSEUM";
+        try {
+            EmulatorHost.link(a.host, b.host);
+            Thread.sleep(5000); // the dig
+            for (int i = 0; i < 80 && !(room.equals(a.map()) && room.equals(b.map())); i++) {
+                Thread other = Thread.ofVirtual().start(() -> a.host.press(Button.A, 6, 24));
+                b.host.press(Button.A, 6, 24);
+                other.join();
+            }
+            System.out.println("Crystal x Crystal " + kind + ": " + a.map() + " / " + b.map());
+            assertThat(a.map()).isEqualTo(room);
+            assertThat(b.map()).isEqualTo(room);
         } finally {
             a.host.shutdown();
             b.host.shutdown();
