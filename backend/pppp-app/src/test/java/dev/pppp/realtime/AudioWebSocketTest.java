@@ -99,12 +99,16 @@ class AudioWebSocketTest {
 
             assertThat(header.get(5, TimeUnit.SECONDS))
                     .isEqualTo("{\"sampleRate\":22050,\"channels\":1,\"format\":\"s16le\"}");
-            // The first chunk can be short: sound is only made once someone listens (EmulatorHost), from the next frame
-            // on, and that frame may end early. The next one is a whole frame.
-            byte[] first = chunks.poll(5, TimeUnit.SECONDS), chunk = chunks.poll(5, TimeUnit.SECONDS);
-            assertThat(first).isNotNull();
+            // Right after power-on the chunks can be short (sound starts once someone listens, the boot ROM hands over);
+            // within a few seconds they are a whole frame each: 22050 / 59.73 samples, 2 bytes each.
+            byte[] chunk = chunks.poll(5, TimeUnit.SECONDS);
             assertThat(chunk).isNotNull();
-            assertThat(chunk.length).isEven().isBetween(600, 900); // ~1 frame: 22050 / 59.73 * 2 bytes
+            for (int i = 0; i < 300 && chunk != null && (chunk.length < 600 || chunk.length > 900); i++) {
+                assertThat(chunk.length).isEven();
+                chunk = chunks.poll(5, TimeUnit.SECONDS);
+            }
+            assertThat(chunk).as("a whole frame's chunk").isNotNull();
+            assertThat(chunk.length).isEven().isBetween(600, 900);
 
             events.publishEvent(new UserRevokedEvent("friend@x.y"));
             assertThat(closed.get(5, TimeUnit.SECONDS).getCode()).isEqualTo(CloseStatus.POLICY_VIOLATION.getCode());
