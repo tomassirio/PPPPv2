@@ -192,6 +192,14 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Speed: one Fast toggle (`SpeedControl`; on = the server's 4x: as fast as it manages, ~3x on the Pi since SameBoy; `GET /api/v1/me/speed` still reports the measured rate); a Pi 4
   core ran a Gen 2 console at about 1.2x on Coffee GB (`GET /api/v1/me/speed` timing: all of it in the emulator);
   hence SameBoy (2.1.0): ~2.7x cheaper per frame on a Mac, Pi numbers still to measure.
+- Done: metrics. `/actuator/prometheus` (cluster-only: the frontend's nginx never proxies /actuator; permitted without
+  login) adds `GameMetrics` (pppp-app config) to the JVM/HTTP ones: gauges read per scrape, aggregates only (no user ids):
+  pppp_consoles{state}, pppp_consoles_by_game{game}, pppp_consoles_fast, pppp_console_speed_avg/min, pppp_consoles_lagging
+  (1x below 0.9), pppp_emulator_{cpu,listeners,hooks}_cores (EmulatorHost.Timing summed), pppp_players_online,
+  pppp_scoreboard_players, pppp_websockets{endpoint}, pppp_link_sessions, pppp_lobby_ready, pppp_notes; counter
+  pppp_events_total{type, detail} from LiveEvents (PROGRESS, ACHIEVEMENT_UNLOCKED, MYSTERY_GIFT, CHAT_MESSAGE+kind,
+  LINK_CHALLENGE+status, LINK_SESSION+status, PLAYER_RESET). Scraped by turing-pi-server's Prometheus (job
+  `ppppv2-backend-prod`, labels project=ppppv2 ...); Grafana dashboard `services/grafana/dashboards/ppppv2.json` there.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, README
   (still describes v1).

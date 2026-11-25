@@ -20,7 +20,7 @@ public class SecurityConfig {
     SecurityFilterChain filterChain(HttpSecurity http, AllowlistOidcUserService allowlistOidcUserService) throws Exception {
         return http
                 .authorizeHttpRequests(a -> a
-                        .requestMatchers("/", "/assets/**", "/actuator/health/**", "/error").permitAll()
+                        .requestMatchers("/", "/assets/**", "/actuator/health/**", "/actuator/prometheus", "/error").permitAll()
                         // Mapped only when pppp.dev-login=true (DevLoginController); otherwise a 404.
                         .requestMatchers("/dev/login", "/dev/nudge", "/dev/grade").permitAll()
                         // The sign-in page's teaser (player counts only).

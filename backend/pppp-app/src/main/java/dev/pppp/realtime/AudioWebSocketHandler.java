@@ -72,4 +72,9 @@ public class AudioWebSocketHandler extends AbstractWebSocketHandler {
     public void onUserRevoked(UserRevokedEvent event) {
         ScreenWebSocketHandler.closeSessionsOf(sessions.keySet(), event.userId());
     }
+
+    /** Open /ws/audio sockets (metrics). */
+    public int sockets() {
+        return sessions.size();
+    }
 }

@@ -162,4 +162,9 @@ public class WatchWebSocketHandler extends AbstractWebSocketHandler {
             ScreenWebSocketHandler.close(session, CloseStatus.SESSION_NOT_RELIABLE);
         }
     }
+
+    /** Open /ws/watch sockets (metrics). */
+    public int sockets() {
+        return watched.values().stream().mapToInt(w -> w.sockets().size()).sum();
+    }
 }

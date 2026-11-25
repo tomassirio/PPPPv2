@@ -145,4 +145,9 @@ public class EventPublisher extends TextWebSocketHandler {
         log.debug("Events socket closed for {} ({} open)", gone.viewer().id(), streams.size());
         publish("PRESENCE", viewers());
     }
+
+    /** Open /ws/events sockets (metrics). */
+    public int sockets() {
+        return streams.size();
+    }
 }

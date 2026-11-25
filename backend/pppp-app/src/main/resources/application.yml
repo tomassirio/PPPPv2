@@ -41,7 +41,8 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        # prometheus: scraped inside the cluster (turing-pi-server's Prometheus); the frontend's nginx never proxies /actuator.
+        include: health,prometheus
 
 pppp:
   # Seeds the first admin when the allowlist is empty.

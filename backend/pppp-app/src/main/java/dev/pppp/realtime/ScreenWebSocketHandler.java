@@ -173,4 +173,9 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
             // already gone
         }
     }
+
+    /** Open /ws/screen sockets (metrics). */
+    public int sockets() {
+        return viewers.values().stream().mapToInt(v -> v.sockets().size()).sum();
+    }
 }
