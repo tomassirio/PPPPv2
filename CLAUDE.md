@@ -127,7 +127,9 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   of the width or a flick switches, else it springs back; not
   from the screen, the pad's buttons, text fields or sideways scrollers). The Link cable card fills its panel on
   phones (record as stat tiles, Trade/Battle tiles with a hint); "Nobody is waiting" is an empty state on every size.
-  Chat: only admins see system lines and emotes in the list (and the System / Emotes switches).
+  Chat: only admins see system lines and emotes (the lone swaps: ok, gg, <3, :youlost: ...) in the list (and the
+  System / Emotes switches); formatted lines show with their markers taken out (`plainText`). The "Aa" button by the
+  message box opens the formats and emotes (`FORMATS`, `EMOTES` in chat/bubble.ts; :youlost: kept a secret), click to insert.
   `FindButton` is the one "Find someone online" button (Link cable card, /watch, profiles).
   On phones Link cable and Your run are exactly the height left under the screen (size containers) and drop parts by
   height container queries instead of scrolling; Scoreboard, Activity and Chat scroll their lists.

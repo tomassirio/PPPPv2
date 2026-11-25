@@ -1,7 +1,7 @@
 <!-- CONTRACT: self-contained chat panel, no props. Fills its container's height; the play page decides placement. -->
 <script lang="ts">
 	import { nameOf } from '#lib/pictures.svelte.ts';
-	import { isEmote } from '#lib/chat/bubble.ts';
+	import { EMOTES, FORMATS, isEmote, plainText } from '#lib/chat/bubble.ts';
 	import Name from '#lib/components/Name.svelte';
 	import { onMount, tick } from 'svelte';
 	import { api, ApiError } from '../api';
@@ -144,6 +144,12 @@
 		};
 	});
 
+	// A format or emote from the help panel into the message: an emote replaces it (it only works alone).
+	function insert(text: string, alone = false) {
+		draft = alone ? text : draft ? `${draft.replace(/\s*$/, '')} ${text}` : text;
+		queueMicrotask(() => document.getElementById('chat-input')?.focus());
+	}
+
 	async function send(e?: Event) {
 		e?.preventDefault();
 		const text = draft.trim();
@@ -267,7 +273,7 @@
 					{/if}
 					<time class="ts" datetime={new Date(m.at).toISOString()}>{time(m.at)}</time>
 				</div>
-				{#if !system}<p class="text body">{m.text}</p>{/if}
+				{#if !system}<p class="text body">{plainText(m.text)}</p>{/if}
 				{#if admin && !system}
 					<span class="mod">
 						<button type="button" onclick={() => del(m)} aria-label="Delete message from {nameOf(m.user)}">Delete</button>
@@ -313,6 +319,24 @@
 			readonly={sending}
 			aria-describedby="chat-count chat-error"
 		></textarea>
+		<!-- What can be typed: formats and emotes, on hover or focus; a pick goes into the message. -->
+		<div class="help">
+			<button type="button" class="help-btn" aria-label="Formats and emotes" aria-describedby="chat-help">Aa</button>
+			<div id="chat-help" class="help-panel" role="tooltip">
+				<p class="help-h">Formats</p>
+				<ul>
+					{#each FORMATS as f (f.example)}
+						<li><button type="button" onclick={() => insert(f.insert)}><code>{f.example}</code><span>{f.label}</span></button></li>
+					{/each}
+				</ul>
+				<p class="help-h">Emotes <span>(sent alone: over your head on the screen)</span></p>
+				<ul class="emotes">
+					{#each EMOTES as e (e.example)}
+						<li><button type="button" onclick={() => insert(e.example, true)}><code>{e.example}</code><span>{e.shows}</span></button></li>
+					{/each}
+				</ul>
+			</div>
+		</div>
 		<button type="submit" disabled={sending || !draft.trim()}>Send</button>
 	</form>
 	<div class="foot">
@@ -322,6 +346,110 @@
 </section>
 
 <style>
+	/* The panel spans the message row (the form), so it stays inside the chat card. */
+	form {
+		position: relative;
+	}
+	.help {
+		align-self: stretch;
+		display: flex;
+	}
+	.help-btn {
+		min-width: 40px;
+		padding: 0 10px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		background: transparent;
+		color: var(--muted);
+		font: 700 14px var(--body-font);
+		cursor: help;
+	}
+	.help-panel {
+		position: absolute;
+		bottom: calc(100% + 8px);
+		left: 0;
+		right: 0;
+		z-index: 30;
+		max-height: 60vh;
+		overflow-y: auto;
+		padding: 10px 12px;
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--panel);
+		box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+		visibility: hidden;
+		opacity: 0;
+		translate: 0 4px;
+		transition:
+			opacity 0.12s,
+			translate 0.12s,
+			visibility 0.12s;
+	}
+	/* Shown while hovered or focused (keyboard: Tab to "Aa", then into the list; a tap on touch screens). */
+	.help:hover .help-panel,
+	.help:focus-within .help-panel {
+		visibility: visible;
+		opacity: 1;
+		translate: 0 0;
+	}
+	.help-h {
+		margin: 6px 0 4px;
+		font-size: 11px;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--muted);
+	}
+	.help-h span {
+		text-transform: none;
+		font-weight: 500;
+		letter-spacing: 0;
+	}
+	.help-panel ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: grid;
+		gap: 2px;
+	}
+	.help-panel ul.emotes {
+		grid-template-columns: 1fr 1fr;
+	}
+	.help-panel li button {
+		width: 100%;
+		height: auto;
+		min-height: 0;
+		line-height: 1.3;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 4px 6px;
+		border: none;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--text);
+		font: 13px var(--body-font);
+		text-align: left;
+		cursor: pointer;
+	}
+	.help-panel li button:hover,
+	.help-panel li button:focus-visible {
+		background: color-mix(in srgb, var(--muted) 14%, transparent);
+	}
+	.help-panel code {
+		font: 12px ui-monospace, monospace;
+		color: var(--accent-text);
+	}
+	.help-panel li span {
+		color: var(--muted);
+		font-size: 12px;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.help-panel {
+			transition: none;
+		}
+	}
 	.chat {
 		height: 100%;
 		min-height: 0;

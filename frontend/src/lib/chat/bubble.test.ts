@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bubble, isEmote, letters, mentions, type BubbleContext } from './bubble';
+import { bubble, isEmote, letters, mentions, plainText, type BubbleContext } from './bubble';
 
 const ctx: BubbleContext = {
 	players: [{ id: 'ash@x.y', handles: ['ash', 'Ashy'] }],
@@ -71,8 +71,12 @@ describe('chat bubbles', () => {
 	});
 
 	it('tells emotes from things said', () => {
-		for (const t of ['ok', ':youlost:', '<3', ':shrug:', '**tuvi**', 'so !!mad!!', '((psst))', ':fucku:']) expect(isEmote(t)).toBe(true);
-		for (const t of ['ok then', 'hi @ash', 'my pikachu', 'idk :shrug: maybe', '2 ** 3']) expect(isEmote(t)).toBe(false);
+		for (const t of ['ok', ':youlost:', '<3', ':shrug:', ':fucku:', 'zzz']) expect(isEmote(t)).toBe(true);
+		for (const t of ['ok then', 'hi @ash', 'my pikachu', 'idk :shrug: maybe', '2 ** 3', '**tuvi**', 'so !!mad!!', '((psst))']) expect(isEmote(t)).toBe(false);
+		// Formatted lines are said, shown without their markers.
+		expect(plainText('so !!mad!! and **happy** ~~ok~~ ((psst)) _err_')).toBe('so mad and happy ok psst err');
+		expect(plainText('idk :shrug: maybe')).toBe('idk ¯\\_(ツ)_/¯ maybe');
+		expect(plainText('2 ** 3')).toBe('2 ** 3');
 	});
 
 	it('splits letters without breaking emoji', () => {

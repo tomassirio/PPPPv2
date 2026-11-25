@@ -112,16 +112,37 @@ function parse(text: string, ctx: BubbleContext): BubbleSeg[] {
 }
 
 /**
- * An emote rather than something said: a lone swap (ok, gg, <3, :youlost: ...), :shrug: alone, or a line with an effect
- * (**rainbow**, !!shout!! ...). These show over the player's head only; the chat list and overlay leave them out
- * (unless the reader turns emotes on), so the chat is not flooded with them.
+ * An emote rather than something said: a lone swap (ok, gg, <3, :youlost: ...) or :shrug: alone. These show over the
+ * player's head only; the chat list and overlay leave them out (unless an admin turns emotes on). A line with effects
+ * (**rainbow**, !!shout!! ...) is something said: the list shows it with the markers taken out (plainText).
  */
 export function isEmote(text: string): boolean {
-	const b = bubble(text);
-	if (!('segs' in b)) return true;
-	if (/^\s*:shrug:\s*$/i.test(text)) return true;
-	return b.segs.some((s) => s.kind !== 'text' && s.kind !== 'mention' && s.kind !== 'mon');
+	return !('segs' in bubble(text)) || /^\s*:shrug:\s*$/i.test(text);
 }
+
+/** The line as plain text: the effect markers taken out (**hi** -> hi), :shrug: and :fucku: drawn. */
+export const plainText = (text: string) => parse(text, {}).map((s) => s.text).join('');
+
+/** What the chat's formats panel lists (:youlost: left out on purpose: a surprise). */
+export const FORMATS: { example: string; insert: string; label: string }[] = [
+	{ example: '**rainbow**', insert: '**text**', label: 'Rainbow' },
+	{ example: '!!shout!!', insert: '!!text!!', label: 'Shout' },
+	{ example: '~~wobble~~', insert: '~~text~~', label: 'Wobble' },
+	{ example: '_glitch_', insert: '_text_', label: 'Glitch' },
+	{ example: '((whisper))', insert: '((text))', label: 'Whisper' },
+	{ example: '@name', insert: '@', label: 'Mention a Pib' },
+	{ example: 'Pikachu', insert: 'Pikachu', label: 'A Pokémon becomes its icon' }
+];
+export const EMOTES: { example: string; shows: string }[] = [
+	{ example: 'ok', shows: '👍' },
+	{ example: 'gg', shows: '🏆' },
+	{ example: 'lol', shows: '😂' },
+	{ example: '<3', shows: '❤️' },
+	{ example: '?', shows: '❗' },
+	{ example: 'zzz', shows: '💤' },
+	{ example: ':shrug:', shows: '¯\\_(ツ)_/¯' },
+	{ example: ':fucku:', shows: '🖕' }
+];
 
 /** Whether a chat line mentions this player (any of their handles). */
 export function mentions(text: string, handles: string[]): boolean {

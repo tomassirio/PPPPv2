@@ -5,7 +5,7 @@
 	import { chatOverlay } from '#lib/chatOverlay.svelte.ts';
 	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
 	import { on } from '#lib/events.ts';
-	import { isEmote } from '#lib/chat/bubble.ts';
+	import { isEmote, plainText } from '#lib/chat/bubble.ts';
 
 	let { hidden = false }: { hidden?: boolean } = $props();
 
@@ -26,7 +26,7 @@
 
 <ul class="overlay" aria-hidden="true">
 	{#each lines as m (m.id)}
-		<li><b style:color={nameColor(m.user)}>{nameOf(m.user)}</b> {m.text}</li>
+		<li><b style:color={nameColor(m.user)}>{nameOf(m.user)}</b> {plainText(m.text)}</li>
 	{/each}
 </ul>
 
