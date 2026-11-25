@@ -59,6 +59,15 @@ class PlayerSpritesTest {
         assertThat(PlayerSprites.patch(bytes, "CHRIS")).isSameAs(bytes);
         assertThat(PlayerSprites.patch(bytes, "CHRIS", "BLUE")).as("the default trainer in another colour").isNotSameAs(bytes);
         assertThat(PlayerSprites.sheet(bytes, "RED", "GREEN")).isNotEqualTo(PlayerSprites.sheet(bytes, "RED"));
+        // Recolouring in place writes exactly what a fresh boot's patch has at those bytes.
+        for (String key : new String[] {"CHRIS", "RED"}) {
+            for (String color : new String[] {null, "BLUE", "PINK"}) {
+                byte[] boot = PlayerSprites.patch(bytes, key, color);
+                var live = PlayerSprites.colorBytes(bytes, key, color);
+                assertThat(live).as(key + " " + color).isNotEmpty();
+                live.forEach((at, v) -> assertThat(boot[at] & 0xFF).as(key + " " + color + " @" + at).isEqualTo(v));
+            }
+        }
 
         var game = PokecenterDig.game(bytes).orElseThrow();
         Path sav = Files.createTempDirectory("sprite").resolve("game.sav");

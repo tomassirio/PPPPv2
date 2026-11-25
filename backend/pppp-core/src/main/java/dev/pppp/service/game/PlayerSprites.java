@@ -167,6 +167,30 @@ public final class PlayerSprites {
 
     private static final int OBJECT_PALETTE = 6; // object_struct (constants/map_object_constants.asm)
 
+    /**
+     * Just the colour bytes {@link #patch} writes for key in color, as offset -> value, from the cartridge's own
+     * bytes (rom): to recolour a running console in place (EmulatorHost.patchRom) without rebuilding it.
+     */
+    public static Map<Integer, Integer> colorBytes(byte[] rom, String key, String color) {
+        Layout at = layout(rom);
+        Choice c = at == null ? null : choice(rom, key == null ? DEFAULT : key);
+        if (c == null) return Map.of();
+        Integer pal = palette(color);
+        var out = new HashMap<Integer, Integer>();
+        if (at.spawnPlayer >= 0) {
+            boolean own = pal == null && c.id == SPRITE_CHRIS; // Chris in his own colours: the game's red, untouched
+            int palette = pal != null ? pal : rom[at.overworldSprites + (c.id - 1) * SPRITE_ENTRY + SPRITE_PALETTE] & 7;
+            for (int i = at.spawnPlayer; i < at.spawnPlayer + SCAN; i++) {
+                int v = rom[i + 1] & 0xFF;
+                if ((rom[i] & 0xFF) == LD_E && (v == NPC_RED || v == NPC_BLUE)) out.put(i + 1, own ? v : (NPC_PALETTES + palette) << 4);
+            }
+        } else {
+            int t = template(rom, at);
+            if (t >= 0) out.put(t + TEMPLATE_PALETTE, pal == null ? rom[t + TEMPLATE_PALETTE] & 0xFF : (NPC_PALETTES + pal) << 4);
+        }
+        return out;
+    }
+
     /** The ROM with c as the player's sprite (a copy), or null when the tables are not where pret has them. */
     private static byte[] trainer(byte[] rom, Layout at, Choice c) {
         if (!table(rom, at.chris, SPRITE_CHRIS, SPRITE_CHRIS_BIKE)) return null;

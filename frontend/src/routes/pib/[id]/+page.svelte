@@ -624,6 +624,18 @@
 		display: flex;
 		width: min(300px, 100%);
 	}
+	/* Wide screens: the trainer card and the points side by side whatever the trainer card says (its row is sized by
+	   its content, so a short "Saved: blue." used to wrap the points under it and grow the header). */
+	@media (min-width: 900px) {
+		.row.wrap.numbers {
+			flex-wrap: nowrap;
+			flex: none;
+		}
+		.trainer-slot,
+		.summary-slot {
+			flex: none;
+		}
+	}
 	.no-game {
 		display: flex;
 		flex-direction: column;

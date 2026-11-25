@@ -416,6 +416,18 @@ public class PlayerConsoles {
             throw new IllegalArgumentException("No trainer " + key + " in your game");
         }
         if (color != null && PlayerSprites.palette(color) == null) throw new IllegalArgumentException("No colour " + color);
+        // Only the colour: two bytes of the running console's ROM and the player's palette in RAM, in place (no
+        // rebuild, so nothing on the page reloads; a link cable stays in).
+        Console running = consoles.get(userId);
+        if (key.equals(sprite(userId)) && running != null) {
+            players.saveSpriteColor(userId, color);
+            byte[] rom = rom(running.cartridgeId());
+            running.host().patchRom(PlayerSprites.colorBytes(rom, key, color));
+            for (int i = 0; i < 30 && !Boolean.TRUE.equals(withBus(userId, bus -> PlayerSprites.repaint(bus, rom, key, color))); i++) {
+                // another WRAM bank in this frame: the next one
+            }
+            return;
+        }
         if (linkedWith(userId) != null) throw new IllegalStateException("Unplug the link cable first");
         players.saveSprite(userId, key);
         players.saveSpriteColor(userId, color);
