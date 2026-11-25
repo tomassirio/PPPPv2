@@ -51,7 +51,16 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
     private final PlayerConsoles consoles;
     private final ObjectMapper json;
 
-    ScreenWebSocketHandler(PlayerConsoles consoles, Ghosts ghosts, NoteService notes, ObjectMapper json) {
+    /** How long a /play visit lasts: one screen socket, open to close. */
+    private final io.micrometer.core.instrument.Timer visits;
+
+    ScreenWebSocketHandler(PlayerConsoles consoles, Ghosts ghosts, NoteService notes, ObjectMapper json,
+                           io.micrometer.core.instrument.MeterRegistry meters) {
+        visits = io.micrometer.core.instrument.Timer.builder("pppp_play_session").description("How long a /play visit lasts")
+                .serviceLevelObjectives(java.time.Duration.ofMinutes(1), java.time.Duration.ofMinutes(5),
+                        java.time.Duration.ofMinutes(15), java.time.Duration.ofMinutes(30), java.time.Duration.ofHours(1),
+                        java.time.Duration.ofHours(2), java.time.Duration.ofHours(4))
+                .register(meters);
         this.consoles = consoles;
         this.json = json;
         consoles.onFrame((userId, pixels) -> {
@@ -78,6 +87,7 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
 
     @Override
     public synchronized void afterConnectionEstablished(WebSocketSession session) {
+        session.getAttributes().put("openedAt", System.nanoTime());
         String userId = userId(session);
         String[] sent = {null}; // the players this socket last got; only its handoff's thread touches it
         viewers.compute(userId, (id, v) -> {
@@ -128,6 +138,7 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
 
     @Override
     public synchronized void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        if (session.getAttributes().get("openedAt") instanceof Long at) visits.record(System.nanoTime() - at, java.util.concurrent.TimeUnit.NANOSECONDS);
         String userId = userId(session);
         boolean[] last = {false};
         viewers.computeIfPresent(userId, (id, v) -> {

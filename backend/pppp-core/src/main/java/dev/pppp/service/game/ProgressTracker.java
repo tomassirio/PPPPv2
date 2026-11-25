@@ -246,6 +246,7 @@ public class ProgressTracker {
             feed.add(new ScoreEvent(userId, "TITLE", score.title() + " (" + score.grade() + ")", 0, at));
         }
         repo.rate(userId, score, fresh, rank(score, all), feed);
+        if (!fresh.isEmpty()) repo.saveMilestones(userId, fresh.keySet(), save.playHours() * 60 + save.playMinutes());
         unlocked.put(userId, all);
         trainers.put(userId, score);
         fresh.keySet().forEach(id -> events.publishEvent(new LiveEvent("ACHIEVEMENT_UNLOCKED", Map.of("user", userId,
@@ -294,7 +295,7 @@ public class ProgressTracker {
         Set<String> partners = new HashSet<>(was.partners());
         partners.add(partner);
         TrainerLog now = new TrainerLog(was.contacts(), was.hatched(), Set.copyOf(partners), was.trades(),
-                was.crossVersion(), was.eliteFour(), was.linkWins(), was.linkLosses());
+                was.crossVersion(), was.eliteFour(), was.linkWins(), was.linkLosses(), was.shinies());
         repo.saveLog(userId, now);
         logs.put(userId, now);
         unlock(userId, Achievements.earnedFromLog(now));
@@ -507,6 +508,16 @@ public class ProgressTracker {
         int n = 0;
         for (String userId : repo.ranking()) n += awarded.computeIfAbsent(userId, repo::progress).caught().size();
         return n;
+    }
+
+    /** Each player's trainer log (eggs hatched, shinies; metrics). */
+    public List<TrainerLog> logs() {
+        return repo.ranking().stream().map(id -> logs.computeIfAbsent(id, repo::log)).filter(Objects::nonNull).toList();
+    }
+
+    /** Each player's in-game play time, in minutes, when they unlocked the achievement (metrics); unknown ones left out. */
+    public List<Integer> minutesTo(String achievementId) {
+        return repo.ranking().stream().map(id -> repo.milestones(id).get(achievementId)).filter(Objects::nonNull).toList();
     }
 
     /** How many players on the scoreboard have unlocked the achievement (metrics). */

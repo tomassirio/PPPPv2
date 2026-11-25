@@ -171,8 +171,10 @@ public class AllowlistService {
     /** Lets a requester in with that role. */
     public void accept(String email, Role role) {
         String id = normalize(email);
-        if (!requests.exists(id)) throw new NotFoundException("No access request from " + id);
+        AccessRequest r = requests.find(id);
+        if (r == null) throw new NotFoundException("No access request from " + id);
         put(id, role);
+        requests.counted(r, false);
         chat.postAdmin(id + " was let in");
     }
 
@@ -181,6 +183,7 @@ public class AllowlistService {
         String id = normalize(email);
         if (!requests.remove(id)) throw new NotFoundException("No access request from " + id);
         requests.reject(id);
+        requests.counted(null, true);
         requestsChanged();
     }
 

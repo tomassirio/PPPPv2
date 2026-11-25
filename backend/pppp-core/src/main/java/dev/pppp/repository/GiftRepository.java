@@ -17,6 +17,18 @@ public class GiftRepository {
 
     public void add(String userId, String giftId, int quantity) {
         redis.opsForList().rightPush(key(userId), giftId + ":" + quantity);
+        redis.opsForHash().increment(StatsRepository.STATS, "giftsSent", 1);
+    }
+
+    /** The oldest gift reached the player's game. */
+    public void delivered(String userId) {
+        pop(userId);
+        redis.opsForHash().increment(StatsRepository.STATS, "giftsDelivered", 1);
+    }
+
+    /** Gifts still waiting for these players. */
+    public long waiting(java.util.Collection<String> userIds) {
+        return userIds.stream().mapToLong(id -> java.util.Objects.requireNonNullElse(redis.opsForList().size(key(id)), 0L)).sum();
     }
 
     /** The oldest waiting gift, or null. */

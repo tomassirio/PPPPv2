@@ -60,6 +60,8 @@ public class PlayerConsoles {
     private final List<BiConsumer<String, short[]>> audioListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<String>> idleListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<String>> awayListeners = new CopyOnWriteArrayList<>();
+    /** Told whenever the player does something on their console or page (ActivityService: daily active players). */
+    private final List<Consumer<String>> activeListeners = new CopyOnWriteArrayList<>();
     /** When each player last did something (a button, or the browser's activity ping): userId -> epoch ms. */
     private final Map<String, Long> lastActive = new ConcurrentHashMap<>();
     /** Consoles parked since: userId -> epoch ms; set and cleared inside the consoles map's compute for that key. */
@@ -111,11 +113,14 @@ public class PlayerConsoles {
             lastActive.put(id, System.currentTimeMillis());
             return c;
         });
+        activeListeners.forEach(l -> l.accept(userId));
     }
 
     /** The player did something on the site (the browser's activity ping): their console is not abandoned. */
     public void touch(String userId) {
-        if (consoles.containsKey(userId)) lastActive.put(userId, System.currentTimeMillis());
+        if (!consoles.containsKey(userId)) return;
+        lastActive.put(userId, System.currentTimeMillis());
+        activeListeners.forEach(l -> l.accept(userId));
     }
 
     /**
@@ -349,6 +354,10 @@ public class PlayerConsoles {
 
 
     /** Called with the player's id when they leave (before their console pauses) or reset it. */
+    public void onActive(Consumer<String> listener) {
+        activeListeners.add(listener);
+    }
+
     public void onIdle(Consumer<String> listener) {
         idleListeners.add(listener);
     }

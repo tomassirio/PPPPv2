@@ -139,7 +139,7 @@ public class MysteryGifts {
                 done = consoles.withBus(id, bus -> PokecenterDig.busy(game, bus) == null && put(bus, game.maps().pcItems(), item, quantity));
             }
             if (Boolean.TRUE.equals(done)) {
-                gifts.pop(id);
+                gifts.delivered(id);
                 events.publishEvent(new LiveEvent("MYSTERY_GIFT", Map.of("user", id, "name", gift.name(), "quantity", quantity, "pokemon", gift.pokemon())));
                 log.info("Mystery Gift {}x {} delivered to {}", quantity, gift.name(), id);
             }

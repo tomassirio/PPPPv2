@@ -53,6 +53,11 @@ public class NoteRepository {
         return added != null && added > 0;
     }
 
+    /** How many players rated the note Good. */
+    public long goods(String id) {
+        return java.util.Objects.requireNonNullElse(redis.opsForSet().size(GOOD + id), 0L);
+    }
+
     public java.util.Set<String> raters(String id) {
         java.util.Set<String> s = redis.opsForSet().members(GOOD + id);
         return s == null ? java.util.Set.of() : s;

@@ -48,12 +48,19 @@ public class GameMetrics implements MeterBinder {
     private final ProgressRepository progress;
     private final NoteRepository notes;
     private final ProgressTracker tracker;
+    private final dev.pppp.repository.StatsRepository stats;
+    private final dev.pppp.repository.GiftRepository gifts;
+    private final dev.pppp.repository.AccessRequestRepository requests;
     private MeterRegistry registry;
 
     public GameMetrics(PlayerConsoles consoles, LinkService link, EventPublisher events, ScreenWebSocketHandler screens,
                        AudioWebSocketHandler audio, WatchWebSocketHandler watch, ProgressRepository progress,
-                       NoteRepository notes, ProgressTracker tracker) {
+                       NoteRepository notes, ProgressTracker tracker, dev.pppp.repository.StatsRepository stats,
+                       dev.pppp.repository.GiftRepository gifts, dev.pppp.repository.AccessRequestRepository requests) {
         this.tracker = tracker;
+        this.stats = stats;
+        this.gifts = gifts;
+        this.requests = requests;
         this.consoles = consoles;
         this.link = link;
         this.events = events;
@@ -123,6 +130,90 @@ public class GameMetrics implements MeterBinder {
                 m -> scoreboard().stream().mapToInt(ScoreRow::trainerScore).average().orElse(0));
         gauge(r, "pppp_play_hours", "In-game play time, added up over every player, in hours",
                 m -> scoreboard().stream().mapToDouble(x -> hours(x.playTime())).sum());
+
+        // Daily active and returning players (pibs:active:{day}, UTC days).
+        gauge(r, "pppp_players_active", "Players who played in the window", m -> slow().activeToday, "window", "today");
+        gauge(r, "pppp_players_active", "Players who played in the window", m -> slow().activeYesterday, "window", "yesterday");
+        gauge(r, "pppp_players_active", "Players who played in the window", m -> slow().active7d, "window", "7d");
+        gauge(r, "pppp_players_active", "Players who played in the window", m -> slow().active30d, "window", "30d");
+        gauge(r, "pppp_players_returned", "Of yesterday's players, those back today", m -> slow().returnedDay, "after", "1d");
+        gauge(r, "pppp_players_returned", "Of last week's players (8-14 days ago), those back in the last 7 days", m -> slow().returnedWeek, "after", "7d");
+        gauge(r, "pppp_players_active_prev_week", "Players who played 8-14 days ago", m -> slow().previousWeek);
+        // In-game play time at each story step, for players whose unlock was seen with a play time.
+        MILESTONES.forEach((step, achievement) -> {
+            gauge(r, "pppp_hours_to_avg", "Average in-game hours when players reached this step", m -> slow().hoursTo.getOrDefault(step, new double[]{Double.NaN, 0})[0], "step", step);
+            gauge(r, "pppp_hours_to_players", "Players with a known play time for this step", m -> slow().hoursTo.getOrDefault(step, new double[]{0, 0})[1], "step", step);
+        });
+        gauge(r, "pppp_eggs_hatched", "Eggs hatched, added up over every player", m -> slow().hatched);
+        gauge(r, "pppp_shinies", "Shiny Pokémon ever seen in a party, added up over every player", m -> slow().shinies);
+        gauge(r, "pppp_gifts", "Mystery Gifts", m -> slow().totals.getOrDefault("giftsSent", 0L), "state", "sent");
+        gauge(r, "pppp_gifts", "Mystery Gifts", m -> slow().totals.getOrDefault("giftsDelivered", 0L), "state", "delivered");
+        gauge(r, "pppp_gifts", "Mystery Gifts", m -> slow().giftsWaiting, "state", "waiting");
+        gauge(r, "pppp_notes_rated", "Notes at least one player rated Good", m -> slow().notesRated);
+        gauge(r, "pppp_note_goods", "Good ratings on notes still on the ground", m -> slow().noteGoods);
+        gauge(r, "pppp_access_requests", "Sign-in requests waiting for an admin", m -> slow().requests);
+        gauge(r, "pppp_access_request_oldest_seconds", "How long the oldest waiting request has waited", m -> slow().oldestWait);
+        gauge(r, "pppp_access_accepted", "Sign-in requests let in (running total)", m -> slow().totals.getOrDefault("accessAccepted", 0L));
+        gauge(r, "pppp_access_rejected", "Sign-in requests turned down (running total)", m -> slow().totals.getOrDefault("accessRejected", 0L));
+        gauge(r, "pppp_access_wait_seconds", "Time requests waited before being let in, added up", m -> slow().totals.getOrDefault("accessWaitSeconds", 0L));
+    }
+
+    /** Steps timed in play hours and their achievements. */
+    private static final java.util.Map<String, String> MILESTONES = new java.util.LinkedHashMap<>();
+    static {
+        MILESTONES.put("first badge", "zephyr-badge");
+        MILESTONES.put("eight badges", "rising-badge");
+        MILESTONES.put("champion", "champion-of-johto");
+        MILESTONES.put("red defeated", "the-silent-summit");
+    }
+
+    /** What the Redis-heavy gauges read, built at most once a minute. */
+    private record Slow(long activeToday, long activeYesterday, long active7d, long active30d, long returnedDay,
+                        long returnedWeek, long previousWeek, java.util.Map<String, double[]> hoursTo, long hatched,
+                        long shinies, java.util.Map<String, Long> totals, long giftsWaiting, long notesRated,
+                        long noteGoods, long requests, double oldestWait) {}
+
+    private volatile Slow slow;
+    private volatile long slowAt;
+
+    private Slow slow() {
+        long now = System.currentTimeMillis();
+        if (slow == null || now - slowAt > 60_000) {
+            slow = buildSlow();
+            slowAt = now;
+        }
+        return slow;
+    }
+
+    private Slow buildSlow() {
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
+        Set<String> todays = stats.active(List.of(today)), yesterdays = stats.active(List.of(today.minusDays(1)));
+        Set<String> week = stats.active(days(today, 0, 7)), previous = stats.active(days(today, 7, 14));
+        java.util.Map<String, double[]> hoursTo = new java.util.HashMap<>();
+        MILESTONES.forEach((step, id) -> {
+            List<Integer> mins = tracker.minutesTo(id);
+            hoursTo.put(step, new double[]{mins.stream().mapToInt(Integer::intValue).average().orElse(Double.NaN) / 60, mins.size()});
+        });
+        var logs = tracker.logs();
+        var allNotes = notes.all();
+        long rated = 0, goods = 0;
+        for (var n : allNotes) {
+            long g = notes.goods(n.id());
+            if (g > 0) rated++;
+            goods += g;
+        }
+        var waiting = requests.findAll();
+        long oldest = waiting.stream().mapToLong(dev.pppp.model.AccessRequest::requestedAt).min().orElse(0);
+        return new Slow(todays.size(), yesterdays.size(), week.size(), stats.active(days(today, 0, 30)).size(),
+                yesterdays.stream().filter(todays::contains).count(), previous.stream().filter(week::contains).count(),
+                previous.size(), hoursTo, logs.stream().mapToLong(dev.pppp.model.TrainerLog::hatched).sum(),
+                logs.stream().mapToLong(l -> l.shinies().size()).sum(), stats.totals(), gifts.waiting(progress.ranking()),
+                rated, goods, waiting.size(), oldest == 0 ? 0 : (System.currentTimeMillis() - oldest) / 1000.0);
+    }
+
+    /** UTC days from today - from to today - (to - 1). */
+    private static List<java.time.LocalDate> days(java.time.LocalDate today, int from, int to) {
+        return java.util.stream.IntStream.range(from, to).mapToObj(today::minusDays).toList();
     }
 
     /** Story steps and the achievement that marks each (Achievements). */

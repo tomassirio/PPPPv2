@@ -49,6 +49,26 @@ public class AccessRequestRepository {
     }
 
     /** Returns false if there was no request. */
+    public AccessRequest find(String id) {
+        Object raw = redis.opsForHash().get(REQUESTS, id);
+        try {
+            return raw == null ? null : json.readValue(raw.toString(), AccessRequest.class);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+    }
+
+    /** Running totals for the metrics: let in (and how long they waited) or turned down. */
+    public void counted(AccessRequest accepted, boolean rejected) {
+        if (rejected) {
+            redis.opsForHash().increment(StatsRepository.STATS, "accessRejected", 1);
+            return;
+        }
+        redis.opsForHash().increment(StatsRepository.STATS, "accessAccepted", 1);
+        redis.opsForHash().increment(StatsRepository.STATS, "accessWaitSeconds",
+                Math.max(0, (System.currentTimeMillis() - accepted.requestedAt()) / 1000));
+    }
+
     public boolean remove(String id) {
         return redis.opsForHash().delete(REQUESTS, id) > 0;
     }

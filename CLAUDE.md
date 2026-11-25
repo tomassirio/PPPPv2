@@ -202,7 +202,15 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   `ProgressTracker.scoreboard()` (cached 10 s): pppp_pokemon_caught/seen, pppp_badges{region} (bit counts of the masks),
   pppp_players_by_badges{badges 0-16}, pppp_players_by_game, pppp_players_reached{step} (story funnel via
   `ProgressTracker.unlockedBy(achievement)`), pppp_pokemon_traded, pppp_link_battle_wins, pppp_achievements_unlocked,
-  pppp_trainer_score_avg, pppp_play_hours; pppp_link_sessions / pppp_lobby_ready by kind. Scraped by turing-pi-server's Prometheus (job
+  pppp_trainer_score_avg, pppp_play_hours; pppp_link_sessions / pppp_lobby_ready by kind.
+  Engagement: `ActivityService` (PlayerConsoles.onActive: open / activity ping) adds the player to Redis set
+  `pibs:active:{yyyy-mm-dd}` (UTC, 40-day TTL) once a day -> pppp_players_active{window today|yesterday|7d|30d},
+  pppp_players_returned{after 1d|7d}, pppp_players_active_prev_week. `pibs:milestones:{userId}` (achievement id -> play
+  minutes at unlock; ProgressTracker.rate) -> pppp_hours_to_avg/_players{step}. TrainerLog.shinies ("OT:DVs" ever in the
+  party) -> pppp_shinies; pppp_eggs_hatched. `pibs:stats` hash (StatsRepository; giftsSent/giftsDelivered from
+  GiftRepository, accessAccepted/accessWaitSeconds/accessRejected from AccessRequestRepository.counted) ->
+  pppp_gifts{state sent|delivered|waiting}, pppp_access_*; pppp_notes_rated, pppp_note_goods. Timer pppp_play_session
+  (a /ws/screen socket open to close, SLO buckets 1m-4h). The Redis-heavy gauges are built at most once a minute. Scraped by turing-pi-server's Prometheus (job
   `ppppv2-backend-prod`, labels project=ppppv2 ...); Grafana dashboard `services/grafana/dashboards/ppppv2.json` there.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, README

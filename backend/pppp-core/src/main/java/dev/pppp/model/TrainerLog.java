@@ -8,9 +8,19 @@ import java.util.Set;
  * the party; partners: user ids ever at the other end of the link cable; trades: Pokémon received in the Trade
  * Center / Time Capsule; crossVersion: one of them came from a Pib on another version; eliteFour: "clean" or
  * "fainted" while on the Elite Four / Lance / Hall of Fame maps, else null; linkWins / linkLosses: the save's
- * sLinkBattleWins / sLinkBattleLosses at its last read.
+ * sLinkBattleWins / sLinkBattleLosses at its last read; shinies: every shiny ever seen in the party, as "OT:DVs"
+ * (logs written before it existed read as none).
  */
 public record TrainerLog(Set<Integer> contacts, int hatched, Set<String> partners, int trades, boolean crossVersion,
-                         String eliteFour, int linkWins, int linkLosses) {
+                         String eliteFour, int linkWins, int linkLosses, Set<String> shinies) {
     public static final TrainerLog EMPTY = new TrainerLog(Set.of(), 0, Set.of(), 0, false, null, 0, 0);
+
+    public TrainerLog {
+        shinies = shinies == null ? Set.of() : shinies;
+    }
+
+    public TrainerLog(Set<Integer> contacts, int hatched, Set<String> partners, int trades, boolean crossVersion,
+                      String eliteFour, int linkWins, int linkLosses) {
+        this(contacts, hatched, partners, trades, crossVersion, eliteFour, linkWins, linkLosses, Set.of());
+    }
 }

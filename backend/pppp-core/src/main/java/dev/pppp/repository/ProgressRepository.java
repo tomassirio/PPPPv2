@@ -164,8 +164,24 @@ public class ProgressRepository {
     }
 
     /** Removes the player's progress, achievements, Trainer Score, history, rank and every activity entry of theirs. */
+    /** pibs:milestones:{userId}: achievement id -> in-game play time (minutes) when it was unlocked. */
+    private static final String MILESTONES = "pibs:milestones:";
+
+    public void saveMilestones(String userId, java.util.Collection<String> achievementIds, int playMinutes) {
+        Map<String, String> m = new java.util.HashMap<>();
+        achievementIds.forEach(id -> m.put(id, String.valueOf(playMinutes)));
+        redis.opsForHash().putAll(MILESTONES + userId, m);
+    }
+
+    public Map<String, Integer> milestones(String userId) {
+        Map<String, Integer> out = new java.util.HashMap<>();
+        redis.<String, String>opsForHash().entries(MILESTONES + userId).forEach((k, v) -> out.put(k, Integer.parseInt(v)));
+        return out;
+    }
+
     public void delete(String userId) {
-        redis.delete(List.of(key(userId), achievementsKey(userId), trainerKey(userId), historyKey(userId)));
+        redis.delete(List.of(key(userId), achievementsKey(userId), trainerKey(userId), historyKey(userId),
+                MILESTONES + userId));
         redis.opsForZSet().remove(SCOREBOARD, userId);
         List<MapRecord<String, Object, Object>> all = redis.opsForStream().range(EVENTS, Range.unbounded());
         if (all == null) return;

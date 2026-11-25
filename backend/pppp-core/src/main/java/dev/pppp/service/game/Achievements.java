@@ -424,8 +424,11 @@ public final class Achievements {
         } else if (!"HALL_OF_FAME".equals(map) && !hallOfFame) {
             e4 = null;
         }
+        Set<String> shinies = new HashSet<>(log.shinies());
+        now.slots().stream().filter(x -> x.shiny() && !x.egg()).forEach(x -> shinies.add(x.ot() + ":" + x.dvs()));
         return new TrainerLog(Set.copyOf(contacts), log.hatched() + hatched(before, now).size(), Set.copyOf(partners),
                 log.trades() + received, log.crossVersion() || received > 0 && otherVersion, e4,
-                sram == null ? log.linkWins() : sram.linkWins(), sram == null ? log.linkLosses() : sram.linkLosses());
+                sram == null ? log.linkWins() : sram.linkWins(), sram == null ? log.linkLosses() : sram.linkLosses(),
+                Set.copyOf(shinies));
     }
 }
