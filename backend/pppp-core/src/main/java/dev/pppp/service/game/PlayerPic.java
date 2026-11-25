@@ -7,9 +7,10 @@ import java.util.Map;
  * The player's picture from the front matches the trainer they picked (PlayerSprites): their trainer class's pic
  * (gfx/trainers, LZ-compressed, 7x7 tiles in columns) and palette (TrainerPalettes, 2 colours per class).
  * <ul>
- * <li>Crystal: the trainer card, the intro and the Hall of Fame draw ChrisPic / KrisPic (engine/gfx/player_gfx.asm,
- * uncompressed 7x7 in columns): both are overwritten with the class's pic, and PlayerPalette (TrainerPalettes entry 0,
- * which wTrainerClass CHRIS reads) with its colours. Kris keeps entry 1, which is Falkner's (the games share it).</li>
+ * <li>Crystal: the intro and the Hall of Fame draw ChrisPic / KrisPic (engine/gfx/player_gfx.asm, uncompressed 7x7
+ * in columns), the trainer card ChrisCardPic / KrisCardPic (GetCardPic, 5x7 placed in columns by PlaceGraphic): all
+ * are overwritten with the class's pic, and PlayerPalette (TrainerPalettes entry 0, which wTrainerClass CHRIS reads)
+ * with its colours. Kris keeps entry 1, which is Falkner's (the games share it).</li>
  * <li>Gold/Silver: the intro and the Hall of Fame draw trainer class CAL: its TrainerPicPointers and TrainerPalettes
  * entries point at the class's; the trainer card has its own 5x7 picture (ChrisPicAndTrainerCardGFX, tiles in rows),
  * the class pic's middle five columns, and reads entry 0 ("xor a ; CHRIS", _CGB_TrainerCard) for its colours.</li>
@@ -26,7 +27,7 @@ public final class PlayerPic {
     private record Layout(boolean crystal, int pics, int palettes, int chrisPic, int krisPic, int cardPic) {}
 
     private static final Layout CRYSTAL = new Layout(true, rom(0x4A, 0x4000), rom(0x02, 0x70CE), rom(0x22, 0x48A9),
-            rom(0x22, 0x4BB9), -1),
+            rom(0x22, 0x4BB9), rom(0x22, 0x4365)),
             GOLD_SILVER = new Layout(false, rom(0x20, 0x4000), rom(0x02, 0x753D), -1, -1, rom(0x09, 0x547F));
 
     private static final int CAL = 0x0C, TILE = 16, SIDE = 7, PIC = SIDE * SIDE * TILE, CARD_COLUMNS = 5, POINTER = 3,
@@ -64,6 +65,10 @@ public final class PlayerPic {
         if (at.crystal) {
             System.arraycopy(pic, 0, out, at.chrisPic, PIC);
             System.arraycopy(pic, 0, out, at.krisPic, PIC);
+            // ChrisCardPic, KrisCardPic right after it: 5x7 tiles in columns (PlaceGraphic), the middle five columns.
+            int card = CARD_COLUMNS * SIDE * TILE;
+            System.arraycopy(pic, SIDE * TILE, out, at.cardPic, card);
+            System.arraycopy(pic, SIDE * TILE, out, at.cardPic + card, card);
         } else {
             System.arraycopy(rom, pointer(at, cls), out, pointer(at, CAL), POINTER);
             System.arraycopy(rom, at.palettes + cls * PALETTE, out, at.palettes + CAL * PALETTE, PALETTE);
