@@ -94,7 +94,8 @@ function parse(text: string, ctx: BubbleContext): BubbleSeg[] {
 			}
 		}
 		if (/[\p{L}]/u.test(text[i]) && !/[\p{L}\p{N}]/u.test(prev)) {
-			const w = /[\p{L}][\p{L}'♀♂-]*/uy;
+			// Letters, then letters, digits, ' ♀ ♂ - or a dot between letters: Porygon2, Mr.Mime, Farfetch'd, Nidoran♀.
+			const w = /[\p{L}](?:[\p{L}\p{N}'♀♂-]|\.(?=\p{L}))*/uy;
 			w.lastIndex = i;
 			const word = w.exec(text)![0];
 			const n = species.get(word.toLowerCase());

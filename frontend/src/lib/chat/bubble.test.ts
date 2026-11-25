@@ -65,6 +65,10 @@ describe('chat bubbles', () => {
 			{ kind: 'mon', text: 'pikachu', species: 25 },
 			{ kind: 'text', text: ', not Pikachus' }
 		]);
+		// Names with a digit, a dot between letters or an apostrophe; a sentence's full stop is not part of the name.
+		const ctx = { species: ['Mewtwo', 'Mr.Mime', 'Porygon2', "Farfetch'd"] };
+		expect(bubble('mewtwo, Mr.Mime and porygon2. farfetch\'d', ctx).filter((x) => x.kind === 'mon').map((x) => x.text))
+			.toEqual(['mewtwo', 'Mr.Mime', 'porygon2', "farfetch'd"]);
 		expect(mentions('yo @ashy.', ['ash', 'ashy'])).toBe(true);
 		expect(mentions('mail me a@ash.com', ['ash'])).toBe(false);
 		expect(mentions('hi @ashley', ['ash'])).toBe(false);
