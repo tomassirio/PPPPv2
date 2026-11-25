@@ -118,4 +118,14 @@ class MysteryGiftsTest {
             host.shutdown();
         }
     }
+
+    @ParameterizedTest(allowZeroInvocations = true)
+    @MethodSource("roms")
+    void noteWordsAreEveryItemAndMove(Path rom) throws Exception {
+        PokemonGen2 game = PokemonGen2.forRom(Files.readAllBytes(rom));
+        assumeTrue(game != null, "not Gold, Silver or Crystal");
+        System.out.println(rom.getFileName() + ": " + game.itemWords().size() + " items, " + game.moveWords().size() + " moves");
+        assertThat(game.itemWords()).contains("Master Ball", "Rare Candy", "Bicycle", "Leftovers").doesNotContain("Tm01", "Teru-Sama");
+        assertThat(game.moveWords()).hasSize(251).contains("Surf", "Dizzy Punch");
+    }
 }

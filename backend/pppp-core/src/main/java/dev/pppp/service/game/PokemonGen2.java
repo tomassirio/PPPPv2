@@ -267,6 +267,21 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         return at.tmsHms + PC_ITEMS;
     }
 
+    /**
+     * Every real item as this ROM names it, for note words: the TM/HM entries (moves have their own list), the unused
+     * "Teru-Sama" placeholders and repeats left out.
+     */
+    List<String> itemWords() {
+        return java.util.Arrays.stream(itemNames).filter(java.util.Objects::nonNull)
+                .filter(n -> !n.equalsIgnoreCase("Teru-Sama") && !n.matches("(?i)[th]m\\d+") && !n.contains("?"))
+                .distinct().toList();
+    }
+
+    /** The 251 moves as this ROM names them, for note words. */
+    List<String> moveWords() {
+        return java.util.Arrays.stream(moveNames).filter(java.util.Objects::nonNull).distinct().toList();
+    }
+
     /** The 251 species names, Pokédex order, as this ROM spells them. */
     List<String> speciesNames() {
         return List.copyOf(java.util.Arrays.asList(names).subList(1, DEX_SIZE + 1)); // names[0] is unused (null)

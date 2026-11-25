@@ -16,8 +16,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.stereotype.Service;
 
 /**
- * Notes left on Johto's tiles, Dark Souls style: a phrase from PHRASES with one word from WORDS (the 251 Pokémon as
- * the ROM names them, items, things), so they need no moderation. A player leaves one where they stand, free in the
+ * Notes left on Johto's tiles, Dark Souls style: a phrase from PHRASES with one word (the 251 Pokémon, every item and
+ * move as the ROM names them, or one of THINGS), so they need no moderation. A player leaves one where they stand, free in the
  * overworld (Ghosts.where); they show on every Gold, Silver and Crystal screen that has the tile in view (visible,
  * sent with the screen's name tags) and read out to whoever stands on it, who can rate it Good. A player keeps their
  * MAX_PER_PLAYER newest, one per tile. All notes stay in memory (a few hundred at most); Redis keeps them.
@@ -27,11 +27,6 @@ public class NoteService {
     public static final List<String> PHRASES = List.of("____ ahead", "Beware of ____", "Try ____", "Need ____",
             "Could this be ____?", "If only I had ____...", "Visions of ____...", "Praise ____!", "No ____ ahead",
             "Time for ____");
-    static final List<String> ITEMS = List.of("Potion", "Super Potion", "Hyper Potion", "Revive", "Full Heal",
-            "Antidote", "Awakening", "Paralyze Heal", "Escape Rope", "Repel", "Super Repel", "Poké Ball", "Great Ball",
-            "Ultra Ball", "Rare Candy", "Fire Stone", "Water Stone", "Thunderstone", "Leaf Stone", "Moon Stone",
-            "Sun Stone", "Berry", "Bicycle", "Itemfinder", "Squirtbottle", "Old Rod", "Good Rod", "Super Rod", "Cut",
-            "Fly", "Surf", "Strength", "Flash", "Whirlpool", "Waterfall", "Rock Smash", "Headbutt");
     static final List<String> THINGS = List.of("a hidden item", "an item", "tall grass", "a trainer", "a strong foe",
             "an ambush", "a dead end", "a shortcut", "a secret", "a ledge", "a puzzle", "darkness", "water", "a cave",
             "the Gym Leader", "the rival", "Team Rocket", "a shiny", "a legend", "treasure", "healing", "saving",
@@ -64,8 +59,10 @@ public class NoteService {
         Words w = words;
         if (w == null) {
             Map<String, List<String>> lists = new LinkedHashMap<>();
-            lists.put("Pokémon", pokemon());
-            lists.put("Items", ITEMS);
+            PokemonGen2 game = game();
+            lists.put("Pokémon", game == null ? List.of() : game.speciesNames());
+            lists.put("Items", game == null ? List.of() : game.itemWords());
+            lists.put("Moves", game == null ? List.of() : game.moveWords());
             lists.put("Things", THINGS);
             w = new Words(PHRASES, lists);
             if (!lists.get("Pokémon").isEmpty()) words = w; // no cartridge yet: ask again next time
@@ -73,17 +70,17 @@ public class NoteService {
         return w;
     }
 
-    /** The 251 names from the first Gold, Silver or Crystal cartridge uploaded (all three name them alike). */
-    private List<String> pokemon() {
+    /** The first Gold, Silver or Crystal cartridge uploaded (all three name things alike), or null. */
+    private PokemonGen2 game() {
         for (var c : cartridges.list()) {
             try {
                 PokemonGen2 g = PokemonGen2.forRom(Files.readAllBytes(cartridges.require(c.id())));
-                if (g != null) return g.speciesNames();
+                if (g != null) return g;
             } catch (Exception ignored) {
                 // next cartridge
             }
         }
-        return List.of();
+        return null;
     }
 
     /** The tile the player stands still on, free in the overworld; IllegalStateException (409) otherwise. */

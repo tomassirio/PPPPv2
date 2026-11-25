@@ -59,9 +59,9 @@ class NoteServiceTest {
     void oneNotePerTileAndTenAtMost() {
         stand("a", "ROUTE_29", 1, 1);
         notes.leave("a", 0, "AAAA");
-        notes.leave("a", 2, "Surf");
+        notes.leave("a", 2, "a shortcut");
         stand("a", "ROUTE_29", 1, 1);
-        assertThat(notes.visible("a")).extracting(NoteService.Shown::text).containsExactly("Try Surf");
+        assertThat(notes.visible("a")).extracting(NoteService.Shown::text).containsExactly("Try a shortcut");
         for (int i = 0; i < 12; i++) {
             stand("a", "ROUTE_31", i, 0);
             notes.leave("a", 0, "AAAA");

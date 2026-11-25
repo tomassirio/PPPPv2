@@ -164,7 +164,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Done: the release number at the foot of the account menu (`UserMenu`, desktop and phones): `__APP_VERSION__`, baked in
   by Vite from `PPPP_VERSION` (deploy.yml passes it as a build-arg to the frontend image; "dev" locally).
 - Done: notes on the ground (Dark Souls style). Holding A ~0.7 s while free in the overworld (Gamepad, nobody nearby)
-  opens `NoteComposer`: a phrase + one word (Pokémon from the ROM, items, things; `NoteService.PHRASES/ITEMS/THINGS`,
+  opens `NoteComposer`: a phrase + one word (from the ROM: the 251 Pokémon, every item, the 251 moves; or `NoteService.THINGS`;
   `GET /api/v1/notes/words`), left on the tile the player stands still on (`GET /api/v1/notes/spot` 409 otherwise,
   `POST /api/v1/notes`). Keyed by pret map constant + tile, so all three games share them; 10 newest per player, one
   per tile. Redis hash `pibs:notes` (id -> JSON), raters in set `pibs:notes:good:{id}`. `/ws/screen`'s text message
