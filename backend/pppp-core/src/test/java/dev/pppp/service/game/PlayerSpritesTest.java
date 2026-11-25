@@ -57,12 +57,14 @@ class PlayerSpritesTest {
         assertThat(PlayerSprites.choices(bytes).stream().anyMatch(c -> c.key().equals("KRIS"))).isEqualTo(cart.contains("crystal"));
         assertThat(PlayerSprites.sheet(bytes, "RED")).isNotNull();
         assertThat(PlayerSprites.patch(bytes, "CHRIS")).isSameAs(bytes);
+        assertThat(PlayerSprites.patch(bytes, "CHRIS", "BLUE")).as("the default trainer in another colour").isNotSameAs(bytes);
+        assertThat(PlayerSprites.sheet(bytes, "RED", "GREEN")).isNotEqualTo(PlayerSprites.sheet(bytes, "RED"));
 
         var game = PokecenterDig.game(bytes).orElseThrow();
         Path sav = Files.createTempDirectory("sprite").resolve("game.sav");
         Files.copy(saves.resolve(cart + ".sav"), sav);
         EmulatorHost host = new EmulatorHost();
-        host.insert(cart, rom, sav, b -> PlayerSprites.patch(PokecenterDig.patch(b), "RED"));
+        host.insert(cart, rom, sav, b -> PlayerSprites.patch(PokecenterDig.patch(b), "RED", "GREEN"));
         host.powerOn();
         try {
             host.loadState(Files.readAllBytes(saves.resolve(cart + ".state")));
@@ -77,6 +79,8 @@ class PlayerSpritesTest {
             Thread.sleep(3000); // the dig reloads the map: GetPlayerSprite runs
             int sprite = host.withBus(bus -> bus.getByte(Integer.decode(playerStruct)));
             assertThat(sprite).as("OBJECT_SPRITE of the player").isEqualTo(0x06); // SPRITE_RED
+            int palette = host.withBus(bus -> bus.getByte(Integer.decode(playerStruct) + 6)) & 7;
+            assertThat(palette).as("OBJECT_PALETTE of the player").isEqualTo(2); // PAL_OW_GREEN
             if (System.getenv("SHOTS") != null) {
                 host.onFrame(px -> {
                     var img = new java.awt.image.BufferedImage(160, 144, java.awt.image.BufferedImage.TYPE_INT_RGB);

@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** The signed-in player's own game (the one-time pick, their console's buttons, their key bindings) and the admin's reset of a player. */
@@ -98,29 +99,35 @@ public class PlayerController {
     }
 
     /** Admin: wipes the player's pick, saves, progress, points and activity, so they pick a game again. */
-    /** The trainer the player walks as, and the ones their game has. */
-    public record SpriteState(String current, List<PlayerSprites.Choice> choices) {}
+    /** The trainer the player walks as and its colour (null: its own), the trainers their game has, the colours. */
+    public record SpriteState(String current, String color, List<PlayerSprites.Choice> choices, List<String> colors) {}
 
-    public record SpriteRequest(String key) {}
+    /** color absent or null: the trainer's own colours. */
+    public record SpriteRequest(String key, String color) {}
 
     @GetMapping("/api/v1/me/sprite")
     public SpriteState sprite(Authentication auth) {
         String me = CurrentUser.id(auth);
-        return new SpriteState(consoles.sprite(me), consoles.spriteChoices(me));
+        return state(me);
+    }
+
+    private SpriteState state(String me) {
+        return new SpriteState(consoles.sprite(me), consoles.spriteColor(me), consoles.spriteChoices(me), PlayerSprites.COLORS);
     }
 
     /** Walks as that trainer from now on (refused while linked); the game shows it from the next map it loads. */
     @PutMapping("/api/v1/me/sprite")
     public SpriteState pickSprite(@RequestBody SpriteRequest req, Authentication auth) {
         String me = CurrentUser.id(auth);
-        consoles.pickSprite(me, req == null ? null : req.key());
-        return new SpriteState(consoles.sprite(me), consoles.spriteChoices(me));
+        consoles.pickSprite(me, req == null ? null : req.key(), req == null ? null : req.color());
+        return state(me);
     }
 
     /** A trainer of the caller's game as a 16x96 sprite sheet (six 16x16 frames: down, up, left, then walking). */
     @GetMapping("/api/v1/me/sprites/{key}.png")
-    public ResponseEntity<byte[]> spriteSheet(@PathVariable String key, Authentication auth) {
-        byte[] png = consoles.spriteSheet(CurrentUser.id(auth), key);
+    public ResponseEntity<byte[]> spriteSheet(@PathVariable String key, @RequestParam(required = false) String color,
+                                              Authentication auth) {
+        byte[] png = consoles.spriteSheet(CurrentUser.id(auth), key, color);
         if (png == null) throw new NotFoundException("No trainer " + key);
         return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG)
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate()).body(png);

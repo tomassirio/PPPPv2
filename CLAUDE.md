@@ -51,6 +51,9 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   the link sweep (a chat line says so).
   `PokecenterDig.patientReceptionist` (a frame hook per console) stretches the receptionist's "Please wait" from 8.5 s
   to about a minute while linked (`LinkWaitTest`).
+  Trainer colour: Default (the sprite's own) or red/blue/green/brown/pink/silver (`PlayerSprites.COLORS`, Redis
+  `spriteColor` in pibs:player): Crystal's SpawnPlayer palette byte, Gold/Silver's PlayerObjectTemplate palette
+  nibble (bank 2); previews `?color=`; Ghosts draw each player in the palette their game uses (OBJECT_PALETTE).
   The friend in TradeCenter/Colosseum walks as the peer's chosen sprite: `PlayerConsoles.link` patches both friend
   objects' sprite bytes in each running ROM (`PlayerSprites.cableFriend`, `EmulatorHost.patchRom`); unlink puts Chris back.
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs

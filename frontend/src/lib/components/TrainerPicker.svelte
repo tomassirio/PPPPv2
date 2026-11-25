@@ -1,13 +1,17 @@
 <!-- The trainer the player walks as in their game (GET/PUT /me/sprite): the current one walking in place, and "Change"
      opens every walking trainer their game has, each drawn from their own ROM (/me/sprites/{key}.png, a 16x96 sheet:
-     down, up, left, then each walking). Picking one rebuilds their Game Boy from where it is (the backend refuses
+     down, up, left, then each walking), in the colour picked above them (null: each trainer's own; ?color= draws them
+     in it). Picking one rebuilds their Game Boy from where it is (the backend refuses
      while a link cable is in); the game draws the new trainer from the next map it loads. compact: a small block for the
      profile hero, the choices opening over the page. -->
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
 
 	type Choice = { key: string; name: string; id: number };
-	type State = { current: string; choices: Choice[] };
+	type State = { current: string; color: string | null; choices: Choice[]; colors: string[] };
+	/** The overworld palettes' main colour (Ghosts.PALETTE_MAIN), for the swatches. */
+	const SWATCH: Record<string, string> = { RED: '#e04848', BLUE: '#4878e8', GREEN: '#38a048', BROWN: '#a06830', PINK: '#f070b0', SILVER: '#9098a0' };
+	const colorName = (c: string) => c[0] + c.slice(1).toLowerCase();
 
 	let { compact = false }: { compact?: boolean } = $props();
 
@@ -30,7 +34,8 @@
 	});
 
 	const current = $derived(picked?.choices.find((c) => c.key === picked?.current));
-	const sheet = (key: string) => `/api/v1/me/sprites/${encodeURIComponent(key)}.png`;
+	const sheet = (key: string, color = picked?.color) =>
+		`/api/v1/me/sprites/${encodeURIComponent(key)}.png${color ? `?color=${color}` : ''}`;
 
 	async function pick(c: Choice) {
 		if (!picked || c.key === picked.current) return;
@@ -38,7 +43,7 @@
 		error = '';
 		message = '';
 		try {
-			picked = await api<State>('PUT', '/me/sprite', { key: c.key });
+			picked = await api<State>('PUT', '/me/sprite', { key: c.key, color: picked.color });
 			message = `Saved. You walk as ${c.name} from the next door you go through.`;
 			open = false;
 		} catch (e) {
@@ -46,9 +51,33 @@
 		}
 		busy = '';
 	}
+
+	async function pickColor(color: string | null) {
+		if (!picked || color === picked.color) return;
+		busy = color ?? 'own';
+		error = '';
+		message = '';
+		try {
+			picked = await api<State>('PUT', '/me/sprite', { key: picked.current, color });
+			message = `Saved. You walk in ${color ? colorName(color).toLowerCase() : 'your trainer’s own colours'} from the next door you go through.`;
+		} catch (e) {
+			error = e instanceof ApiError ? e.detail : 'Could not change your colour';
+		}
+		busy = '';
+	}
 </script>
 
 {#snippet list(p: State)}
+	{#if p.colors?.length}
+		<div class="colors" role="radiogroup" aria-label="Colour">
+			<span class="muted">Colour</span>
+			<button type="button" role="radio" class="own" aria-checked={!p.color} disabled={!!busy} onclick={() => pickColor(null)} title="Their own colours">Own</button>
+			{#each p.colors as col (col)}
+				<button type="button" role="radio" class="swatch" aria-checked={p.color === col} aria-label={colorName(col)} title={colorName(col)} disabled={!!busy}
+					style:--sw={SWATCH[col] ?? '#888'} onclick={() => pickColor(col)}></button>
+			{/each}
+		</div>
+	{/if}
 	<ul class="choices" aria-label="Trainers">
 		{#each p.choices as c (c.key)}
 			<li>
@@ -113,6 +142,48 @@
 />
 
 <style>
+	.colors {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 0 0 10px;
+	}
+	.colors .muted {
+		margin-right: 4px;
+		font-size: 12px;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.colors button {
+		cursor: pointer;
+	}
+	.colors .own {
+		height: 26px;
+		padding: 0 10px;
+		border: 1.5px solid var(--border);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--text);
+		font: 600 12px var(--body-font);
+	}
+	.colors .swatch {
+		width: 26px;
+		height: 26px;
+		padding: 0;
+		border: 2px solid color-mix(in srgb, var(--sw) 60%, #000);
+		border-radius: 50%;
+		background: var(--sw);
+	}
+	.colors button[aria-checked='true'] {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
+	.colors button:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
 	.mini {
 		position: relative;
 		flex: 1;

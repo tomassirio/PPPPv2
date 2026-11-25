@@ -388,10 +388,15 @@ public class PlayerConsoles {
         return key == null ? PlayerSprites.DEFAULT : key;
     }
 
-    /** The trainer as a sprite sheet, drawn from the player's ROM; null when their game cannot draw it. */
-    public byte[] spriteSheet(String userId, String key) {
+    /** The colour they walk in (a PlayerSprites.COLORS name), or null for their trainer's own. */
+    public String spriteColor(String userId) {
+        return players.spriteColor(userId);
+    }
+
+    /** The trainer as a sprite sheet in color (null: its own), drawn from the player's ROM; null when their game cannot. */
+    public byte[] spriteSheet(String userId, String key, String color) {
         String game = players.game(userId);
-        return game == null ? null : PlayerSprites.sheet(rom(game), key);
+        return game == null ? null : PlayerSprites.sheet(rom(game), key, color);
     }
 
     /**
@@ -401,12 +406,19 @@ public class PlayerConsoles {
      * game or while a link cable is plugged in (rebuilding would pull it).
      */
     public void pickSprite(String userId, String key) {
+        pickSprite(userId, key, players.spriteColor(userId));
+    }
+
+    /** As above, walking in color (a PlayerSprites.COLORS name; null: the trainer's own). */
+    public void pickSprite(String userId, String key, String color) {
         if (players.game(userId) == null) throw new IllegalStateException("Pick a game first");
         if (spriteChoices(userId).stream().noneMatch(c -> c.key().equals(key))) {
             throw new IllegalArgumentException("No trainer " + key + " in your game");
         }
+        if (color != null && PlayerSprites.palette(color) == null) throw new IllegalArgumentException("No colour " + color);
         if (linkedWith(userId) != null) throw new IllegalStateException("Unplug the link cable first");
         players.saveSprite(userId, key);
+        players.saveSpriteColor(userId, color);
         Console c = consoles.remove(userId);
         idleSince.remove(userId);
         lastActive.remove(userId); // open() below sets it again for a running one
@@ -586,7 +598,8 @@ public class PlayerConsoles {
         EmulatorHost host = new EmulatorHost();
         V1Red red = new V1Red();
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game),
-                rom -> PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(rom))), players.sprite(userId)));
+                rom -> PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(rom))), players.sprite(userId),
+                        players.spriteColor(userId)));
         host.afterFrame(red::nicknames);
         host.afterFrame(PokecenterDig.patientReceptionist(host::isLinked));
         host.onFrame(pixels -> {

@@ -45,7 +45,7 @@ public class Ghosts {
     /** Where the player's sprite sits on screen (its OAM entries: y 76, x 72). */
     static final int SCREEN_X = 64, SCREEN_Y = 60;
     private static final int SIZE = 16, SCREEN_W = 160, SCREEN_H = 144;
-    private static final int OBJECT_DIRECTION = 8, SCRIPT_READ = 1, WALKING_SPRITE = 1, SPRITE_CHRIS = 1,
+    private static final int OBJECT_PALETTE = 6, OBJECT_DIRECTION = 8, SCRIPT_READ = 1, WALKING_SPRITE = 1, SPRITE_CHRIS = 1,
             SPRITE_ENTRY = 6, FRAME_BYTES = 4 * 16, NUM_SPRITES = 0x66; // overworld_sprite: dw gfx; db size, bank, type, palette
     /** The link rooms show the real partner, a ghost would stand on top of them. */
     private static final Set<String> LINK_ROOMS = Set.of("TRADE_CENTER", "COLOSSEUM", "TIME_CAPSULE",
@@ -62,6 +62,7 @@ public class Ghosts {
     /** A player on someone's screen (a ghost, or themselves): whose, and the screen pixel of the sprite's top left (may be off the edge). */
     public record OnScreen(String user, int x, int y) {}
 
+    /** sprites: frames by sprite id << 3 | palette. */
     private record Game(Layout at, byte[] rom, String[][] maps, Map<Integer, int[][]> sprites) {}
 
     /** A ghost as drawn into a frame: its 16x16 sprite and the screen pixel of its top left. */
@@ -126,7 +127,8 @@ public class Ghosts {
             return;
         }
         int x = world(tileX, scrollX, camera.anchorX), y = world(tileY, scrollY, camera.anchorY);
-        spots.put(userId, new Spot(here, x, y, sprite(game, player[0] & 0xFF, player[OBJECT_DIRECTION] >> 2 & 3, x, y)));
+        spots.put(userId, new Spot(here, x, y,
+                sprite(game, player[0] & 0xFF, player[OBJECT_PALETTE] & 7, player[OBJECT_DIRECTION] >> 2 & 3, x, y)));
         List<OnScreen> seen = new ArrayList<>(List.of(new OnScreen(userId, SCREEN_X, SCREEN_Y))); // the player, first
         List<Drawn> ghosts = new ArrayList<>();
         spots.forEach((other, s) -> {
@@ -207,9 +209,10 @@ public class Ghosts {
      * The frame a walking sprite shows: its graphics are six 16x16 frames (down, up, left; then the same walking),
      * right is left mirrored. Mid-step shows the walking frame, down and up mirrored on every other step.
      */
-    private static int[] sprite(Game game, int id, int facing, int x, int y) {
-        int[][] frames = game.sprites.computeIfAbsent(id, i -> frames(game, i));
-        if (frames == null) frames = game.sprites.computeIfAbsent(SPRITE_CHRIS, i -> frames(game, i));
+    private static int[] sprite(Game game, int id, int palette, int facing, int x, int y) {
+        // The palette the game draws them in (OBJECT_PALETTE): their own, or the colour they picked (PlayerSprites).
+        int[][] frames = game.sprites.computeIfAbsent(id << 3 | palette, k -> frames(game.rom, game.at.sprites, id, palette));
+        if (frames == null) frames = game.sprites.computeIfAbsent(SPRITE_CHRIS << 3 | palette, k -> frames(game.rom, game.at.sprites, SPRITE_CHRIS, palette));
         int[] frame = {0, 1, 2, 2}; // by facing: DOWN, UP, LEFT, RIGHT (OBJECT_DIRECTION >> 2)
         int offset = Math.floorMod(x, SIZE) + Math.floorMod(y, SIZE);
         boolean walking = offset >= 4 && offset < 12, mirror = facing == 3;
@@ -217,19 +220,22 @@ public class Ghosts {
         return frames[(walking ? 3 : 0) + frame[facing] + (mirror ? 6 : 0)];
     }
 
-    /** Frames 0-5 as drawn, 6-11 mirrored; null when the id is no walking sprite of this ROM. */
-    private static int[][] frames(Game game, int id) {
-        return frames(game.rom, game.at.sprites, id);
+    /**
+     * Frames 0-5 as drawn, 6-11 mirrored, from a ROM and its OverworldSprites table, in palette (null: the sprite's own;
+     * also PlayerSprites' previews); null when the id is no walking sprite of this ROM.
+     */
+    static int[][] frames(byte[] rom, int table, int id) {
+        return frames(rom, table, id, null);
     }
 
-    /** As above from a ROM and its OverworldSprites table (also PlayerSprites' previews). */
-    static int[][] frames(byte[] rom, int table, int id) {
+    static int[][] frames(byte[] rom, int table, int id, Integer paletteOverride) {
         if (id < 1 || id > NUM_SPRITES) return null;
         int entry = table + (id - 1) * SPRITE_ENTRY;
         int address = (rom[entry] & 0xFF) | (rom[entry + 1] & 0xFF) << 8, bank = rom[entry + 3] & 0xFF,
                 type = rom[entry + 4] & 0xFF, palette = rom[entry + 5] & 7;
         int gfx = rom(bank, address);
         if (type != WALKING_SPRITE || address < 0x4000 || gfx + 6 * FRAME_BYTES > rom.length) return null;
+        if (paletteOverride != null) palette = paletteOverride & 7;
         int[] colours = {0, 0xFF000000 | SKIN, 0xFF000000 | PALETTE_MAIN[palette], 0xFF000000 | OUTLINE};
         int[][] out = new int[12][SIZE * SIZE];
         for (int f = 0; f < 6; f++) {

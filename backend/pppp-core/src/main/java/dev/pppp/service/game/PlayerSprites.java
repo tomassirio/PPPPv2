@@ -18,6 +18,9 @@ import javax.imageio.ImageIO;
  * GetSpritePalette); Crystal's SpawnPlayer (engine/overworld/player_object.asm) forces PAL_NPC_RED, or PAL_NPC_BLUE
  * for Kris (`ln e, PAL_NPC_*, OBJECTTYPE_SCRIPT`), which the patch sets to the sprite's own palette from
  * OverworldSprites (PAL_NPC_x is PAL_OW_x + 8, constants/sprite_data_constants.asm; clearing it to 0 still drew red).
+ * A colour can be picked too (COLORS, the overworld palettes PAL_OW_RED..PAL_OW_EMOTE, which draws silver): Crystal
+ * takes it at that same SpawnPlayer byte; Gold and Silver through PlayerObjectTemplate's palette nibble
+ * (`object_event ... 0, OBJECTTYPE_SCRIPT`: 0 = the sprite's own), which CopyMapObjectToObjectStruct uses when set.
  * Sprite ids from constants/sprite_constants.asm (the same in pokegold and pokecrystal up to $5f; Crystal adds Kris
  * at $60); addresses from pokegold.sym, pokesilver.sym, pokecrystal11.sym.
  */
@@ -28,6 +31,15 @@ public final class PlayerSprites {
     public record Choice(String key, String name, int id) {}
 
     public static final String DEFAULT = "CHRIS";
+
+    /** The colours to walk in, by palette (PAL_OW_* order: red 0 ... silver 5); null = the sprite's own. */
+    public static final List<String> COLORS = List.of("RED", "BLUE", "GREEN", "BROWN", "PINK", "SILVER");
+
+    /** The palette for a colour name, or null (the sprite's own) for null or an unknown name. */
+    public static Integer palette(String color) {
+        int i = color == null ? -1 : COLORS.indexOf(color);
+        return i < 0 ? null : i;
+    }
 
     /** The walking human sprites worth being, in picker order; each is checked against the ROM (walking type). */
     private static final List<Choice> ALL = List.of(
@@ -105,33 +117,66 @@ public final class PlayerSprites {
         return result;
     }
 
-    /**
-     * The ROM with the player walking as key's trainer; untouched for the default, an unknown key, another game, or
-     * bytes that are not where pret has them.
-     */
     public static byte[] patch(byte[] rom, String key) {
+        return patch(rom, key, null);
+    }
+
+    /**
+     * The ROM with the player walking as key's trainer in color (a COLORS name; null: the sprite's own); untouched for
+     * the default trainer in its own colour, an unknown key, another game, or bytes that are not where pret has them.
+     */
+    public static byte[] patch(byte[] rom, String key, String color) {
         Layout at = layout(rom);
+        Integer pal = palette(color);
         Choice c = at == null || key == null || DEFAULT.equals(key) ? null : choice(rom, key);
+        if (at == null || (c == null && pal == null)) return rom;
+        if (c == null) c = choice(rom, DEFAULT); // the default trainer, in another colour
         if (c == null) return rom;
-        if (!table(rom, at.chris, SPRITE_CHRIS, SPRITE_CHRIS_BIKE)) return rom;
-        if (at.kris >= 0 && !table(rom, at.kris, SPRITE_KRIS, SPRITE_KRIS_BIKE)) return rom;
-        int fallback = -1;
-        for (int i = at.getPlayerSprite; i < at.getPlayerSprite + SCAN; i++) {
-            if ((rom[i] & 0xFF) == LD_A && (rom[i + 1] & 0xFF) == SPRITE_CHRIS && (rom[i + 2] & 0xFF) == JR) fallback = i + 1;
-        }
-        if (fallback < 0) return rom;
-        byte[] out = rom.clone();
-        out[at.chris + 1] = (byte) c.id;
-        if (at.kris >= 0) out[at.kris + 1] = (byte) c.id;
-        out[fallback] = (byte) c.id;
-        if (at.spawnPlayer >= 0) { // Crystal: the sprite's own colours instead of red (blue for Kris)
-            int palette = rom[at.overworldSprites + (c.id - 1) * SPRITE_ENTRY + SPRITE_PALETTE] & 7;
+        byte[] out = c.id == SPRITE_CHRIS ? rom.clone() : trainer(rom, at, c);
+        if (out == null) return rom;
+        if (at.spawnPlayer >= 0) { // Crystal: this colour, or the sprite's own, instead of red (blue for Kris)
+            int palette = pal != null ? pal : rom[at.overworldSprites + (c.id - 1) * SPRITE_ENTRY + SPRITE_PALETTE] & 7;
             for (int i = at.spawnPlayer; i < at.spawnPlayer + SCAN; i++) {
                 int v = rom[i + 1] & 0xFF;
                 if ((rom[i] & 0xFF) == LD_E && (v == NPC_RED || v == NPC_BLUE)) out[i + 1] = (byte) ((NPC_PALETTES + palette) << 4);
             }
+        } else if (pal != null) { // Gold, Silver: PlayerObjectTemplate's palette nibble
+            int t = template(rom, at);
+            if (t >= 0) out[t + TEMPLATE_PALETTE] = (byte) ((NPC_PALETTES + pal) << 4);
         }
         return out;
+    }
+
+    /** The ROM with c as the player's sprite (a copy), or null when the tables are not where pret has them. */
+    private static byte[] trainer(byte[] rom, Layout at, Choice c) {
+        if (!table(rom, at.chris, SPRITE_CHRIS, SPRITE_CHRIS_BIKE)) return null;
+        if (at.kris >= 0 && !table(rom, at.kris, SPRITE_KRIS, SPRITE_KRIS_BIKE)) return null;
+        int fallback = -1;
+        for (int i = at.getPlayerSprite; i < at.getPlayerSprite + SCAN; i++) {
+            if ((rom[i] & 0xFF) == LD_A && (rom[i + 1] & 0xFF) == SPRITE_CHRIS && (rom[i + 2] & 0xFF) == JR) fallback = i + 1;
+        }
+        if (fallback < 0) return null;
+        byte[] out = rom.clone();
+        out[at.chris + 1] = (byte) c.id;
+        if (at.kris >= 0) out[at.kris + 1] = (byte) c.id;
+        out[fallback] = (byte) c.id;
+        return out;
+    }
+
+    /** PlayerObjectTemplate (object_event -4, -4, SPRITE_CHRIS, SPRITEMOVEDATA_PLAYER, 15, 15, -1, -1, 0, ...), in bank 2. */
+    private static final byte[] TEMPLATE = {1, 0, 0, 0x0B, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0, 0, 0, 0, (byte) 0xFF, (byte) 0xFF};
+    private static final int TEMPLATE_PALETTE = 7;
+
+    /** Where it is: the one place those bytes occur in the ROM, or -1 (none, or more than one). */
+    private static int template(byte[] rom, Layout at) {
+        int found = -1;
+        outer:
+        for (int i = 0; i + TEMPLATE.length <= rom.length; i++) {
+            for (int j = 0; j < TEMPLATE.length; j++) if (rom[i + j] != TEMPLATE[j]) continue outer;
+            if (found >= 0) return -1;
+            found = i;
+        }
+        return found;
     }
 
     /**
@@ -139,9 +184,14 @@ public final class PlayerSprites {
      * one's walking frame, in the sprite's own palette. Null when this ROM cannot draw it.
      */
     public static byte[] sheet(byte[] rom, String key) {
+        return sheet(rom, key, null);
+    }
+
+    /** As above in color (a COLORS name; null: the sprite's own). */
+    public static byte[] sheet(byte[] rom, String key, String color) {
         Layout at = layout(rom);
         Choice c = at == null ? null : choice(rom, key == null ? DEFAULT : key);
-        int[][] frames = c == null ? null : Ghosts.frames(rom, at.overworldSprites, c.id);
+        int[][] frames = c == null ? null : Ghosts.frames(rom, at.overworldSprites, c.id, palette(color));
         if (frames == null) return null;
         var img = new BufferedImage(16, 96, BufferedImage.TYPE_INT_ARGB);
         for (int f = 0; f < 6; f++) img.setRGB(0, f * 16, 16, 16, frames[f], 0, 16);
