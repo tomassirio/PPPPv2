@@ -142,7 +142,8 @@ public class PlayerController {
     public record GodMessage(String text) {}
 
     /**
-     * An admin's message shown only to that player, over whatever page they have open (GOD_MESSAGE {text, at}).
+     * An admin's message shown only to that player, over whatever page they have open (GOD_MESSAGE {text, at, user}); admins get a copy, shown
+     * only on that player's screen in the admin view.
      * Not stored: 409 when they have no tab open. Other admins see a line in the admin chat.
      */
     @PostMapping("/api/v1/admin/players/{userId}/god-message")
@@ -150,9 +151,11 @@ public class PlayerController {
         String text = body == null || body.text() == null ? "" : body.text().strip();
         if (text.isEmpty() || text.length() > 200) throw new IllegalArgumentException("A message of 1 to 200 characters");
         String to = userId.toLowerCase(java.util.Locale.ROOT);
-        if (!events.publishTo(to, "GOD_MESSAGE", java.util.Map.of("text", text, "at", System.currentTimeMillis()))) {
+        var message = java.util.Map.of("text", text, "at", System.currentTimeMillis(), "user", to);
+        if (!events.publishTo(to, "GOD_MESSAGE", message)) {
             throw new IllegalStateException(to + " has no tab open");
         }
+        events.publishToAdmins("GOD_MESSAGE", message); // admins watching that player's screen see it there too
         chat.postAdmin(CurrentUser.id(auth) + " sent a god message to " + to + ": " + text);
         return ResponseEntity.noContent().build();
     }

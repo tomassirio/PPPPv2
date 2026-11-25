@@ -8,7 +8,8 @@
 	import { backOut } from 'svelte/easing';
 	import { on } from '#lib/events.ts';
 	import { game } from '#lib/game.svelte.ts';
-	import { JOHTO, tierOf, type ScoreEvent } from '#lib/play.ts';
+	import { JOHTO, tierOf, type Rarity, type ScoreEvent } from '#lib/play.ts';
+	import { api } from '#lib/api.ts';
 	import { nameOf, usernameOf } from '#lib/pictures.svelte.ts';
 	import { mentions } from '#lib/chat/bubble.ts';
 	import type { ChatMessage } from '#lib/chat/messages.ts';
@@ -22,38 +23,72 @@
 	let queue = $state<ScoreEvent[]>([]);
 	const current = $derived(queue[0]);
 
+	// user: whose cards these are (an admin watching a player passes theirs); default the signed-in player.
+	let { user: watched }: { user?: string } = $props();
+	const whose = $derived(watched ?? session.me?.id);
+	const mine = $derived(!watched || watched === session.me?.id);
 	$effect(() =>
 		on('PROGRESS', (e: ScoreEvent) => {
-			if (e.user === session.me?.id) queue = [...queue, e].slice(-5);
+			if (e.user === whose) queue = [...queue, e].slice(-5);
 		})
 	);
 	// A Mystery Gift an admin sent just landed in their PC (backend MysteryGifts).
 	$effect(() =>
 		on('MYSTERY_GIFT', (g: { user: string; name: string; quantity: number; pokemon?: boolean }) => {
-			if (g.user !== session.me?.id) return;
+			if (g.user !== whose) return;
 			const name = g.name.replace(/\s*\(.*\)$/, ''); // "Celebi (GS Ball, Lv 30)" -> "Celebi"
 			const detail = g.pokemon ? `${name === 'Odd Egg' ? 'An Odd Egg' : name} joined your party` : `${g.quantity}× ${name} in your PC`;
 			queue = [...queue, { user: g.user, type: 'GIFT', detail, points: 0, at: Date.now() }].slice(-5);
-			navigator.vibrate?.([20, 30, 20, 30, 60]);
+			if (mine) navigator.vibrate?.([20, 30, 20, 30, 60]);
 		})
 	);
 	// @mentions: their username or their nickname without spaces, as the bubbles read them.
 	$effect(() =>
 		on('CHAT_MESSAGE', (m: ChatMessage) => {
-			const me = session.me?.id;
+			const me = whose;
 			if (!me || m.kind !== 'USER' || m.user === me) return;
 			if (!mentions(m.text, [usernameOf(me).slice(1), nameOf(me).replace(/\s+/g, '')])) return;
 			queue = [...queue, { user: m.user, type: 'MENTION', detail: m.text, points: 0, at: m.at }].slice(-5);
-			navigator.vibrate?.([30, 40, 30]);
+			if (mine) navigator.vibrate?.([30, 40, 30]);
 		})
 	);
 	$effect(() => {
-		if (current) tip(current.type === 'MENTION' ? 'mention' : 'toast');
+		if (current && mine) tip(current.type === 'MENTION' ? 'mention' : 'toast');
 	});
 	$effect(() => {
-		if (!current) return;
+		if (!current || held) return; // a finger (or mouse) on the card holds it
 		const t = setTimeout(() => (queue = queue.slice(1)), SHOW_MS);
 		return () => clearTimeout(t);
+	});
+
+	// Swiped away (sideways, or up) with a finger or the mouse; let go short of it and it springs back.
+	let dx = $state(0), dy = $state(0), held = $state(false), outX = $state(0);
+	let start: { x: number; y: number; t: number } | null = null;
+	function grab(e: PointerEvent) {
+		if (e.button !== 0 || (e.target as HTMLElement).closest('.x')) return;
+		start = { x: e.clientX, y: e.clientY, t: performance.now() };
+		held = true;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}
+	function drag(e: PointerEvent) {
+		if (!start) return;
+		dx = e.clientX - start.x;
+		dy = Math.min(0, e.clientY - start.y);
+	}
+	function drop() {
+		if (!start) return;
+		const fast = Math.abs(dx) / Math.max(1, performance.now() - start.t) > 0.5;
+		start = null;
+		if (Math.abs(dx) > 80 || (fast && Math.abs(dx) > 20) || dy < -40) {
+			outX = dy < -40 && Math.abs(dx) < 40 ? 0 : Math.sign(dx) * 360;
+			queue = queue.slice(1);
+		}
+		dx = dy = 0;
+		held = false;
+	}
+	$effect(() => {
+		void current;
+		outX = 0;
 	});
 
 	const KICKERS: Record<string, string> = {
@@ -103,7 +138,20 @@
 		}
 		return null;
 	}
-	const tier = (e: ScoreEvent) => (e.type === 'MENTION' ? 'ping' : e.type === 'GIFT' ? 'legendary' : tierOf(e));
+	// Catches and sightings take the Pokémon's own tier (its Power Rating: legends legendary ... F common), the rest
+	// their points' (tierOf).
+	let tiers = $state<(string | null)[]>([]);
+	$effect(() => {
+		api<(string | null)[]>('GET', '/game/tiers').then((t) => (tiers = t), () => {});
+	});
+	const MON_RARITY: Record<string, Rarity> = { S: 'legendary', M: 'legendary', A: 'epic', B: 'rare', C: 'uncommon', D: 'common', E: 'common', F: 'common' };
+	function monRarity(e: ScoreEvent): Rarity | null {
+		if (e.type !== 'CAUGHT' && e.type !== 'SEEN') return null;
+		const n = game.summary?.collection.names.findIndex((name) => name?.toLowerCase() === e.detail.toLowerCase()) ?? -1;
+		const t = n >= 0 ? tiers[n + 1] : null;
+		return t ? MON_RARITY[t] : null;
+	}
+	const tier = (e: ScoreEvent) => (e.type === 'MENTION' ? 'ping' : e.type === 'GIFT' ? 'legendary' : (monRarity(e) ?? tierOf(e)));
 	const loud = (e: ScoreEvent) => tier(e) === 'epic' || tier(e) === 'legendary';
 	let broken = $state(false);
 	$effect(() => {
@@ -119,9 +167,18 @@
 			<div
 				class="toast {tier(current)}"
 				class:loud={loud(current)}
+				class:held
 				style:--show="{SHOW_MS}ms"
+				style:translate="{dx}px {dy}px"
+				style:opacity={1 - Math.min(0.6, (Math.abs(dx) + Math.abs(dy)) / 300)}
 				in:fly={{ y: -24, duration: still ? 0 : 420, easing: backOut }}
-				out:fly={{ y: -12, duration: still ? 0 : 200 }}
+				out:fly={{ x: outX, y: outX ? 0 : -12, duration: still ? 0 : outX ? 180 : 200 }}
+				role="group"
+				aria-label="Notification"
+				onpointerdown={grab}
+				onpointermove={drag}
+				onpointerup={drop}
+				onpointercancel={drop}
 			>
 				<span class="art" aria-hidden="true">
 					{#if current.type === 'GIFT'}
@@ -146,6 +203,7 @@
 						<span class="sparkle" style:left="{x}%" style:--d="{0.15 + i * 0.18}s" aria-hidden="true">✦</span>
 					{/each}
 				{/if}
+				<button type="button" class="x" aria-label="Dismiss" onclick={() => (queue = queue.slice(1))}>×</button>
 				<span class="timer" aria-hidden="true"></span>
 			</div>
 		{/key}
@@ -175,7 +233,16 @@
 		overflow: hidden;
 		background:
 			linear-gradient(100deg, color-mix(in srgb, var(--c) 26%, transparent), transparent 55%),
-			linear-gradient(180deg, rgb(30 34 42 / 0.96), rgb(16 19 24 / 0.96));
+			linear-gradient(180deg, rgb(30 34 42 / 0.74), rgb(16 19 24 / 0.74));
+		backdrop-filter: blur(6px);
+		-webkit-backdrop-filter: blur(6px);
+		pointer-events: auto; /* the card itself can be swiped away */
+		touch-action: none;
+		cursor: grab;
+		user-select: none;
+		transition:
+			translate 0.2s ease,
+			opacity 0.2s ease;
 		color: #fff;
 		border: 2px solid var(--c);
 		box-shadow:
@@ -254,6 +321,36 @@
 		font: 10px/1 var(--pixel-font);
 	}
 	/* The time the card stays, running out along its foot. */
+	/* Keyboard (and mouse) dismiss; fingers swipe. */
+	.x {
+		position: absolute;
+		top: 4px;
+		right: 6px;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		border: none;
+		border-radius: 50%;
+		background: transparent;
+		color: rgb(255 255 255 / 0.55);
+		font: 700 16px/1 var(--body-font);
+		cursor: pointer;
+	}
+	.x:hover,
+	.x:focus-visible {
+		color: #fff;
+		background: rgb(255 255 255 / 0.12);
+	}
+	.x:focus-visible {
+		outline: 2px solid var(--c);
+	}
+	.toast.held {
+		transition: none;
+		cursor: grabbing;
+	}
+	.toast.held .timer {
+		animation-play-state: paused;
+	}
 	.timer {
 		position: absolute;
 		left: 0;

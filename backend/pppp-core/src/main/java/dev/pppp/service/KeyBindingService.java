@@ -28,7 +28,7 @@ public class KeyBindingService {
     public KeyBindings set(String userId, KeyBindings req) {
         if (req == null) throw new IllegalArgumentException("Key bindings are required");
         KeyBindings b = new KeyBindings(norm(req.up()), norm(req.down()), norm(req.left()), norm(req.right()),
-                norm(req.a()), norm(req.b()), norm(req.start()), norm(req.select()));
+                norm(req.a()), norm(req.b()), norm(req.start()), norm(req.select()), req.fast() == null ? null : norm(req.fast()));
         if (new HashSet<>(b.keys()).size() != b.keys().size()) {
             throw new IllegalArgumentException("Each key can press only one button");
         }

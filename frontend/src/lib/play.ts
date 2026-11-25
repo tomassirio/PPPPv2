@@ -11,14 +11,18 @@ export function nearbyPlayers([self, ...ghosts]: ScreenPlayer[]): string[] {
 }
 
 /** Which keyboard key presses each pad button: one key per button, as KeyboardEvent.key (letters lower-case). */
-export type Bindings = Record<Button, string>;
+/** The pad buttons' keys, and fast: the key that toggles Fast forward (null or absent: none). */
+export type Bindings = Record<Button, string> & { fast?: string | null };
+/** Everything a key can be bound to: the pad buttons and Fast. */
+export type Binding = Button | 'fast';
 
 export const BUTTONS: Button[] = ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select'];
+export const BINDINGS: Binding[] = [...BUTTONS, 'fast'];
 
 /** The two ready-made layouts; players can change any key from there (Settings in the account menu). */
 export const PRESETS = {
-	arrows: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', a: 'z', b: 'x', start: 'Enter', select: 'Shift' },
-	wasd: { up: 'w', down: 's', left: 'a', right: 'd', a: 'k', b: 'j', start: 'Enter', select: 'Shift' }
+	arrows: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', a: 'z', b: 'x', start: 'Enter', select: 'Shift', fast: ' ' },
+	wasd: { up: 'w', down: 's', left: 'a', right: 'd', a: 'k', b: 'j', start: 'Enter', select: 'Shift', fast: ' ' }
 } satisfies Record<string, Bindings>;
 
 /** Keys that can't be bound: they move focus or close dialogs. */
@@ -29,14 +33,18 @@ export const normKey = (key: string) => (key.length === 1 ? key.toLowerCase() : 
 
 const KEY_NAMES: Record<string, string> = { ' ': 'Space', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' };
 /** How a bound key is shown: "W", "↑", "Space", "Enter". */
-export const keyName = (key: string) => KEY_NAMES[key] ?? (key.length === 1 ? key.toUpperCase() : key);
+export const keyName = (key: string | null | undefined) => (!key ? 'None' : (KEY_NAMES[key] ?? (key.length === 1 ? key.toUpperCase() : key)));
 
 /** Binds `key` to `button`. A key belongs to one button only: whichever button had it gets `button`'s old key (a swap). */
-export function rebind(bindings: Bindings, button: Button, key: string): { bindings: Bindings; swapped: Button | null } {
+export function rebind(bindings: Bindings, button: Binding, key: string): { bindings: Bindings; swapped: Binding | null } {
 	const k = normKey(key);
-	const other = BUTTONS.find((b) => b !== button && bindings[b] === k) ?? null;
-	const next = { ...bindings, [button]: k };
-	if (other) next[other] = bindings[button];
+	const other = BINDINGS.find((b) => b !== button && bindings[b] === k) ?? null;
+	const next: Bindings = { ...bindings, [button]: k };
+	if (other) {
+		const old = bindings[button];
+		if (old) next[other] = old;
+		else if (other === 'fast') next.fast = null; // Fast had that key, the button takes it; Fast is left with none
+	}
 	return { bindings: next, swapped: other };
 }
 
@@ -59,6 +67,14 @@ export function notForShortcuts(e: KeyLike): boolean {
 }
 
 /** The pad button for a keydown, or null when it should be left alone (typing, shortcuts, held keys). */
+/** Whether a key press is the player's Fast forward key (same rules as keyToButton). */
+export function isFastKey(e: KeyLike, bindings: Bindings): boolean {
+	if (!bindings.fast || notForShortcuts(e)) return false;
+	const tag = (e.target as HTMLElement | null)?.tagName;
+	if ((e.key === 'Enter' || e.key === ' ') && (tag === 'BUTTON' || tag === 'A')) return false;
+	return normKey(e.key) === bindings.fast;
+}
+
 export function keyToButton(e: KeyLike, bindings: Bindings = PRESETS.arrows): Button | null {
 	if (notForShortcuts(e)) return null;
 	const tag = (e.target as HTMLElement | null)?.tagName;

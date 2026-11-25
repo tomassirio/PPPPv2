@@ -3,7 +3,7 @@
      click a button's key, press the new one; a key already in use swaps over). A little keyboard shows which keys do
      what. Escape cancels a change, then closes. -->
 <script lang="ts">
-	import { BUTTONS, keyName, PRESETS, rebind, RESERVED_KEYS, type Bindings, type Button } from '#lib/play.ts';
+	import { BINDINGS, keyName, PRESETS, rebind, RESERVED_KEYS, type Bindings, type Binding } from '#lib/play.ts';
 	import { keys, loadKeys, setBindings } from '#lib/keys.svelte.ts';
 	import { replayTour } from '#lib/tour.svelte.ts';
 	import { controls, setStrips, STRIP_IDS, STRIP_NAMES, stripsThatFit, type StripId } from '#lib/controls.svelte.ts';
@@ -41,13 +41,13 @@
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
-	const LABELS: Record<Button, string> = { up: 'Up', down: 'Down', left: 'Left', right: 'Right', a: 'A', b: 'B', start: 'Start', select: 'Select' };
+	const LABELS: Record<Binding, string> = { up: 'Up', down: 'Down', left: 'Left', right: 'Right', a: 'A', b: 'B', start: 'Start', select: 'Select', fast: 'Fast forward' };
 	const LAYOUTS: { id: keyof typeof PRESETS; label: string }[] = [
 		{ id: 'arrows', label: 'Arrows' },
 		{ id: 'wasd', label: 'WASD' }
 	];
 	/** What each pad button is called on its key in the drawing. */
-	const TAGS: Record<Button, string> = { up: '▲', down: '▼', left: '◀', right: '▶', a: 'A', b: 'B', start: 'START', select: 'SEL' };
+	const TAGS: Record<Binding, string> = { up: '▲', down: '▼', left: '◀', right: '▶', a: 'A', b: 'B', start: 'START', select: 'SEL', fast: 'FAST' };
 	/** The keyboard drawn: rows of [key as stored, label, width in key units]. */
 	type Cap = [string, string, number];
 	const k = (keys: string): Cap[] => [...keys].map((c) => [c, c.toUpperCase(), 1]);
@@ -64,16 +64,16 @@
 		['ArrowDown', '↓', 2, 2],
 		['ArrowRight', '→', 3, 2]
 	];
-	const byKey = $derived(Object.fromEntries(BUTTONS.map((b) => [keys.bindings[b], b])) as Record<string, Button>);
+	const byKey = $derived(Object.fromEntries(BINDINGS.filter((b) => keys.bindings[b]).map((b) => [keys.bindings[b], b])) as Record<string, Binding>);
 	const drawn = new Set([...ROWS.flat().map((c) => c[0]), ...ARROWS.map((a) => a[0])]);
-	const offKeyboard = $derived(BUTTONS.filter((b) => !drawn.has(keys.bindings[b])));
+	const offKeyboard = $derived(BINDINGS.filter((b) => keys.bindings[b] && !drawn.has(keys.bindings[b]!)));
 	let custom = $state(false);
 
 	let dialog = $state<HTMLDialogElement>();
 	// A backdrop click closes it, only when the press began there too: a touch that opened it (A on the pad) ends with a
 	// click on the freshly shown backdrop.
 	let downOnBackdrop = false;
-	let listening = $state<Button | null>(null);
+	let listening = $state<Binding | null>(null);
 	let note = $state('');
 
 	$effect(() => {
@@ -82,7 +82,7 @@
 		if (!open && dialog?.open) dialog.close();
 	});
 
-	const same = (a: Bindings, b: Bindings) => BUTTONS.every((k) => a[k] === b[k]);
+	const same = (a: Bindings, b: Bindings) => BINDINGS.every((k) => (a[k] ?? null) === (b[k] ?? null));
 	const preset = $derived(LAYOUTS.find((l) => same(keys.bindings, PRESETS[l.id]))?.id ?? null);
 	const layout = $derived(custom || !preset ? 'custom' : preset);
 
@@ -93,7 +93,7 @@
 		note = '';
 	}
 
-	function listen(b: Button) {
+	function listen(b: Binding) {
 		listening = listening === b ? null : b;
 		note = listening ? `Press the key for ${LABELS[b]}. Escape cancels.` : '';
 	}
@@ -243,7 +243,7 @@
 
 			{#if layout === 'custom'}
 				<ul class="binds">
-					{#each BUTTONS as b (b)}
+					{#each BINDINGS as b (b)}
 						<li>
 							<span>{LABELS[b]}</span>
 							<button
@@ -258,7 +258,7 @@
 				</ul>
 			{:else}
 				<p class="sr">
-					{BUTTONS.map((b) => `${LABELS[b]}: ${keyName(keys.bindings[b])}`).join(', ')}
+					{BINDINGS.map((b) => `${LABELS[b]}: ${keyName(keys.bindings[b])}`).join(', ')}
 				</p>
 			{/if}
 			<p class="note" role="status" aria-live="polite">{keys.error || note || layout === 'custom' ? 'Click a key to change it. Saved to your account.' : 'Saved to your account.'}</p>

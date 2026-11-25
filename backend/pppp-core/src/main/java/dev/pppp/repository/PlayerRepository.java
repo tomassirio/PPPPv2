@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Per-player facts in the Redis hash "pibs:player:{userId}" {game, sprite (the trainer they walk as, PlayerSprites)}. Picking also enters the player on the scoreboard.
- * Key bindings live apart in "pibs:keys:{userId}" {up, down, left, right, a, b, start, select}, so a reset keeps them.
+ * Key bindings live apart in "pibs:keys:{userId}" {up, down, left, right, a, b, start, select, fast ("" = none)}, so a reset keeps them.
  */
 @Repository
 public class PlayerRepository {
@@ -57,19 +57,23 @@ public class PlayerRepository {
     /** The saved bindings, or null when the player never changed them. */
     public KeyBindings keys(String userId) {
         List<Object> v = redis.opsForHash().multiGet(keysKey(userId), List.of(FIELDS));
-        if (v.contains(null)) return null;
+        if (v.subList(0, 8).contains(null)) return null;
+        // Saved before Fast had a key: Space, unless a button already has it; "" saved means none.
+        Object fast = v.get(8);
+        String f = fast == null ? (v.contains(" ") ? null : " ") : fast.toString().isEmpty() ? null : fast.toString();
         return new KeyBindings((String) v.get(0), (String) v.get(1), (String) v.get(2), (String) v.get(3),
-                (String) v.get(4), (String) v.get(5), (String) v.get(6), (String) v.get(7));
+                (String) v.get(4), (String) v.get(5), (String) v.get(6), (String) v.get(7), f);
     }
 
     public void saveKeys(String userId, KeyBindings b) {
-        List<String> k = b.keys();
+        List<String> k = List.of(b.up(), b.down(), b.left(), b.right(), b.a(), b.b(), b.start(), b.select(),
+                b.fast() == null ? "" : b.fast());
         Map<String, String> fields = new java.util.LinkedHashMap<>();
         for (int i = 0; i < FIELDS.length; i++) fields.put((String) FIELDS[i], k.get(i));
         redis.opsForHash().putAll(keysKey(userId), fields);
     }
 
-    private static final Object[] FIELDS = {"up", "down", "left", "right", "a", "b", "start", "select"};
+    private static final Object[] FIELDS = {"up", "down", "left", "right", "a", "b", "start", "select", "fast"};
 
     private static String keysKey(String userId) {
         return "pibs:keys:" + userId;

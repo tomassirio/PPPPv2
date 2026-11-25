@@ -96,7 +96,7 @@
 	</div>
 
 	<div class="people-tools">
-		<form class="add" onsubmit={add}>
+		<form class="add row" onsubmit={add}>
 			<input type="email" required bind:value={email} autocomplete="off" placeholder="Email to add" aria-label="Email to add" />
 			<select bind:value={role} aria-label="Role for new person">
 				<option value="PLAYER">Player</option>
@@ -104,7 +104,7 @@
 			</select>
 			<button class="primary">Add</button>
 		</form>
-		<label class="mute-for">
+		<label class="mute-for row">
 			<span class="muted">Mute for</span>
 			<input type="number" min="1" max="525600" bind:value={muteMinutes} aria-label="Mute duration in minutes" />
 			<span class="muted">min</span>
@@ -117,10 +117,10 @@
 			<tbody>
 				{#each shown as p (p.id)}
 					<tr class:bot={!p.user}>
-						<td class="who">
+						<td class="who"><div class="who-in">
 							<b>{nameOf(p.id)}</b>
 							<span class="email">{p.id}</span>
-						</td>
+						</div></td>
 						<td class="role-cell">
 							{#if p.user}
 								<select
@@ -143,8 +143,10 @@
 						</td>
 						<td class="game-cell">{p.row?.game ? (names[p.row.game] ?? p.row.game) : '–'}</td>
 						<td class="num pts-cell">{p.row ? p.row.points.toLocaleString() : '–'}</td>
-						<td class="online-cell" class:yes={p.row?.online}>{p.row?.online ? 'Yes' : 'No'}</td>
-						<td class="actions">
+						<td class="online-cell"
+							><span class="dot" class:on={p.row?.online} aria-hidden="true"></span><span class="state">{p.row?.online ? 'Online' : 'Offline'}</span></td
+						>
+						<td class="actions"><div class="acts">
 							<a class="manage" href="/admin/players/{enc(p.id)}">Manage</a>
 							{#if p.user}
 								{#if p.user.mutedUntil}
@@ -171,7 +173,7 @@
 									>
 								{/if}
 							{/if}
-						</td>
+						</div></td>
 					</tr>
 				{:else}
 					<tr><td colspan="6" class="muted">{filter === 'bots' ? 'No bots.' : 'Nobody yet.'}</td></tr>
@@ -220,27 +222,28 @@
 		flex-wrap: wrap;
 	}
 	.add {
-		display: flex;
-		gap: 8px;
 		flex: 1 1 360px;
+		align-items: center !important;
+		flex-wrap: nowrap !important;
 	}
 	.add input {
 		flex: 1;
 		min-width: 0;
 	}
 	.mute-for {
-		display: flex;
-		align-items: center;
 		gap: 6px;
+		white-space: nowrap;
 	}
 	.mute-for input {
 		width: 80px;
 	}
 	.who {
+		min-width: 220px;
+	}
+	.who-in {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		min-width: 220px;
 	}
 	/* Full addresses, wrapping at any character if they must. */
 	.email {
@@ -251,13 +254,38 @@
 	.num {
 		text-align: right;
 	}
-	.actions {
+	/* The buttons sit in a box inside the cell, so the cell stays a table cell and the row's lines stay straight. */
+	.acts {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: flex-end;
 		gap: 6px;
 	}
-	.actions button {
+	td {
+		vertical-align: middle;
+	}
+	/* Online: a green dot, offline a red one. */
+	.online-cell {
+		white-space: nowrap;
+	}
+	.dot {
+		display: inline-block;
+		width: 10px;
+		height: 10px;
+		margin-right: 6px;
+		border-radius: 50%;
+		background: var(--danger, #e05252);
+		vertical-align: middle;
+	}
+	.dot.on {
+		background: #3fae4a;
+		box-shadow: 0 0 0 3px rgb(63 174 74 / 0.2);
+	}
+	.state {
+		font-size: 13px;
+		color: var(--muted);
+	}
+	.acts button {
 		height: 32px;
 		padding: 0 10px;
 	}
@@ -343,26 +371,17 @@
 		}
 		.online-cell {
 			grid-area: online;
-			font-size: 0; /* "Yes"/"No" become a dot and Online / Offline */
-		}
-		.online-cell::before {
-			content: '● Offline';
-			font-size: 12px;
-			color: var(--muted);
-		}
-		.online-cell.yes::before {
-			content: '● Online';
-			color: var(--grass, #3fae4a);
 		}
 		/* Equal buttons, as many per line as fit (a second line rather than a clipped label). */
 		.actions {
 			grid-area: actions;
 			margin-left: 0 !important;
-			display: grid !important;
-			grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
-			gap: 6px;
 		}
-		.actions > :global(*) {
+		.acts {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+		}
+		.acts > :global(*) {
 			justify-content: center;
 		}
 	}

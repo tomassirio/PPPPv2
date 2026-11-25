@@ -27,8 +27,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   while it runs (admins may watch any running console on /ws/watch/{id}) or powered off, stats, Reset run.
 - Done: god messages. `POST /api/v1/admin/players/{userId}/god-message` {text} (1-200 chars; 409 when they have no
   tab open; not stored; admin chat logs it) sends `GOD_MESSAGE` {text, at} to that player's /ws/events sockets only
-  (`EventPublisher.publishTo`). `GodMessage.svelte` writes it across their own Game Boy screen (GameScreen, not spectators') in glowing purple
-  text, fading in and out, one at a time. Sent from the admin player page.
+  (`EventPublisher.publishTo`), with a copy to admins ({user}) so the admin player page shows it on that player's
+  screen. `GodMessage.svelte user=` writes it across that screen in glowing purple text, fading in and out, one at a
+  time. The admin player page shows everything the player sees: /ws/watch carries the same name tags + notes text
+  message as /ws/screen, plus their notification cards (`GameToasts user=`) and the chat overlay.
 - Done: lobby and link sessions. `LinkService` (core): ready to TRADE/BATTLE in Redis hash `pibs:lobby`, challenges
   (60 s) and sessions (no time cap; a player with no tab open for 60 s leaves, via `LinkService.presence` = EventPublisher.isOnline) in memory, `PlayerConsoles.link/unlink`. REST under `/api/v1/link`; events
   `LOBBY_CHANGED`, `LINK_CHALLENGE`, `LINK_SESSION` (to everyone, with user ids). Panel: `LinkPanel.svelte`.
@@ -154,6 +156,11 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   data/events/odd_eggs.asm, shinies included), event Mew Lv5, Surfing Pikachu Lv5; built as a party_struct (stats,
   exp by growth rate, PP, OT AAAA ID 1 so they obey by badges) into the party once it has room, Pokédex marked.
   Admin panel: chips (Items / Event Pokémon) + a quantity stepper. No decorations yet.
+- Done: key bindings include Fast forward (`KeyBindings.fast`, Redis field `fast`, "" = none; Space by default, and
+  for older saved layouts unless a button has Space): Settings lists it as a 9th row and on the keyboard drawing;
+  `SpeedControl` toggles on it (`isFastKey`). Notification cards (`GameToasts`) swipe away (sideways or up, finger or
+  mouse; × for keyboards), are see-through, and catches/sightings take the Pokémon's tier (`GET /api/v1/game/tiers`,
+  PowerRating letters by dex number: S/M legendary, A epic, B rare, C uncommon, D-F common).
 - Done: the release number at the foot of the account menu (`UserMenu`, desktop and phones): `__APP_VERSION__`, baked in
   by Vite from `PPPP_VERSION` (deploy.yml passes it as a build-arg to the frontend image; "dev" locally).
 - Done: notes on the ground (Dark Souls style). Holding A ~0.7 s while free in the overworld (Gamepad, nobody nearby)

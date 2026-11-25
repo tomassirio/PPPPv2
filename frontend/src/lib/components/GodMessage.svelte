@@ -1,14 +1,21 @@
-<!-- An admin's god message (GOD_MESSAGE {text, at}, sent to this player only), written across their own Game Boy
-     screen (GameScreen, not spectators'): glowing purple text, no box, fading in, staying long enough to read and
+<!-- An admin's god message (GOD_MESSAGE {text, at, user}: sent to that player, a copy to admins), written across
+     that player's Game Boy screen (user: whose screen this is; an admin watching it sees it too): glowing purple text, no box, fading in, staying long enough to read and
      fading out. Several in a row show one after another. Text only, never HTML. -->
 <script lang="ts">
 	import { on } from '#lib/events.ts';
 
-	type Message = { text: string; at: number };
+	let { user }: { user: string | undefined } = $props();
+	type Message = { text: string; at: number; user?: string };
 	let queue = $state<Message[]>([]);
 	const current = $derived(queue[0]);
 
-	$effect(() => on('GOD_MESSAGE', (m: Message) => queue.push(m)));
+	// For this screen's player only; an admin sending one to themselves gets it twice (theirs and the admin copy).
+	$effect(() =>
+		on('GOD_MESSAGE', (m: Message) => {
+			if ((m.user ?? user) !== user || queue.some((q) => q.at === m.at && q.text === m.text)) return;
+			queue.push(m);
+		})
+	);
 
 	// Slow fades (FADE_MS each way) around time to read: 4 s plus a bit per letter, at most 12 s.
 	const FADE_MS = 3_000;

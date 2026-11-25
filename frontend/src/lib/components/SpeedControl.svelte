@@ -4,6 +4,9 @@
 <script lang="ts">
 	import { api, ApiError } from '#lib/api.ts';
 	import { link } from '#lib/link.svelte.ts';
+	import { isFastKey, keyName } from '#lib/play.ts';
+	import { keys, loadKeys } from '#lib/keys.svelte.ts';
+	$effect(() => void loadKeys());
 
 	let { speed = 1 }: { speed?: number | null } = $props();
 	const FAST = 4;
@@ -31,13 +34,24 @@
 			error = e instanceof ApiError ? e.detail : 'Could not change speed';
 		}
 	}
+
+	// The player's Fast key (Space unless changed in Settings) toggles it too.
+	function onkeydown(e: KeyboardEvent) {
+		if (!isFastKey(e, keys.bindings)) return;
+		e.preventDefault();
+		toggle();
+	}
+	const hint = $derived(keys.bindings.fast ? ` (${keyName(keys.bindings.fast)})` : '');
 </script>
+
+<svelte:window {onkeydown} />
 
 <button
 	type="button"
 	class="speed"
 	aria-pressed={fast}
-	title={linked ? 'Fast forward is off while the link cable is plugged in' : error || (fast ? 'Fast forward on (no sound)' : 'Fast forward')}
+	title={linked ? 'Fast forward is off while the link cable is plugged in' : error || (fast ? `Fast forward on (no sound)${hint}` : `Fast forward${hint}`)}
+	aria-keyshortcuts={keys.bindings.fast === ' ' ? 'Space' : (keys.bindings.fast ?? undefined)}
 	disabled={linked}
 	onclick={toggle}
 >

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, nearbyPlayers, winRate, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, tierOf, shownAchievements, versionOf, type ScoreRow } from './play';
+import { isFastKey, activityText, ago, backoff, badgeMasks, bitCount, boardRows, hue, keyName, keyToButton, nearbyPlayers, winRate, ordinal, PRESETS, rebind, place, playerStatus, profileFrom, progressPct, rarityOf, tierOf, shownAchievements, versionOf, type ScoreRow } from './play';
 
 describe('play helpers', () => {
 	it('finds ghosts on the same tile or one step away in any cardinal direction', () => {
@@ -179,5 +179,18 @@ describe('profile helpers', () => {
 			['h', 'legendary', '???'],
 			['l', 'legendary', 'l']
 		]);
+	});
+});
+
+describe('the Fast forward key', () => {
+	it('is Space by default, rebinds like a button and swaps', () => {
+		expect(isFastKey({ key: ' ' }, PRESETS.arrows)).toBe(true);
+		expect(isFastKey({ key: ' ', repeat: true }, PRESETS.arrows)).toBe(false);
+		const { bindings, swapped } = rebind(PRESETS.arrows, 'fast', 'z'); // A's key: A takes Space
+		expect(bindings.fast).toBe('z');
+		expect(swapped).toBe('a');
+		expect(bindings.a).toBe(' ');
+		expect(rebind({ ...PRESETS.arrows, fast: null }, 'up', ' ').bindings.up).toBe(' ');
+		expect(isFastKey({ key: ' ' }, { ...PRESETS.arrows, fast: null })).toBe(false);
 	});
 });

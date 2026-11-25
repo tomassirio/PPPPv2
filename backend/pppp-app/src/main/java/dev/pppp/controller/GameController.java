@@ -23,6 +23,14 @@ class GameController {
 
     GameController(ProgressTracker tracker) { this.tracker = tracker; }
 
+    /** Every species' Power Rating tier letter by Pokédex number (index 0 unused, null): for notifications. */
+    @GetMapping("/game/tiers")
+    java.util.List<String> tiers() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (int dex = 0; dex <= 251; dex++) out.add(dev.pppp.service.game.PowerRating.tier(dex));
+        return out;
+    }
+
     /** 204 while the player has no game or their game has no profile. */
     @GetMapping("/game/state")
     ResponseEntity<GameSummary> state(Authentication auth) {

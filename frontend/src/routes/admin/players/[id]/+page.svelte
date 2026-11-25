@@ -14,6 +14,8 @@
 	import FeedIcon from '#lib/components/FeedIcon.svelte';
 	import GradeChip from '#lib/components/GradeChip.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
+	import GameToasts from '#lib/components/GameToasts.svelte';
+	import ChatOverlay from '#lib/components/ChatOverlay.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import UserMenu from '#lib/components/UserMenu.svelte';
 	import { activityText, ago, type Profile } from '#lib/play.ts';
@@ -171,7 +173,11 @@
 				<div class="gb">
 					<div class="screen">
 						{#if gb?.state === 'RUNNING'}
+							<!-- What they see: their screen with name tags, chat bubbles, notes and god messages (GameScreen),
+							     their notification cards and the chat floating over it. -->
 							<GameScreen watch={id} />
+							<GameToasts user={id} />
+							<ChatOverlay />
 						{:else}
 							<!-- Powered off (or paused): an unlit LCD in the same bezel as the live one. -->
 							<div class="bezel">
@@ -372,6 +378,7 @@
 		align-items: flex-start;
 	}
 	.screen {
+		position: relative; /* the cards and the chat overlay sit over the live screen */
 		flex: 1 1 280px;
 		max-width: 400px;
 	}

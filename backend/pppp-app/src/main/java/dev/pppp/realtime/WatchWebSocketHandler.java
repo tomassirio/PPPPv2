@@ -3,7 +3,11 @@ package dev.pppp.realtime;
 import dev.pppp.model.LinkState.SessionEvent;
 import dev.pppp.model.LiveEvent;
 import dev.pppp.model.UserRevokedEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.pppp.service.PlayerConsoles;
+import dev.pppp.service.game.Ghosts;
+import dev.pppp.service.game.NoteService;
 import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -17,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
@@ -25,7 +30,8 @@ import org.springframework.web.socket.handler.AbstractWebSocketHandler;
  * linked: otherwise, and when their session ends, the socket closes with NOT_LINKED. Admins may watch anyone whose
  * console is running (the admin player page); theirs closes with NOT_PLAYING when it stops. Read only: it never wakes,
  * pauses or parks the console, and anything a spectator sends is ignored (their buttons only ever reach their own
- * console). PNG frames as in /ws/screen, without the ghosts message and without sound.
+ * console). PNG frames as in /ws/screen, and the same text message before a frame whose players or notes changed
+ * (what the watched player sees: name tags, chat bubbles, notes), without sound.
  */
 @Component
 public class WatchWebSocketHandler extends AbstractWebSocketHandler {
@@ -34,17 +40,27 @@ public class WatchWebSocketHandler extends AbstractWebSocketHandler {
     /** Closing code for an admin when the watched player's console is not (or no longer) running. */
     static final CloseStatus NOT_PLAYING = new CloseStatus(4410, "Not playing right now");
 
-    private record Watched(Handoff<int[]> encoder, Map<WebSocketSession, Handoff<byte[]>> sockets) {}
+    /** players: the watched player's name tags and notes as /ws/screen's text message. */
+    private record Frame(int[] pixels, String players) {}
+
+    private record Out(String players, byte[] png) {}
+
+    private record Watched(Handoff<Frame> encoder, Map<WebSocketSession, Handoff<Out>> sockets) {}
 
     /** By the watched player's id. */
     private final Map<String, Watched> watched = new ConcurrentHashMap<>();
     private final PlayerConsoles consoles;
 
-    WatchWebSocketHandler(PlayerConsoles consoles) {
+    WatchWebSocketHandler(PlayerConsoles consoles, Ghosts ghosts, NoteService notes, ObjectMapper json) {
         this.consoles = consoles;
         consoles.onFrame((userId, pixels) -> {
             Watched w = watched.get(userId);
-            if (w != null) w.encoder().offer(pixels);
+            if (w == null) return;
+            try {
+                w.encoder().offer(new Frame(pixels, json.writeValueAsString(Map.of("ghosts", ghosts.onScreen(userId), "notes", notes.visible(userId)))));
+            } catch (JsonProcessingException e) {
+                throw new IllegalStateException(e);
+            }
         });
         // The console stopped (paused and parked, see PlayerConsoles.onAway): admins watching it are told (they
         // retry). Closed on a virtual thread: this runs inside idle(), sometimes under LinkService's lock.
@@ -85,13 +101,14 @@ public class WatchWebSocketHandler extends AbstractWebSocketHandler {
             }
         }
         Watched w = watched.computeIfAbsent(target, id -> {
-            Map<WebSocketSession, Handoff<byte[]>> sockets = new ConcurrentHashMap<>();
-            return new Watched(new Handoff<>(1, pixels -> {
-                byte[] png = FrameEncoder.png(pixels);
-                sockets.values().forEach(slot -> slot.offer(png));
+            Map<WebSocketSession, Handoff<Out>> sockets = new ConcurrentHashMap<>();
+            return new Watched(new Handoff<>(1, frame -> {
+                Out out = new Out(frame.players(), FrameEncoder.png(frame.pixels()));
+                sockets.values().forEach(slot -> slot.offer(out));
             }), sockets);
         });
-        w.sockets().put(session, new Handoff<>(1, png -> send(session, png)));
+        String[] sent = {null}; // the players message this socket last got; only its handoff's thread touches it
+        w.sockets().put(session, new Handoff<>(1, out -> send(session, out, sent)));
         // It may have stopped between the check above and now (onAway missed this socket).
         if (admin(session) && consoles.linkedWith(target) == null && !consoles.isAwake(target)) {
             ScreenWebSocketHandler.close(session, NOT_PLAYING);
@@ -133,10 +150,14 @@ public class WatchWebSocketHandler extends AbstractWebSocketHandler {
         return last.isEmpty() ? null : URLDecoder.decode(last, StandardCharsets.UTF_8).toLowerCase();
     }
 
-    private static void send(WebSocketSession session, byte[] png) {
+    private static void send(WebSocketSession session, Out out, String[] sent) {
         if (!session.isOpen()) return;
         try {
-            session.sendMessage(new BinaryMessage(png));
+            if (!out.players().equals(sent[0])) {
+                session.sendMessage(new TextMessage(out.players()));
+                sent[0] = out.players();
+            }
+            session.sendMessage(new BinaryMessage(out.png()));
         } catch (IOException | IllegalStateException e) {
             ScreenWebSocketHandler.close(session, CloseStatus.SESSION_NOT_RELIABLE);
         }

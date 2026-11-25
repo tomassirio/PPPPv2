@@ -237,12 +237,14 @@
 					<div class="overlay pixel" aria-hidden="true">{overlay}</div>
 				{/if}
 			{/if}
-			{#if reading && !overlay && !watch}
+			{#if reading && !overlay}
 				<div class="note-read" role="status">
 					<p class="note-text">“{reading.text}”</p>
 					<p class="note-meta">
 						<span>{reading.mine ? 'Your note' : ''}{#if !reading.mine}<Name user={reading.user} />{/if} · 👍 {reading.good}</span>
-						{#if reading.mine}
+						{#if watch}
+							<!-- watching someone: read only -->
+						{:else if reading.mine}
 							<button type="button" onclick={() => api('DELETE', `/notes/${reading.id}`).catch(() => {})}>Remove</button>
 						{:else if !reading.rated}
 							<button type="button" onclick={() => api('POST', `/notes/${reading.id}/good`).catch(() => {})}>Good</button>
@@ -250,7 +252,7 @@
 					</p>
 				</div>
 			{/if}
-			{#if !watch}<GodMessage />{/if}
+			<GodMessage user={watch ?? session.me?.id} />
 			<p class="sr-only" role="status">{overlay ?? ''}</p>
 		</div>
 		<div class="strip">

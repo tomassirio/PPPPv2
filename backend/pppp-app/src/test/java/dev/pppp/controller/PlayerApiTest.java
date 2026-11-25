@@ -159,6 +159,15 @@ class PlayerApiTest {
         mvc.perform(json(put("/api/v1/me/keys"), wasd.replace("\"Enter\"", "\"Escape\""))).andExpect(status().isBadRequest());
         mvc.perform(json(put("/api/v1/me/keys"), "{\"up\":\"w\"}")).andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/me/keys").with(PIB)).andExpect(jsonPath("$.b").value("j")); // unchanged
+
+        // Fast forward: Space by default; any free key, or none.
+        mvc.perform(get("/api/v1/me/keys").with(ADMIN)).andExpect(jsonPath("$.fast").value(" "));
+        String withFast = wasd.replace("\"select\":\" \"", "\"select\":\"Shift\",\"fast\":\"F\"");
+        mvc.perform(json(put("/api/v1/me/keys"), withFast)).andExpect(status().isOk()).andExpect(jsonPath("$.fast").value("f"));
+        mvc.perform(get("/api/v1/me/keys").with(PIB)).andExpect(jsonPath("$.fast").value("f"));
+        mvc.perform(json(put("/api/v1/me/keys"), withFast.replace("\"F\"", "\"k\""))).andExpect(status().isBadRequest()); // A's key
+        mvc.perform(json(put("/api/v1/me/keys"), wasd)).andExpect(status().isOk()); // no fast: none
+        mvc.perform(get("/api/v1/me/keys").with(PIB)).andExpect(jsonPath("$.fast").doesNotExist());
     }
 
     /** The trainer sprite: the game's own until picked; only a trainer the player's game has (the test ROM has none). */
