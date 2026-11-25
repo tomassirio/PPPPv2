@@ -54,6 +54,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   Trainer colour: Default (the sprite's own) or red/blue/green/brown/pink/silver (`PlayerSprites.COLORS`, Redis
   `spriteColor` in pibs:player): Crystal's SpawnPlayer palette byte, Gold/Silver's PlayerObjectTemplate palette
   nibble (bank 2); previews `?color=`; Ghosts draw each player in the palette their game uses (OBJECT_PALETTE).
+  Trainer picture (`PlayerPic`): a picked trainer that has a trainer class shows its class pic and palette from the front:
+  Crystal's ChrisPic/KrisPic (card, intro, Hall of Fame) and PlayerPalette; Gold/Silver's CAL entries (intro, HoF) and
+  the 5x7 card pic. Link battles draw the opponent as CAL: `PlayerPic.linkOpponent` points it at the peer's class while
+  linked (restored on unlink). No back sprites exist for trainer classes, so battle backs stay Chris/Kris.
   The friend in TradeCenter/Colosseum walks as the peer's chosen sprite: `PlayerConsoles.link` patches both friend
   objects' sprite bytes in each running ROM (`PlayerSprites.cableFriend`, `EmulatorHost.patchRom`); unlink puts Chris back.
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs

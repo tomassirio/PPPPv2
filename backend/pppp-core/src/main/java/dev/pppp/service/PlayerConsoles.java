@@ -7,6 +7,7 @@ import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
 import dev.pppp.service.game.Credits;
 import dev.pppp.service.game.Ghosts;
+import dev.pppp.service.game.PlayerPic;
 import dev.pppp.service.game.PlayerSprites;
 import dev.pppp.service.game.PokecenterDig;
 import dev.pppp.service.game.V1Red;
@@ -363,8 +364,11 @@ public class PlayerConsoles {
         synchronized (links) {
             if (!isAwake(userA) || !isAwake(userB)) throw new IllegalStateException("Both consoles must be open to link");
             Console a = consoles.get(userA), b = consoles.get(userB);
-            var friendA = PlayerSprites.cableFriend(rom(a.cartridgeId()), players.sprite(userB));
-            var friendB = PlayerSprites.cableFriend(rom(b.cartridgeId()), players.sprite(userA));
+            // Each side's link room friend walks as the other's trainer, and its battle opponent (CAL) is drawn as them.
+            var friendA = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(a.cartridgeId()), players.sprite(userB)));
+            friendA.putAll(PlayerPic.linkOpponent(rom(a.cartridgeId()), players.sprite(userB), players.sprite(userA)));
+            var friendB = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(b.cartridgeId()), players.sprite(userA)));
+            friendB.putAll(PlayerPic.linkOpponent(rom(b.cartridgeId()), players.sprite(userA), players.sprite(userB)));
             EmulatorHost.link(a.host(), b.host());
             a.host().patchRom(friendA);
             b.host().patchRom(friendB);
@@ -526,7 +530,11 @@ public class PlayerConsoles {
             if (c != null) EmulatorHost.unlink(c.host());
             for (String id : List.of(userId, peer)) {
                 Console end = consoles.get(id);
-                if (end != null) end.host().patchRom(PlayerSprites.cableFriend(rom(end.cartridgeId()), null));
+                if (end != null) {
+                    var back = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(end.cartridgeId()), null));
+                    back.putAll(PlayerPic.linkOpponent(rom(end.cartridgeId()), null, players.sprite(id)));
+                    end.host().patchRom(back);
+                }
             }
         }
         for (String id : List.of(userId, peer)) {
@@ -617,8 +625,8 @@ public class PlayerConsoles {
         EmulatorHost host = new EmulatorHost();
         V1Red red = new V1Red();
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game),
-                rom -> PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(rom))), players.sprite(userId),
-                        players.spriteColor(userId)));
+                rom -> PlayerPic.patch(PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(rom))), players.sprite(userId),
+                        players.spriteColor(userId)), players.sprite(userId)));
         host.afterFrame(red::nicknames);
         host.afterFrame(PokecenterDig.patientReceptionist(host::isLinked));
         host.onFrame(pixels -> {
