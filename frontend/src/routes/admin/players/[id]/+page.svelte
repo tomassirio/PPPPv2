@@ -165,7 +165,7 @@
 		</section>
 
 		<main class="cols">
-			<section class="panel" aria-labelledby="gb-h">
+			<section class="panel gb-panel" aria-labelledby="gb-h">
 				<div class="between">
 					<h2 id="gb-h" class="pixel">Game Boy</h2>
 					{#if gb}<span class="state s-{gb.state.toLowerCase()}"><span class="dot"></span>{LABEL[gb.state]}</span>{/if}
@@ -216,12 +216,37 @@
 								{#if gb.save}<a class="btn" href="/api/v1/admin/sessions/{encodeURIComponent(id)}/save" download>Download save</a>{/if}
 								{#if gb.state !== 'CLOSED'}<button class="danger" onclick={closeGb}>Close Game Boy</button>{/if}
 							</div>
+							<div class="god" aria-labelledby="god-h" role="group">
+								<h3 id="god-h" class="pixel">God message</h3>
+								<p class="muted">Glows across {nameOf(id)}'s Game Boy screen for a few seconds. Nobody else sees it.</p>
+								<form onsubmit={sendGod}>
+									<label class="sr-only" for="god-text">Message</label>
+									<!-- Enter sends; Shift+Enter starts a new line. -->
+									<textarea
+										id="god-text"
+										bind:value={godText}
+										maxlength="200"
+										rows="2"
+										placeholder="Thou shalt catch them all…"
+										onkeydown={(e) => {
+											if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+												e.preventDefault();
+												e.currentTarget.form?.requestSubmit();
+											}
+										}}
+									></textarea>
+									<div class="between">
+										<span class="muted small">{isOnline ? `${godText.trim().length} / 200` : `${nameOf(id)} has no tab open`}</span>
+										<button class="send" disabled={!godText.trim() || !isOnline}>Send from above</button>
+									</div>
+								</form>
+							</div>
 						</div>
 					{/if}
 				</div>
 			</section>
 
-			<section class="panel" aria-labelledby="stats-h">
+			<section class="panel stats-panel" aria-labelledby="stats-h">
 				<h2 id="stats-h" class="pixel">Stats</h2>
 				{#if row && profile}
 					<div class="score">
@@ -258,7 +283,7 @@
 				{/if}
 			</section>
 
-			<section class="panel" aria-labelledby="recent-h">
+			<section class="panel recent-panel" aria-labelledby="recent-h">
 				<h2 id="recent-h" class="pixel">Recent</h2>
 				{#if profile?.recent.length}
 					<ul class="recent">
@@ -275,31 +300,6 @@
 				{/if}
 			</section>
 
-			<section class="panel god" aria-labelledby="god-h">
-				<h2 id="god-h" class="pixel">God message</h2>
-				<p class="muted">Glows across {nameOf(id)}'s Game Boy screen for a few seconds. Nobody else sees it.</p>
-				<form onsubmit={sendGod}>
-					<label class="sr-only" for="god-text">Message</label>
-					<!-- Enter sends; Shift+Enter starts a new line. -->
-					<textarea
-						id="god-text"
-						bind:value={godText}
-						maxlength="200"
-						rows="2"
-						placeholder="Thou shalt catch them all…"
-						onkeydown={(e) => {
-							if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-								e.preventDefault();
-								e.currentTarget.form?.requestSubmit();
-							}
-						}}
-					></textarea>
-					<div class="between">
-						<span class="muted small">{isOnline ? `${godText.trim().length} / 200` : `${nameOf(id)} has no tab open`}</span>
-						<button class="send" disabled={!godText.trim() || !isOnline}>Send from above</button>
-					</div>
-				</form>
-			</section>
 
 			<GiftsPanel to={id} />
 
@@ -346,6 +346,25 @@
 		gap: 16px;
 		align-items: start;
 	}
+	/* Their Game Boy across the top, big; then what to do (god message, gift); then how they're doing; the danger
+	   zone last, alone. */
+	.gb-panel {
+		grid-column: 1 / -1;
+		order: 0;
+	}
+	.cols > :global(.gifts) {
+		order: 2;
+	}
+	.stats-panel {
+		order: 3;
+	}
+	.recent-panel {
+		order: 4;
+	}
+	.danger-zone {
+		order: 5;
+		grid-column: 1 / -1;
+	}
 	.between {
 		display: flex;
 		align-items: center;
@@ -379,8 +398,8 @@
 	}
 	.screen {
 		position: relative; /* the cards and the chat overlay sit over the live screen */
-		flex: 1 1 280px;
-		max-width: 400px;
+		flex: 2 1 400px;
+		max-width: 560px;
 	}
 	.info {
 		flex: 1 1 220px;
@@ -524,11 +543,25 @@
 	.recent .muted {
 		white-space: nowrap;
 	}
+	/* The god message, under the Game Boy's facts: a purple-edged box. */
 	.god {
-		border-color: color-mix(in srgb, #8b5cf6 45%, var(--border));
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin-top: 4px;
+		padding: 12px;
+		border-radius: 12px;
+		border: 1px solid color-mix(in srgb, #8b5cf6 45%, var(--border));
+		background: color-mix(in srgb, #8b5cf6 6%, transparent);
+	}
+	.god h3 {
+		margin: 0;
+		font-size: 12px;
+		color: #8b5cf6;
 	}
 	.god p {
 		margin: 0;
+		font-size: 13px;
 	}
 	.god form {
 		display: flex;

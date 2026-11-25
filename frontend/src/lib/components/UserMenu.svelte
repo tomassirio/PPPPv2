@@ -127,6 +127,7 @@
 
 <style>
 	.version {
+		white-space: nowrap;
 		margin: 4px 0 0;
 		padding: 8px 12px 4px;
 		border-top: 1px solid var(--border);
@@ -219,7 +220,7 @@
 		font-size: 13px;
 		font-weight: 700;
 	}
-	.dropdown {
+	.menu .dropdown {
 		position: absolute;
 		top: calc(100% + 8px);
 		right: 0;
@@ -251,8 +252,13 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.row {
+	/* Spelled out in full (nowrap, heights, line heights) so a page's own generic rules, such as the admin pages'
+	   .row / label / button, cannot reshape the menu. */
+	.dropdown .row {
 		display: flex;
+		flex-direction: row;
+		flex-wrap: nowrap;
+		gap: 12px;
 		align-items: center;
 		justify-content: space-between;
 		padding: 6px 10px;
@@ -270,6 +276,7 @@
 	.toggle button {
 		width: 32px;
 		height: 28px;
+		padding: 0;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -303,9 +310,11 @@
 		color: var(--text);
 		box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
 	}
-	.item {
+	.dropdown .item {
 		display: block;
 		width: 100%;
+		height: auto;
+		line-height: 1.35;
 		padding: 8px 10px;
 		border: none;
 		border-radius: 6px;

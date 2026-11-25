@@ -1,6 +1,7 @@
 <!-- Send a Mystery Gift (POST /admin/gifts) to everyone or (to) one player: a fair item from the curated list, up to its
      cap, into their PC; or an event Pokémon (Gen 2's distributions, fixed movesets) into their party once it has room.
-     Both arrive the next time they stand free in the overworld. Picked from chips (big enough for fingers). -->
+     Both arrive the next time they stand free in the overworld. Items / Pokémon tabs of tiles (an icon each: the
+     Pokémon's sprite from the admin's ROM), then a summary bar with the amount and Send. -->
 <script lang="ts">
 	import { api } from '#lib/api.ts';
 	import { act } from './admin.svelte';
@@ -9,14 +10,22 @@
 	let { to = null }: { to?: string | null } = $props();
 	type Gift = { id: string; name: string; max: number; pokemon: boolean };
 
+	/** An icon per item (no item art in the ROMs). */
+	const ICONS: Record<string, string> = {
+		'rare-candy': '🍬', 'fire-stone': '🔥', 'water-stone': '💧', thunderstone: '⚡', 'leaf-stone': '🍃', 'moon-stone': '🌙',
+		'sun-stone': '☀️', everstone: '🪨', 'pp-up': '⏫', 'full-restore': '💊', 'max-revive': '💖', 'max-repel': '🌫️',
+		'escape-rope': '🪢', 'ultra-ball': '🟡', 'great-ball': '🔵', 'gold-berry': '🍇', 'moomoo-milk': '🥛', nugget: '🪙',
+		'amulet-coin': '💰', 'odd-egg': '🥚'
+	};
+	/** Event Pokémon shown by their sprite (Pokédex number). */
+	const SPRITES: Record<string, number> = { celebi: 251, mew: 151, 'surfing-pikachu': 25 };
+
 	let catalog = $state<Gift[]>([]);
+	let tab = $state<'items' | 'pokemon'>('items');
 	let gift = $state('');
 	let quantity = $state(1);
 	const chosen = $derived(catalog.find((g) => g.id === gift));
-	const groups = $derived([
-		{ label: 'Items', list: catalog.filter((g) => !g.pokemon) },
-		{ label: 'Event Pokémon', list: catalog.filter((g) => g.pokemon) }
-	]);
+	const shown = $derived(catalog.filter((g) => g.pokemon === (tab === 'pokemon')));
 	$effect(() => {
 		act('Load gifts', () => api<Gift[]>('GET', '/admin/gifts'), undefined, true).then((c) => {
 			if (!c) return;
@@ -28,12 +37,20 @@
 		if (chosen && quantity > chosen.max) quantity = chosen.max;
 		if (quantity < 1) quantity = 1;
 	});
+	// "Celebi (GS Ball, Lv 30)" -> name "Celebi", note "GS Ball, Lv 30".
+	const title = (g: Gift) => g.name.replace(/\s*\(.*\)$/, '');
+	const note = (g: Gift) => g.name.match(/\((.*)\)$/)?.[1] ?? (g.pokemon ? 'Event' : `up to ${g.max}`);
+	const what = $derived(chosen ? (chosen.pokemon ? title(chosen) : `${quantity}× ${title(chosen)}`) : '');
+	const who = $derived(to ? nameOf(to) : 'every Pib');
+
+	function pick(g: Gift) {
+		gift = g.id;
+		quantity = 1;
+	}
 
 	async function send(e: SubmitEvent) {
 		e.preventDefault();
 		if (!chosen) return;
-		const who = to ? nameOf(to) : 'every Pib';
-		const what = chosen.pokemon ? chosen.name : `${quantity}× ${chosen.name}`;
 		await act(
 			`Mystery Gift (${what}) to ${who}`,
 			() => api('POST', '/admin/gifts', { gift, quantity, to }),
@@ -43,111 +60,209 @@
 </script>
 
 <section class="panel gifts" aria-labelledby="gifts-h{to ? '-one' : ''}">
-	<h2 id="gifts-h{to ? '-one' : ''}" class="pixel">Mystery Gift</h2>
+	<div class="head">
+		<h2 id="gifts-h{to ? '-one' : ''}" class="pixel">Mystery Gift</h2>
+		<div class="tabs" role="tablist" aria-label="Kind of gift">
+			<button type="button" role="tab" aria-selected={tab === 'items'} onclick={() => (tab = 'items')}>Items</button>
+			<button type="button" role="tab" aria-selected={tab === 'pokemon'} onclick={() => (tab = 'pokemon')}>Pokémon</button>
+		</div>
+	</div>
 	<p class="hint">
-		{to ? `To ${nameOf(to)}` : 'To every Pib'}, the next time they stand free in the overworld: items to the PC, Pokémon to the party (once
-		there is room). Like any traded Pokémon, an event one obeys only up to what their badges allow.
+		{tab === 'items'
+			? 'Items land in the PC the next time they stand free in the overworld.'
+			: 'Pokémon join the party once it has room. Like any traded Pokémon, they obey only up to what the badges allow.'}
 	</p>
+
 	<form onsubmit={send}>
-		{#each groups as g (g.label)}
-			{#if g.list.length}
-				<fieldset>
-					<legend>{g.label}</legend>
-					<div class="chips">
-						{#each g.list as item (item.id)}
-							<button type="button" aria-pressed={gift === item.id} onclick={() => (gift = item.id)}>{item.name}</button>
-						{/each}
-					</div>
-				</fieldset>
-			{/if}
-		{/each}
-		<div class="send">
+		<div class="tiles" role="radiogroup" aria-label={tab === 'items' ? 'Items' : 'Event Pokémon'}>
+			{#each shown as g (g.id)}
+				<button type="button" class="tile" role="radio" aria-checked={gift === g.id} onclick={() => pick(g)}>
+					<span class="icon" aria-hidden="true">
+						{#if SPRITES[g.id]}
+							<img src="/api/v1/game/icons/{SPRITES[g.id]}.png" alt="" />
+						{:else}
+							{ICONS[g.id] ?? '🎁'}
+						{/if}
+					</span>
+					<span class="name">{title(g)}</span>
+					<span class="note">{note(g)}</span>
+				</button>
+			{/each}
+		</div>
+
+		<div class="bar">
+			<span class="summary">
+				<span class="gift-glyph" aria-hidden="true">🎁</span>
+				<span><b>{what || 'Pick a gift'}</b> <span class="arrow">→</span> {who}</span>
+			</span>
 			{#if chosen && chosen.max > 1}
-				<div class="qty" role="group" aria-label="How many">
+				<span class="qty" role="group" aria-label="How many">
 					<button type="button" aria-label="One fewer" disabled={quantity <= 1} onclick={() => quantity--}>−</button>
 					<span aria-live="polite">{quantity}</span>
 					<button type="button" aria-label="One more" disabled={quantity >= chosen.max} onclick={() => quantity++}>+</button>
-					<span class="cap">of {chosen.max}</span>
-				</div>
+				</span>
 			{/if}
-			<button class="go" disabled={!chosen}>{to ? 'Send' : 'Send to everyone'}</button>
+			<button class="primary go" disabled={!chosen}>{to ? 'Send' : 'Send to everyone'}</button>
 		</div>
 	</form>
 </section>
 
 <style>
-	fieldset {
-		margin: 0 0 12px;
-		padding: 0;
-		border: none;
-		min-width: 0;
-	}
-	legend {
-		margin-bottom: 8px;
-		font-size: 12px;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--muted);
-	}
-	.chips {
+	.head {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-	}
-	.chips button {
-		min-height: 36px;
-		padding: 0 12px;
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		background: transparent;
-		color: var(--text);
-		font: 600 14px var(--body-font);
-		cursor: pointer;
-	}
-	.chips button[aria-pressed='true'] {
-		border-color: var(--accent);
-		background: var(--accent);
-		color: #1d1f1c;
-	}
-	.send {
-		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
 		gap: 12px;
+		flex-wrap: wrap;
+	}
+	.head h2 {
+		margin: 0;
+	}
+	.tabs {
+		display: inline-flex;
+		padding: 3px;
+		gap: 2px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--muted) 14%, transparent);
+	}
+	.tabs button {
+		height: 30px;
+		padding: 0 14px;
+		border: none;
+		border-radius: 999px;
+		background: transparent;
+		color: var(--muted);
+		font: 700 13px var(--body-font);
+		cursor: pointer;
+	}
+	.tabs button[aria-selected='true'] {
+		background: var(--panel);
+		color: var(--text);
+		box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+	}
+	.hint {
+		margin: 8px 0 12px;
+	}
+	.tiles {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+		gap: 8px;
+	}
+	.tile {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		height: auto !important;
+		min-height: 96px;
+		padding: 10px 6px !important;
+		border: 1.5px solid var(--border);
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--panel) 70%, transparent);
+		color: var(--text);
+		cursor: pointer;
+		transition:
+			border-color 0.12s,
+			transform 0.12s,
+			box-shadow 0.12s;
+	}
+	.tile:hover {
+		border-color: var(--border-strong);
+		transform: translateY(-1px);
+	}
+	.tile[aria-checked='true'] {
+		border-color: var(--accent);
+		background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+	}
+	.icon {
+		display: grid;
+		place-items: center;
+		width: 40px;
+		height: 40px;
+		font-size: 26px;
+		line-height: 1;
+	}
+	.icon img {
+		width: 40px;
+		height: 40px;
+		image-rendering: pixelated;
+	}
+	.name {
+		font: 700 13px var(--body-font);
+		text-align: center;
+		line-height: 1.2;
+	}
+	.note {
+		font-size: 11px;
+		color: var(--muted);
+		text-align: center;
+		line-height: 1.2;
+	}
+	.bar {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-top: 14px;
+		padding: 10px 12px;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--muted) 10%, transparent);
+	}
+	.summary {
+		flex: 1 1 200px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+		font-size: 14px;
+	}
+	.gift-glyph {
+		font-size: 20px;
+	}
+	.arrow {
+		color: var(--muted);
 	}
 	.qty {
-		display: flex;
+		display: inline-flex;
 		align-items: center;
 		gap: 8px;
 		font: 700 16px var(--body-font);
 	}
 	.qty button {
-		width: 40px;
-		height: 40px;
+		width: 34px;
+		height: 34px !important;
+		padding: 0 !important;
 		border: 1px solid var(--border);
-		border-radius: 10px;
-		background: transparent;
+		border-radius: 50%;
+		background: var(--panel);
 		color: var(--text);
-		font-size: 20px;
+		font-size: 18px;
 		cursor: pointer;
 	}
 	.qty button:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
 	}
-	.cap {
-		color: var(--muted);
-		font-weight: 500;
-		font-size: 13px;
-	}
 	.go {
-		min-height: 44px;
+		min-width: 140px;
 		margin-left: auto;
+	}
+	@media (max-width: 520px) {
+		.go {
+			flex: 1 1 100%;
+		}
 	}
 	button:focus-visible {
 		outline: 2px solid var(--accent-text);
 		outline-offset: 2px;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.tile {
+			transition: none;
+		}
+		.tile:hover {
+			transform: none;
+		}
 	}
 </style>

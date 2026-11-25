@@ -57,13 +57,14 @@
 			{/if}
 		</div>
 		<main>
+			<!-- The tall gift picker on its own; the short panels stacked beside it. -->
 			<div class="column">
-				<h2 class="group">Game</h2>
-				<CartridgesPanel />
+				<h2 class="group">Players</h2>
 				<GiftsPanel />
 			</div>
 			<div class="column">
-				<h2 class="group">Access &amp; settings</h2>
+				<h2 class="group">Game, access &amp; settings</h2>
+				<CartridgesPanel />
 				<AccessRequestsPanel />
 				<SettingsPanel />
 			</div>
