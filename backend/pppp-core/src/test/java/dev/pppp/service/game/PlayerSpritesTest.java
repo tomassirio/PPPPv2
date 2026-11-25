@@ -81,6 +81,11 @@ class PlayerSpritesTest {
             assertThat(sprite).as("OBJECT_SPRITE of the player").isEqualTo(0x06); // SPRITE_RED
             int palette = host.withBus(bus -> bus.getByte(Integer.decode(playerStruct) + 6)) & 7;
             assertThat(palette).as("OBJECT_PALETTE of the player").isEqualTo(2); // PAL_OW_GREEN
+            // A new colour shows at once, without a map load.
+            Boolean done = false;
+            for (int i = 0; i < 30 && !Boolean.TRUE.equals(done); i++) done = host.withBus(bus -> PlayerSprites.repaint(bus, bytes, "RED", "BLUE"));
+            assertThat(done).isTrue();
+            assertThat(host.withBus(bus -> bus.getByte(Integer.decode(playerStruct) + 6)) & 7).as("repainted").isEqualTo(1);
             if (System.getenv("SHOTS") != null) {
                 host.onFrame(px -> {
                     var img = new java.awt.image.BufferedImage(160, 144, java.awt.image.BufferedImage.TYPE_INT_RGB);

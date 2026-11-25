@@ -44,7 +44,7 @@
 		message = '';
 		try {
 			picked = await api<State>('PUT', '/me/sprite', { key: c.key, color: picked.color });
-			message = `Saved. You walk as ${c.name} from the next door you go through.`;
+			message = `Saved: ${c.name}, from the next door.`;
 			open = false;
 		} catch (e) {
 			error = e instanceof ApiError ? e.detail : 'Could not change your trainer';
@@ -59,7 +59,7 @@
 		message = '';
 		try {
 			picked = await api<State>('PUT', '/me/sprite', { key: picked.current, color });
-			message = `Saved. You walk in ${color ? colorName(color).toLowerCase() : 'your trainer’s own colours'} from the next door you go through.`;
+			message = `Saved: ${color ? colorName(color).toLowerCase() : 'own colours'}.`;
 		} catch (e) {
 			error = e instanceof ApiError ? e.detail : 'Could not change your colour';
 		}
@@ -111,7 +111,6 @@
 		</div>
 		{#if open}
 			<div class="pop" role="dialog" aria-label="Pick your trainer">
-				<p class="muted">Who you walk around as in your game. Others see it too, on their screen and on the town map.</p>
 				{@render list(picked)}
 			</div>
 		{/if}
@@ -214,8 +213,15 @@
 		line-height: 1.25;
 		min-width: 0;
 	}
+	/* Two lines, always: the card keeps its size whatever it says (the panel under it stays put). */
 	.mini-text .desc {
 		font-size: 12px;
+		min-height: 2.5em;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 	.mini .change {
 		height: 28px;
@@ -229,10 +235,11 @@
 		color: var(--muted);
 	}
 	/* The change confirmed inside the card, in place of the description. */
-	.saved {
+	.mini-text .desc.saved {
 		display: flex;
 		align-items: flex-start;
 		gap: 6px;
+		height: 2.5em;
 	}
 	.check {
 		flex: none;
@@ -271,10 +278,6 @@
 		border: 1px solid var(--border-strong);
 		background: var(--panel);
 		box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
-	}
-	.pop p {
-		margin: 0 0 8px;
-		font-size: 13px;
 	}
 	/* Phones: as wide as the card it opens under (90vw anchored at its right edge spilled off the left side). */
 	@media (max-width: 760px) {

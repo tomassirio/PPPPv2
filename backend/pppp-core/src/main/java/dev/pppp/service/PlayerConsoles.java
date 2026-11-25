@@ -428,7 +428,14 @@ public class PlayerConsoles {
         c.presses().shutdownNow();
         park(userId, c);
         c.host().shutdown();
-        if (awake) open(userId);
+        if (awake) {
+            open(userId);
+            // The colour shows at once (the trainer itself from the next map: the game loads its graphics then).
+            byte[] rom = rom(players.game(userId));
+            for (int i = 0; i < 30 && !Boolean.TRUE.equals(withBus(userId, bus -> PlayerSprites.repaint(bus, rom, key, color))); i++) {
+                // another WRAM bank in this frame: the next one
+            }
+        }
     }
 
     /** A trainer of a cartridge as a sprite sheet (the sign-in page's town map), or null. */

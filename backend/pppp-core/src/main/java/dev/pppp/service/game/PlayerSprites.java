@@ -147,6 +147,26 @@ public final class PlayerSprites {
         return out;
     }
 
+    /**
+     * Colours the player at once in a running game: OBJECT_PALETTE of wPlayerStruct (read for every frame's OAM), set
+     * to color's palette or, for null, key's sprite's own; the patched ROM keeps it from the next map on. False (nothing
+     * written) for another game or while WRAM bank 1 is out (try again a frame later).
+     */
+    public static boolean repaint(dev.pppp.emulator.Bus bus, byte[] rom, String key, String color) {
+        Layout at = layout(rom);
+        Choice c = at == null ? null : choice(rom, key == null ? DEFAULT : key);
+        if (c == null) return false;
+        int svbk = bus.getByte(0xFF70);
+        if (svbk != 0xFF && (svbk & 7) > 1) return false;
+        Integer pal = palette(color);
+        int palette = pal != null ? pal : rom[at.overworldSprites + (c.id - 1) * SPRITE_ENTRY + SPRITE_PALETTE] & 7;
+        int address = (at == CRYSTAL ? Ghosts.CRYSTAL : Ghosts.GOLD_SILVER).playerStruct() + OBJECT_PALETTE;
+        bus.setByte(address, bus.getByte(address) & ~7 | palette);
+        return true;
+    }
+
+    private static final int OBJECT_PALETTE = 6; // object_struct (constants/map_object_constants.asm)
+
     /** The ROM with c as the player's sprite (a copy), or null when the tables are not where pret has them. */
     private static byte[] trainer(byte[] rom, Layout at, Choice c) {
         if (!table(rom, at.chris, SPRITE_CHRIS, SPRITE_CHRIS_BIKE)) return null;
