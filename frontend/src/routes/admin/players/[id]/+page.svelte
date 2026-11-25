@@ -365,6 +365,27 @@
 		order: 5;
 		grid-column: 1 / -1;
 	}
+	/* Two columns: the gift picker on the left, Stats and Recent stacked on the right. */
+	@media (min-width: 1000px) {
+		.cols {
+			grid-template-columns: 1fr 1fr;
+		}
+		.cols > :global(.gifts) {
+			grid-column: 1;
+			grid-row: 2 / span 2;
+		}
+		.stats-panel {
+			grid-column: 2;
+			grid-row: 2;
+		}
+		.recent-panel {
+			grid-column: 2;
+			grid-row: 3;
+		}
+		.danger-zone {
+			grid-row: 4;
+		}
+	}
 	.between {
 		display: flex;
 		align-items: center;
