@@ -102,10 +102,39 @@
 		if ((e as PointerEvent).pointerType === 'touch') navigator.vibrate?.(12);
 	}
 
+	/*
+	 * Each finger (or mouse) holds the pad button under it, and slides: moving onto another button lets go of the old
+	 * one and presses the new one (right, then down without lifting the finger); off the buttons holds nothing. A
+	 * button stays down while any finger is on it. Touch keeps a finger's events on the button it started on, so the
+	 * button under it is looked up by position.
+	 */
+	const fingers = new Map<number, Button | null>();
+
 	function pointerDown(e: PointerEvent, b: Button) {
 		if (e.button !== 0) return;
 		buzz(e);
+		fingers.set(e.pointerId, b);
 		press(b);
+	}
+
+	function slide(e: PointerEvent) {
+		if (!fingers.has(e.pointerId)) return;
+		const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-button]');
+		const b = (el?.dataset.button as Button | undefined) ?? null, was = fingers.get(e.pointerId) ?? null;
+		if (b === was) return;
+		fingers.set(e.pointerId, b);
+		if (was && ![...fingers.values()].includes(was)) release(was);
+		if (b) {
+			buzz(e);
+			press(b);
+		}
+	}
+
+	function lift(e: PointerEvent) {
+		if (!fingers.has(e.pointerId)) return;
+		const was = fingers.get(e.pointerId) ?? null;
+		fingers.delete(e.pointerId);
+		if (was && ![...fingers.values()].includes(was)) release(was);
 	}
 
 	const dpad: { b: Button; label: string; path: string; area: string; key: string }[] = [
@@ -116,7 +145,7 @@
 	];
 </script>
 
-<svelte:window {onkeydown} {onkeyup} onblur={releaseAll} />
+<svelte:window {onkeydown} {onkeyup} onblur={() => (fingers.clear(), releaseAll())} onpointermove={slide} onpointerup={lift} onpointercancel={lift} />
 
 <div class="shell" style={vars}>
 	<div class="picker-corner"><ShellPicker /></div>
@@ -131,10 +160,8 @@
 					style:grid-area={d.area}
 					aria-label={d.label}
 					aria-keyshortcuts={shortcut(d.b)}
+					data-button={d.b}
 					onpointerdown={(e) => pointerDown(e, d.b)}
-					onpointerup={() => release(d.b)}
-					onpointercancel={() => release(d.b)}
-					onpointerleave={() => release(d.b)}
 					oncontextmenu={(e) => e.preventDefault()}
 					onclick={(e) => e.detail === 0 && send(d.b)}
 				>
@@ -154,18 +181,12 @@
 			<div class="hub"></div>
 		</div>
 		<div class="ab">
-			<button type="button" class="round pixel b" class:held={down.has('b')} aria-label="B button" aria-keyshortcuts={shortcut('b')} onpointerdown={(e) => pointerDown(e, 'b')}
-			onpointerup={() => release('b')}
-			onpointercancel={() => release('b')}
-			onpointerleave={() => release('b')}
+			<button type="button" class="round pixel b" class:held={down.has('b')} aria-label="B button" aria-keyshortcuts={shortcut('b')} data-button="b" onpointerdown={(e) => pointerDown(e, 'b')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('b')}
 				>B</button
 			>
-			<button type="button" class="round pixel" class:held={down.has('a')} aria-label="A button" aria-keyshortcuts={shortcut('a')} onpointerdown={(e) => pointerDown(e, 'a')}
-			onpointerup={() => release('a')}
-			onpointercancel={() => release('a')}
-			onpointerleave={() => release('a')}
+			<button type="button" class="round pixel" class:held={down.has('a')} aria-label="A button" aria-keyshortcuts={shortcut('a')} data-button="a" onpointerdown={(e) => pointerDown(e, 'a')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && !talk() && send('a')}
 				>A</button
@@ -173,18 +194,12 @@
 		</div>
 	</div>
 	<div class="meta">
-		<button type="button" class="pill" class:held={down.has('select')} aria-label="Select" aria-keyshortcuts={shortcut('select')} onpointerdown={(e) => pointerDown(e, 'select')}
-			onpointerup={() => release('select')}
-			onpointercancel={() => release('select')}
-			onpointerleave={() => release('select')}
+		<button type="button" class="pill" class:held={down.has('select')} aria-label="Select" aria-keyshortcuts={shortcut('select')} data-button="select" onpointerdown={(e) => pointerDown(e, 'select')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('select')}
 			>SELECT</button
 		>
-		<button type="button" class="pill" class:held={down.has('start')} aria-label="Start" aria-keyshortcuts={shortcut('start')} onpointerdown={(e) => pointerDown(e, 'start')}
-			onpointerup={() => release('start')}
-			onpointercancel={() => release('start')}
-			onpointerleave={() => release('start')}
+		<button type="button" class="pill" class:held={down.has('start')} aria-label="Start" aria-keyshortcuts={shortcut('start')} data-button="start" onpointerdown={(e) => pointerDown(e, 'start')}
 			oncontextmenu={(e) => e.preventDefault()}
 			onclick={(e) => e.detail === 0 && send('start')}
 			>START</button
@@ -288,7 +303,7 @@
 	}
 	button {
 		border: none;
-		touch-action: manipulation;
+		touch-action: none; /* a finger sliding between buttons is ours, not a page pan (that would cancel the press) */
 		-webkit-tap-highlight-color: transparent;
 		user-select: none;
 	}
