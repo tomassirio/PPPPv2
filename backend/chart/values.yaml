@@ -19,6 +19,11 @@ resources:
 
 javaOpts: "-XX:MaxRAMPercentage=75"
 
+# The backend gets a Pi to itself (turing-02 idles otherwise): all 4 cores for the Game Boys. Its data is on NFS, so
+# any node works; change or clear ({}) this to move it.
+nodeSelector:
+  kubernetes.io/hostname: turing-02
+
 application:
   # Comma-separated emails seeded as admins while the allowlist is empty.
   admins: ""
