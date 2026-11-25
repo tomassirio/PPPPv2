@@ -198,7 +198,11 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   (1x below 0.9), pppp_emulator_{cpu,listeners,hooks}_cores (EmulatorHost.Timing summed), pppp_players_online,
   pppp_scoreboard_players, pppp_websockets{endpoint}, pppp_link_sessions, pppp_lobby_ready, pppp_notes; counter
   pppp_events_total{type, detail} from LiveEvents (PROGRESS, ACHIEVEMENT_UNLOCKED, MYSTERY_GIFT, CHAT_MESSAGE+kind,
-  LINK_CHALLENGE+status, LINK_SESSION+status, PLAYER_RESET). Scraped by turing-pi-server's Prometheus (job
+  LINK_CHALLENGE+status, LINK_SESSION+status, PLAYER_RESET; `kind` TRADE/BATTLE on link ones). Business gauges from
+  `ProgressTracker.scoreboard()` (cached 10 s): pppp_pokemon_caught/seen, pppp_badges{region} (bit counts of the masks),
+  pppp_players_by_badges{badges 0-16}, pppp_players_by_game, pppp_players_reached{step} (story funnel via
+  `ProgressTracker.unlockedBy(achievement)`), pppp_pokemon_traded, pppp_link_battle_wins, pppp_achievements_unlocked,
+  pppp_trainer_score_avg, pppp_play_hours; pppp_link_sessions / pppp_lobby_ready by kind. Scraped by turing-pi-server's Prometheus (job
   `ppppv2-backend-prod`, labels project=ppppv2 ...); Grafana dashboard `services/grafana/dashboards/ppppv2.json` there.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon
   ROMs, the byte-level serial endpoint if linked pairs are too slow on the Pi, README

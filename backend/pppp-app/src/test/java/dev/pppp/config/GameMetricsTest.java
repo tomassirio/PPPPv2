@@ -32,8 +32,9 @@ class GameMetricsTest {
         String body = mvc.perform(get("/actuator/prometheus")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertThat(body).contains("pppp_consoles{state=\"RUNNING\"} 0.0", "pppp_players_online 0.0",
-                "pppp_websockets{endpoint=\"screen\"}", "pppp_link_sessions 0.0",
-                "pppp_events_total{detail=\"USER\",type=\"CHAT_MESSAGE\"} 1.0", "jvm_memory_used_bytes");
+                "pppp_websockets{endpoint=\"screen\"}", "pppp_link_sessions{kind=\"TRADE\"} 0.0", "pppp_players_reached{step=\"4 champion\"} 0.0",
+                "pppp_players_by_badges{badges=\"16\"} 0.0", "pppp_pokemon_caught 0.0",
+                "pppp_events_total{detail=\"USER\",kind=\"\",type=\"CHAT_MESSAGE\"} 1.0", "jvm_memory_used_bytes");
     }
 
     @Test
@@ -41,5 +42,7 @@ class GameMetricsTest {
         assertThat(GameMetrics.game("pokemon-crystal-version-usa-europe-rev-1")).isEqualTo("crystal");
         assertThat(GameMetrics.game("pokemon-red-patched")).isEqualTo("red");
         assertThat(GameMetrics.game("tetris")).isEqualTo("other");
+        assertThat(GameMetrics.hours("12:30")).isEqualTo(12.5);
+        assertThat(GameMetrics.hours(null)).isZero();
     }
 }

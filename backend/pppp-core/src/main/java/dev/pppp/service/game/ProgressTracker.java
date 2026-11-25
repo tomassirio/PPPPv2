@@ -509,6 +509,11 @@ public class ProgressTracker {
         return n;
     }
 
+    /** How many players on the scoreboard have unlocked the achievement (metrics). */
+    public long unlockedBy(String achievementId) {
+        return repo.ranking().stream().filter(id -> unlocked.computeIfAbsent(id, repo::achievements).containsKey(achievementId)).count();
+    }
+
     /** Every player who picked a game, best Trainer Score first (then achievement points). */
     public List<ScoreRow> scoreboard() {
         Set<String> running = consoles.running();
