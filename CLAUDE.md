@@ -137,6 +137,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   Chat: only admins see system lines and emotes (the lone swaps: ok, gg, <3, :youlost: ...) in the list (and the
   System / Emotes switches); formatted lines show with their markers taken out (`plainText`). The "Aa" button by the
   message box opens the formats and emotes (`FORMATS`, `EMOTES` in chat/bubble.ts; :youlost: kept a secret), click to insert.
+  New chat from others while Chat is closed: a small bubble with the count in the controller's bottom-left corner
+  (Gamepad `unread`, shell-coloured; opens Chat; own messages, system lines and emotes don't count).
   `FindButton` is the one "Find someone online" button (Link cable card, /watch, profiles).
   On phones Link cable and Your run are exactly the height left under the screen (size containers) and drop parts by
   height container queries instead of scrolling; Scoreboard, Activity and Chat scroll their lists.

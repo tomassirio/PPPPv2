@@ -17,7 +17,8 @@
 	import { controls, setControlsLow } from '#lib/controls.svelte.ts';
 	import { openComposer } from '#lib/notes.svelte.ts';
 
-	let { talk }: { talk: () => boolean } = $props();
+	// unread: people's chat messages since Chat was last open; a quiet bubble in the corner opens it (onchat).
+	let { talk, unread = 0, onchat }: { talk: () => boolean; unread?: number; onchat?: () => void } = $props();
 
 	// The player's controller shell (colours), remembered in this browser.
 	const shell = $derived(currentShell.value);
@@ -205,6 +206,7 @@
 			>START</button
 		>
 	</div>
+	<div class="corner">
 	<!-- Upright phones: a triangle in the corner moves the controller down to the bottom edge, or back up. -->
 	<button
 		type="button"
@@ -215,6 +217,13 @@
 	>
 		<svg viewBox="0 0 12 12" width="12" height="12" fill="currentColor" aria-hidden="true"><path d={controls.low ? 'M6 2l5 8H1z' : 'M6 10L1 2h10z'} /></svg>
 	</button>
+	{#if unread > 0 && onchat}
+		<button type="button" class="chat-note" aria-label="{unread} new chat {unread === 1 ? 'message' : 'messages'}, open Chat" title="New in chat" onclick={onchat}>
+			<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" /></svg>
+			<span>{unread > 9 ? '9+' : unread}</span>
+		</button>
+	{/if}
+	</div>
 </div>
 
 <!-- Only a failed press says anything here. Key bindings live in Settings (account menu). -->
@@ -387,11 +396,47 @@
 			display: none; /* the pad is split around the screen there */
 		}
 	}
-	.move {
-		display: none;
+	.corner {
 		position: absolute;
 		left: 10px;
 		bottom: 10px;
+		z-index: 5;
+		display: flex;
+		align-items: center;
+		gap: 2px;
+	}
+	/* Moulded into the plastic like the triangle: the shell's own colour, darker, and a small count. */
+	.chat-note {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		height: 24px;
+		padding: 0 7px;
+		border: none;
+		border-radius: 12px;
+		background: color-mix(in oklab, var(--shell), black 14%);
+		box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+		color: color-mix(in oklab, var(--shell), white 70%);
+		font: 800 11px/1 var(--body-font);
+		cursor: pointer;
+		animation: chat-note-in 0.3s ease-out;
+	}
+	.chat-note:hover {
+		background: color-mix(in oklab, var(--shell), black 24%);
+	}
+	@keyframes chat-note-in {
+		from {
+			opacity: 0;
+			scale: 0.6;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.chat-note {
+			animation: none;
+		}
+	}
+	.move {
+		display: none;
 		width: 32px;
 		height: 32px;
 		align-items: center;

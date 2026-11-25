@@ -288,8 +288,9 @@
 	const runOn = $derived(tab === 'run' || (landscape && tab === 'link'));
 	$effect(() => {
 		const offs = [
-			on('CHAT_MESSAGE', (m: { kind: string; text: string }) => {
-				if (!chatShown && m.kind === 'USER' && !isEmote(m.text)) unreadChat++; // people's messages, not system lines or emotes
+			on('CHAT_MESSAGE', (m: { kind: string; text: string; user: string }) => {
+				// Other people's messages, not the player's own, system lines or emotes.
+				if (!chatShown && m.kind === 'USER' && m.user !== session.me?.id && !isEmote(m.text)) unreadChat++;
 			}),
 			// An admin reset this player's run: back to the game picker.
 			on('PLAYER_RESET', (e: { user: string }) => {
@@ -466,7 +467,7 @@
 				<!-- The Play panel: the controller and, on upright phones, the strips the player picked (one swipe unit). -->
 				<div class="play-panel" data-panel="play" bind:this={playPanelEl} class:off={tab !== 'play'} style:--pad-h={padH ? `${padH}px` : null}>
 					<div class="pad" bind:this={padEl}>
-						<Gamepad {talk} />
+						<Gamepad {talk} unread={unreadChat} onchat={() => (phone ? (tab = 'chat') : (sideTab = 'chat'))} />
 					</div>
 					<PlayStrips onactivity={() => (tab = 'activity')} />
 				</div>
