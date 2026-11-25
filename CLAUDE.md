@@ -11,6 +11,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 
 ## Status
 - Done: link cable in `EmulatorHost` (`link`, `unlink`, `isLinked`); `LinkCableTest` swaps bytes between two consoles.
+  Linked consoles run in lockstep with b `DRIFT_PPM` (1000) slower (sameboy_jni.c `runLinkedFrame`, counted from the
+  plug): Gen 2's WaitForLinkedFriend only connects when one side's per-frame send lands in the other's few-microsecond
+  listening window, which real Game Boys reach because their crystals drift; in perfect lockstep the phase never moved
+  and "Please wait" could last forever (`LinkWaitTest.crystalWithCrystal`, identical saves, reaches both rooms).
 - Done: one private console per player. `PlayerConsoles` (core) boots it when `/ws/screen` connects; pausing parks
   its state in `saves/{user}/{cartridge}.state` (see the lifecycle below). The game is picked once
   (`PUT /api/v1/me/game`, Redis hash `pibs:player:{userId}`); buttons go to `POST /api/v1/me/inputs`. Key bindings per user: `GET/PUT /api/v1/me/keys`, Redis hash `pibs:keys:{userId}` (kept across a reset).

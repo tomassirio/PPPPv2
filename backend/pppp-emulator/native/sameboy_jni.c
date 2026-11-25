@@ -21,6 +21,7 @@ typedef struct Console {
     struct Console *peer; /* the other end of the link cable, or NULL */
     bool bitOut;          /* the bit this console put on the cable */
     long long ticks;      /* 8 MHz ticks run, for lockstep */
+    long long linkedAt;   /* ticks when the cable went in */
     long long bits;       /* link cable bits this console clocked, for diagnostics */
     int sampleRate;
 } Console;
@@ -102,13 +103,23 @@ JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_runFrame(JNIEnv *env, jcla
     while (!c->vblank && c->ticks - start < TICKS_PER_FRAME) c->ticks += GB_run(c->gb);
 }
 
-/** Runs a linked pair in lockstep (whoever is behind runs next) until both have reached a vblank. */
+/*
+ * Two real Game Boys never tick at exactly the same rate (their crystals differ by a few hundred ppm), so their frames
+ * slide past each other. The Gen 2 link handshake (pret's WaitForLinkedFriend) counts on that: each side listens
+ * (external clock) for a few microseconds per frame, then sends (internal clock), and they connect once one side's
+ * send lands in the other's listening window. Two emulated consoles in perfect lockstep keep the same phase forever
+ * and may never connect. So b runs DRIFT_PPM slower than a: about 140 ticks per frame, shorter than the window, so
+ * the phase walks through it instead of jumping over it (worst case a full turn, ~17 s at 1000 ppm).
+ */
+#define DRIFT_PPM 1000
+
+/** Runs a linked pair in lockstep (whoever is behind runs next, b a little slower) until both have reached a vblank. */
 JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_runLinkedFrame(JNIEnv *env, jclass cls, jlong ha, jlong hb) {
     Console *a = of(ha), *b = of(hb);
     a->vblank = b->vblank = false;
     long long startA = a->ticks, startB = b->ticks;
     while (!(a->vblank || a->ticks - startA >= TICKS_PER_FRAME) || !(b->vblank || b->ticks - startB >= TICKS_PER_FRAME)) {
-        if (a->ticks <= b->ticks) a->ticks += GB_run(a->gb);
+        if ((a->ticks - a->linkedAt) * 1000000 <= (b->ticks - b->linkedAt) * (1000000 + DRIFT_PPM)) a->ticks += GB_run(a->gb);
         else b->ticks += GB_run(b->gb);
     }
 }
@@ -117,7 +128,8 @@ JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_link(JNIEnv *env, jclass c
     Console *a = of(ha), *b = of(hb);
     a->peer = b;
     b->peer = a;
-    b->ticks = a->ticks; /* lockstep starts level */
+    a->linkedAt = a->ticks; /* lockstep starts level, counted from now */
+    b->linkedAt = b->ticks;
 }
 
 JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_unlink(JNIEnv *env, jclass cls, jlong h) {
