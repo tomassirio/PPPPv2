@@ -27,7 +27,7 @@
 		if (sound) {
 			// The click is the gesture that lets it play; it keeps playing after the picker unmounts.
 			const a = new Audio(sound);
-			a.volume = 0.6;
+			a.volume = 0.25;
 			a.play().catch(() => {});
 		}
 		error = '';

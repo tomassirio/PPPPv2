@@ -494,8 +494,9 @@ public class EmulatorHost {
             SameBoy.keys(h, down);
             pressed = down;
         }
-        // Only the frames listeners get are drawn, and sound made only when someone hears it (1x): ~5% less work.
-        boolean draw = (frame + 1) % 2 == 0 && !frameListeners.isEmpty(), hear = speed == 1.0 && !audioListeners.isEmpty();
+        // Only the frames listeners get are drawn, and sound made only when someone hears it (1x): ~5% less work. A
+        // linked console draws every frame: its frames end off its vblank, so a skipped one would leave half a picture.
+        boolean draw = ((frame + 1) % 2 == 0 || isLinked()) && !frameListeners.isEmpty(), hear = speed == 1.0 && !audioListeners.isEmpty();
         if (draw != drawing) SameBoy.render(h, drawing = draw);
         if (hear != hearing) SameBoy.sound(h, hearing = hear);
     }

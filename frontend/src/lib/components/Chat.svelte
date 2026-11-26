@@ -313,7 +313,7 @@
 			id="chat-input"
 			rows="1"
 			maxlength={MAX}
-			placeholder="Say something to the group"
+			placeholder="Message the group"
 			bind:value={draft}
 			onkeydown={onKey}
 			readonly={sending}
@@ -337,11 +337,12 @@
 				</ul>
 			</div>
 		</div>
-		<button type="submit" disabled={sending || !draft.trim()}>Send</button>
+		<button type="submit" class="send" disabled={sending || !draft.trim()}>Send</button>
 	</form>
 	<div class="foot">
 		<p id="chat-error" class:error={!!error} role="status">{error || note}</p>
-		<span id="chat-count" class="count" class:full={draft.length >= MAX}>{draft.length}/{MAX}</span>
+		<!-- Only near the limit: an empty "0/300" under every box is noise. -->
+		<span id="chat-count" class="count" class:full={draft.length >= MAX} class:hidden={draft.length < MAX - 50}>{draft.length}/{MAX}</span>
 	</div>
 </section>
 
@@ -355,10 +356,11 @@
 		display: flex;
 	}
 	.help-btn {
-		min-width: 40px;
-		padding: 0 10px;
-		border: 1px solid var(--border);
-		border-radius: 8px;
+		min-width: 36px;
+		height: 36px;
+		padding: 0 8px;
+		border: none;
+		border-radius: 999px;
 		background: transparent;
 		color: var(--muted);
 		font: 700 14px var(--body-font);
@@ -657,37 +659,56 @@
 	.mod button:hover {
 		color: var(--danger);
 	}
+	/* One rounded field: the text grows with what is typed (up to ~5 lines), "Aa" and Send sit inside it. */
 	form {
 		display: flex;
-		gap: 8px;
+		gap: 4px;
 		align-items: flex-end;
+		padding: 4px 4px 4px 14px;
+		background: var(--bg);
+		border: 1px solid var(--border-strong);
+		border-radius: 22px;
+	}
+	form:focus-within {
+		border-color: var(--accent-text);
 	}
 	textarea {
 		flex: 1 1 auto;
 		min-width: 0;
-		min-height: 44px;
+		min-height: 36px;
 		max-height: 120px;
 		box-sizing: border-box;
-		padding: 11px 12px;
+		padding: 8px 0;
+		border: none;
+		border-radius: 0;
+		background: transparent;
 		font-size: 14px;
-		resize: vertical;
+		line-height: 20px;
+		resize: none;
+		field-sizing: content;
 	}
-	form button {
-		height: 44px;
+	textarea:focus-visible {
+		outline: none; /* the field's border shows focus */
+	}
+	.help-btn:hover {
+		color: var(--text);
+		background: color-mix(in srgb, var(--muted) 14%, transparent);
+	}
+	.send {
+		height: 36px;
 		padding: 0 16px;
-		border-radius: 8px;
+		border-radius: 999px;
 		border: none;
 		background: var(--accent);
 		color: var(--ink);
 		font-weight: 600;
 		font-size: 14px;
 	}
-	form button:disabled {
+	.send:disabled {
 		opacity: 0.5;
 		cursor: default;
 	}
 	button:focus-visible,
-	textarea:focus-visible,
 	select:focus-visible {
 		outline: 2px solid var(--accent-text);
 		outline-offset: 2px;
@@ -711,6 +732,9 @@
 		color: var(--muted);
 		font-variant-numeric: tabular-nums;
 	}
+	.count.hidden {
+		visibility: hidden;
+	}
 	.count.full {
 		color: var(--danger);
 	}
@@ -728,7 +752,7 @@
 			border-color: var(--plate, var(--accent-text));
 			color: var(--plate, var(--accent-text));
 		}
-		form button {
+		.send {
 			background: var(--plate, var(--accent));
 			color: var(--plate-ink, var(--ink));
 		}

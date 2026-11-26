@@ -75,8 +75,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   (Cable Club, Time Capsule) fall through, so she walks in as herself; her partner sees Kris when she picked no sprite
   (`PlayerConsoles.cableSprite`, wPlayerGender). Link sessions end only after 3 readings in a row outside the link
   rooms (`LinkService.LEAVE_READINGS`), and `Bus.wramBank` tells WRAM bank 7 (SVBK reads FF) from DMG mode.
-  The friend in TradeCenter/Colosseum walks as the peer's chosen sprite: `PlayerConsoles.link` patches both friend
-  objects' sprite bytes in each running ROM (`PlayerSprites.cableFriend`, `EmulatorHost.patchRom`); unlink puts Chris back.
+  Pictures: sameboy_jni.c copies the frame at vblank (`frame`) and hands out only that; linked consoles run past their
+  vblank while the peer catches up and draw every frame (half-drawn frames showed as torn or doubled screens).
+  The friend in TradeCenter/Colosseum walks as the peer's chosen sprite and colour: `PlayerConsoles.link` patches both friend
+  objects' sprite and palette bytes in each running ROM (`PlayerSprites.cableFriend`, `EmulatorHost.patchRom`); unlink puts Chris back.
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs
   the real ROMs and parked states in `data/` (skipped without them).
 - Done: progress + scoreboard. `ProgressTracker` (core, `service/game`) samples every running console once a second

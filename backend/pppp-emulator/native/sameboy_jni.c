@@ -14,7 +14,9 @@
 
 typedef struct Console {
     GB_gameboy_t *gb;
-    uint32_t pixels[256 * 224]; /* sized for an SGB border; borders are off, so 160x144 is used */
+    uint32_t pixels[256 * 224]; /* SameBoy draws here line by line; sized for an SGB border (off: 160x144 used) */
+    uint32_t frame[WIDTH * HEIGHT]; /* the last whole picture, copied at vblank: what pixels() hands out */
+    bool rendering;
     int16_t audio[AUDIO_CAPACITY];
     int audioCount;
     bool vblank;
@@ -30,7 +32,13 @@ static Console *of(jlong handle) { return (Console *) (intptr_t) handle; }
 
 static uint32_t rgb(GB_gameboy_t *gb, uint8_t r, uint8_t g, uint8_t b) { return (uint32_t) r << 16 | g << 8 | b; }
 
-static void onVblank(GB_gameboy_t *gb, GB_vblank_type_t type) { ((Console *) GB_get_user_data(gb))->vblank = true; }
+// A linked console may run past its vblank while its peer catches up, so the live buffer can be half a frame: only
+// a picture finished with rendering on is kept.
+static void onVblank(GB_gameboy_t *gb, GB_vblank_type_t type) {
+    Console *c = GB_get_user_data(gb);
+    c->vblank = true;
+    if (c->rendering) memcpy(c->frame, c->pixels, sizeof c->frame);
+}
 
 static void onSample(GB_gameboy_t *gb, GB_sample_t *s) {
     Console *c = GB_get_user_data(gb);
@@ -54,6 +62,7 @@ JNIEXPORT jlong JNICALL Java_dev_pppp_emulator_SameBoy_create(JNIEnv *env, jclas
                                                              jbyteArray battery, jint sampleRate) {
     Console *c = calloc(1, sizeof(Console));
     if (!c) return 0;
+    c->rendering = true;
     c->gb = GB_init(GB_alloc(), GB_MODEL_CGB_E);
     GB_set_user_data(c->gb, c);
     jsize n = (*env)->GetArrayLength(env, bootRom);
@@ -140,6 +149,7 @@ JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_unlink(JNIEnv *env, jclass
 
 /** Off: the PPU still runs, but draws no pixels (a frame nobody will see). */
 JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_render(JNIEnv *env, jclass cls, jlong h, jboolean on) {
+    of(h)->rendering = on;
     GB_set_rendering_disabled(of(h)->gb, !on);
 }
 
@@ -156,7 +166,7 @@ JNIEXPORT jlong JNICALL Java_dev_pppp_emulator_SameBoy_serialBits(JNIEnv *env, j
 }
 
 JNIEXPORT void JNICALL Java_dev_pppp_emulator_SameBoy_pixels(JNIEnv *env, jclass cls, jlong h, jintArray out) {
-    (*env)->SetIntArrayRegion(env, out, 0, WIDTH * HEIGHT, (const jint *) of(h)->pixels);
+    (*env)->SetIntArrayRegion(env, out, 0, WIDTH * HEIGHT, (const jint *) of(h)->frame);
 }
 
 /** Copies the samples since the last call into out (mono); returns how many. */

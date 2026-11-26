@@ -19,10 +19,11 @@ class PlayerSpritesTest {
     private static final Path DATA = Path.of("../../data");
 
     @ParameterizedTest
-    @CsvSource({"pokemon-crystal-version-usa-europe-rev-1, KRIS, 96",
-            "pokemon-gold-version-usa-europe-sgb-enhanced-gb-compatible, KRIS, 1",
-            "pokemon-silver-version-usa-europe-sgb-enhanced-gb-compatible, LASS, 40"})
-    void runningCartridgeLoadsThePeerForEitherSeat(String cart, String peer, int expected, @TempDir Path temp) throws Exception {
+    @CsvSource({"pokemon-crystal-version-usa-europe-rev-1, KRIS, GREEN, 96, 0xA0",
+            "pokemon-gold-version-usa-europe-sgb-enhanced-gb-compatible, KRIS, , 1, 0",
+            "pokemon-silver-version-usa-europe-sgb-enhanced-gb-compatible, LASS, PINK, 40, 0xC0"})
+    void runningCartridgeLoadsThePeerForEitherSeat(String cart, String peer, String color, int expected, String palette,
+                                                  @TempDir Path temp) throws Exception {
         Path rom = DATA.resolve("roms/" + cart + ".gbc");
         assumeTrue(Files.exists(rom), "no ROM");
         byte[] bytes = Files.readAllBytes(rom);
@@ -31,15 +32,16 @@ class PlayerSpritesTest {
         host.powerOn();
         try {
             host.pause();
-            var patch = PlayerSprites.cableFriend(bytes, peer);
-            assertThat(patch).hasSize(4);
+            var patch = PlayerSprites.cableFriend(bytes, peer, color);
+            assertThat(patch).hasSize(8); // sprite and palette of 2 seats in 2 rooms
             host.patchRom(patch);
             for (int offset : patch.keySet()) {
-                int sprite = host.withBus(bus -> {
+                int value = host.withBus(bus -> {
                     bus.setByte(0x2000, offset / 0x4000);
                     return bus.getByte(0x4000 + offset % 0x4000);
                 });
-                assertThat(sprite).isEqualTo(expected);
+                boolean paletteByte = patch.containsKey(offset - 7);
+                assertThat(value).isEqualTo(paletteByte ? Integer.decode(palette) : expected);
             }
         } finally {
             host.shutdown();

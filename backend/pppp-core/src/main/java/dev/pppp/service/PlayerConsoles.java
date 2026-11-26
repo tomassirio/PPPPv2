@@ -375,9 +375,9 @@ public class PlayerConsoles {
             Console a = consoles.get(userA), b = consoles.get(userB);
             // Each side's link room friend walks as the other's trainer, and its battle opponent (CAL) is drawn as them.
             String spriteA = cableSprite(userA, a), spriteB = cableSprite(userB, b);
-            var friendA = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(a.cartridgeId()), spriteB));
+            var friendA = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(a.cartridgeId()), spriteB, players.spriteColor(userB)));
             friendA.putAll(PlayerPic.linkOpponent(rom(a.cartridgeId()), spriteB, spriteA));
-            var friendB = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(b.cartridgeId()), spriteA));
+            var friendB = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(b.cartridgeId()), spriteA, players.spriteColor(userA)));
             friendB.putAll(PlayerPic.linkOpponent(rom(b.cartridgeId()), spriteA, spriteB));
             EmulatorHost.link(a.host(), b.host());
             a.host().patchRom(friendA);
@@ -552,7 +552,7 @@ public class PlayerConsoles {
             for (String id : List.of(userId, peer)) {
                 Console end = consoles.get(id);
                 if (end != null) {
-                    var back = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(end.cartridgeId()), null));
+                    var back = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(end.cartridgeId()), null, null));
                     back.putAll(PlayerPic.linkOpponent(rom(end.cartridgeId()), null, players.sprite(id)));
                     end.host().patchRom(back);
                 }

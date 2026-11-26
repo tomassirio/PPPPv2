@@ -93,9 +93,11 @@ public final class PlayerSprites {
         return key == null ? null : choices(rom).stream().filter(c -> c.key.equals(key)).findFirst().orElse(null);
     }
 
-    /** Sprite bytes of the two possible friend objects in TradeCenter and Colosseum. The map callback hides
-     * one according to the cable end; neither object is the local player. Resolve the choice in the viewing ROM. */
-    public static Map<Integer, Integer> cableFriend(byte[] rom, String key) {
+    /** Sprite and palette bytes of the two possible friend objects in TradeCenter and Colosseum (object_event: sprite
+     * at 0, palette << 4 | type at 7, 0 = the sprite's own), in color (a COLORS name; null: the sprite's own). The map
+     * callback hides one according to the cable end; neither object is the local player. Resolve the choice in the
+     * viewing ROM. */
+    public static Map<Integer, Integer> cableFriend(byte[] rom, String key, String color) {
         Layout at = layout(rom);
         if (at == null) return Map.of();
         int[] rooms = at == CRYSTAL ? new int[]{0x193443, 0x1934D1} : new int[]{0x1714ED, 0x17156E};
@@ -109,10 +111,14 @@ public final class PlayerSprites {
         }
         Choice c = key == null || DEFAULT.equals(key) ? null : choice(rom, key);
         int sprite = c == null ? SPRITE_CHRIS : c.id;
+        Integer pal = palette(color);
+        int colorByte = pal == null ? 0 : (NPC_PALETTES + pal) << 4; // OBJECTTYPE_SCRIPT (0) kept
         var result = new HashMap<Integer, Integer>();
         for (int offset : rooms) {
-            result.put(offset, sprite);
-            result.put(offset + 13, sprite);
+            for (int obj : new int[] {offset, offset + 13}) {
+                result.put(obj, sprite);
+                result.put(obj + 7, colorByte);
+            }
         }
         return result;
     }
