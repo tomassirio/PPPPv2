@@ -6,6 +6,7 @@
 <script lang="ts">
 	import Name from '#lib/components/Name.svelte';
 	import GodMessage from '#lib/components/GodMessage.svelte';
+	import ReactionFloats from '#lib/components/ReactionFloats.svelte';
 	import type { Snippet } from 'svelte';
 	import { backoff, nearbyPlayers, type ScreenPlayer } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
@@ -276,6 +277,7 @@
 				</div>
 			{/if}
 			<GodMessage user={watch ?? session.me?.id} />
+			<ReactionFloats user={watch ?? session.me?.id} />
 			<p class="sr-only" role="status">{overlay ?? ''}</p>
 		</div>
 		<div class="strip">

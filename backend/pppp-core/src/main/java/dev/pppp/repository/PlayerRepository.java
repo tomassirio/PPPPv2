@@ -7,7 +7,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Per-player facts in the Redis hash "pibs:player:{userId}" {game, sprite (the trainer they walk as, PlayerSprites), spriteColor (null: its own)}. Picking also enters the player on the scoreboard.
+ * Per-player facts in the Redis hash "pibs:player:{userId}" {game, sprite (the trainer they walk as, PlayerSprites), spriteColor (null: its own),
+ * aaaaMail, cableClub, konamiGift, call:{id} (AAAA's phone calls: "pending" or when it rang)}. Picking also enters the player on the scoreboard.
  * Key bindings live apart in "pibs:keys:{userId}" {up, down, left, right, a, b, start, select, fast ("" = none)}, so a reset keeps them.
  */
 @Repository
@@ -42,6 +43,34 @@ public class PlayerRepository {
 
     public void markAaaaMail(String userId) {
         redis.opsForHash().put(key(userId), "aaaaMail", String.valueOf(System.currentTimeMillis()));
+    }
+
+    /** AAAA's phone calls (AaaaCalls): call id -> "pending" or the epoch ms it rang; fields "call:{id}". */
+    public Map<String, String> aaaaCalls(String userId) {
+        Map<String, String> calls = new java.util.HashMap<>();
+        redis.<String, String>opsForHash().entries(key(userId)).forEach((k, v) -> {
+            if (k.startsWith("call:")) calls.put(k.substring(5), v);
+        });
+        return calls;
+    }
+
+    /** Write-once: false when this call was queued (or rang) before. */
+    public boolean queueAaaaCall(String userId, String call) {
+        return redis.opsForHash().putIfAbsent(key(userId), "call:" + call, "pending");
+    }
+
+    public void madeAaaaCall(String userId, String call) {
+        redis.opsForHash().put(key(userId), "call:" + call, String.valueOf(System.currentTimeMillis()));
+    }
+
+    /** Dev only: forgets a call, so its moment rings it again. */
+    public void forgetAaaaCall(String userId, String call) {
+        redis.opsForHash().delete(key(userId), "call:" + call);
+    }
+
+    /** Marks the Konami code's gift as given (field konamiGift); false when it already was. A reset forgets it. */
+    public boolean claimKonamiGift(String userId) {
+        return redis.opsForHash().putIfAbsent(key(userId), "konamiGift", String.valueOf(System.currentTimeMillis()));
     }
 
     /** The trainer sprite key the player walks as, or null for the game's own. */

@@ -38,10 +38,13 @@ class DevLoginController {
     private final ApplicationEventPublisher events;
     private final StringRedisTemplate redis;
     private final dev.pppp.service.game.PokecenterDig dig;
+    private final dev.pppp.service.game.AaaaCalls calls;
 
     DevLoginController(PpppProperties props, ProgressTracker tracker, ApplicationEventPublisher events,
-                       StringRedisTemplate redis, dev.pppp.service.game.PokecenterDig dig) {
+                       StringRedisTemplate redis, dev.pppp.service.game.PokecenterDig dig,
+                       dev.pppp.service.game.AaaaCalls calls) {
         this.dig = dig;
+        this.calls = calls;
         this.props = props;
         this.tracker = tracker;
         this.events = events;
@@ -53,6 +56,15 @@ class DevLoginController {
     String warp(@RequestParam String user, @RequestParam String map, @RequestParam int x, @RequestParam int y) {
         String why = dig.teleport(user.toLowerCase(Locale.ROOT), map, x, y);
         return why == null ? "ok" : why;
+    }
+
+    /**
+     * Rings one of AAAA's calls again (badge, rocket, blackout, birb, champion, kanto, lost, beaten) the next time the
+     * player stands free, or with call=forget forgets them all (the Pokégear's ??? comes back after a Reset).
+     */
+    @GetMapping("/dev/call")
+    String call(@RequestParam String user, @RequestParam String call) {
+        return calls.redo(user.toLowerCase(Locale.ROOT), call);
     }
 
     /** Drops the player's cached scoreboard data (it is read again from Redis) and, with type, adds a feed entry. */

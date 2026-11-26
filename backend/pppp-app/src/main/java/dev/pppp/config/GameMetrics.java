@@ -37,7 +37,7 @@ public class GameMetrics implements MeterBinder {
     private static final List<String> KINDS = List.of("TRADE", "BATTLE");
     /** Events worth counting; the rest (SCOREBOARD_CHANGED, GAME_STATE, ...) are just refreshes. */
     private static final Set<String> COUNTED = Set.of("PROGRESS", "ACHIEVEMENT_UNLOCKED", "MYSTERY_GIFT", "CHAT_MESSAGE",
-            "LINK_CHALLENGE", "LINK_SESSION", "PLAYER_RESET");
+            "LINK_CHALLENGE", "LINK_SESSION", "PLAYER_RESET", "WATCH_REACTION");
 
     private final PlayerConsoles consoles;
     private final LinkService link;

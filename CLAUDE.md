@@ -50,6 +50,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   session ends, and the sweep presses A once `PokecenterDig.atReceptionist` (dig done, facing her).
   Spectators: `/ws/watch/{userId}` (`WatchWebSocketHandler`) streams a linked player's screen, read only, closing 4404
   when they are not linked; `/watch/{id}` shows both ends, linked from the Link cable card's "Live now".
+  Spectator reactions: under each live screen on /watch (`LiveStage`) the chat's six Pikachu faces; a click
+  (`POST /api/v1/watch/{userId}/reactions` {reaction}, `ChatService.cheer`: chat's mute + 250 ms reaction limit, not
+  stored) sends `WATCH_REACTION` {user, from, reaction} to everyone; `ReactionFloats` (in GameScreen) floats it up that
+  player's screen with the sender's name: on /watch, on their own /play and on the admin player page.
   Reset button on the bezel (`ResetControl`, `POST /api/v1/me/reset`, `PlayerConsoles.reset`): ends a link session,
   boots the cartridge again from its battery save. A console left in a link room without a cable for 60 s is reset by
   the link sweep (a chat line says so).
@@ -178,6 +182,12 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   redrawn as Á). Controller colours: the picker is a popover (never clipped); a Solid / Atomic switch picks the
   see-through plastic for colours that have one (`Shell.atomic`, `variant`, localStorage `pppp.padAtomic:{user}`, colour `pppp.pad:{user}`; none picked: the version's, `VERSION_SHELL`); atomic
   shells show the board inside (Gamepad `::before`, membranes via `--guts`).
+- Done: the Konami code on /play (↑↑↓↓←→←→ B A, `konami.svelte.ts`) plays `KonamiOpera`: a ~35 s opera of PIBSIGNO.'s
+  face (Act I aria, Act II can-can kick line + internet acronyms, Act III deep fried), music from `teaser.ts` `aria()`
+  (square-wave melody, triangle bass, drums, a deep-fry distortion from a given time); curtains close, then open back
+  onto the page. Skip/Esc/click ends it; reduced motion holds it still. The first time (with a game picked),
+  `POST /api/v1/me/konami` ({gift}) queues the prima donna (`MysteryGifts` "prima-donna": shiny Jigglypuff Lv 15, Sing,
+  Defense Curl, Pound, Disable; also in the admin catalog), once per run (`pibs:player` field `konamiGift`).
 - Done: Mystery Gifts. Admins send one of `MysteryGifts.CATALOG` (19 fair items, each with a cap: Rare Candy 3,
   stones 1, Max Repel 10, ...; names resolved per ROM by `PokemonGen2.itemId`) to one player (admin player page) or
   everyone who picked a game (admin page, confirm; a chat line says so): `GET/POST /api/v1/admin/gifts`
@@ -241,6 +251,18 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   card's balls show a floating card. /play Scoreboard tab: status on its own line, only real party icons, offline
   dimmed, ▲/▼ since today began (`RankRepository`, hash `pibs:ranks:{date}`, `GET /api/v1/scoreboard/baseline`),
   "n to #k" on your row, "Near you", your row always in sight (`fitItems` keep). Sign-in cry silent while muted. `WonderTradeTest`/`BloodstainsTest` use data/'s ROMs.
+- Done: AAAA's phone calls (`AaaaCalls`, core). Real Pokégear calls in Gold/Silver/Crystal: "???" (static on the line)
+  at the Zephyr Badge (and gets into the phone), Rocket bust, first blackout, Ho-Oh/Lugia caught, Champion, all Kanto
+  badges; "AAAA" when he wins on Mt. Silver ("AY LMAOCHAMP") and when beaten ("GG champ! Thanks for playing PPPPv2!").
+  Once per player, only at the moment (ACHIEVEMENT_UNLOCKED, or `AaaaCalls.battles`, a frame hook reading
+  wBattleResult as each battle ends: Red's class won/lost, else a loss that blacks out). Queued in `pibs:player:{userId}`
+  fields `call:{id}` ("pending", then when it rang); every 5 s an awake, free console rings the oldest: wCurCaller = 8,
+  wCallerContact's caller script, then the map re-entry queue runs `pause 30; farsjump Script_ReceivePhoneCall`.
+  ROM at insert: PhoneContacts entry 8 (unused) is the caller; NonTrainerCallerNames copied with "???" (6) and "AAAA" (7)
+  to $24:7fc0; texts and scripts in bank 3 $7b00-$7eff. Calling him: ??? answers dots twice, then "so many commands at
+  once" (event flags 2046/2047, unused), AAAA "AY LMAOCHAMP" until beaten, then the thanks (stage from the calls that
+  rang, patched at insert and when an AAAA call rings). Dev only: `GET /dev/call?user=&call=<id>|forget`.
+  `AaaaCallsTest` rings them on the parked games in data/.
 - Speed: one Fast toggle (`SpeedControl`; on = the server's 4x: as fast as it manages, ~3x on the Pi since SameBoy; `GET /api/v1/me/speed` still reports the measured rate); a Pi 4
   core ran a Gen 2 console at about 1.2x on Coffee GB (`GET /api/v1/me/speed` timing: all of it in the emulator);
   hence SameBoy (2.1.0): ~2.7x cheaper per frame on a Mac, Pi numbers still to measure.
