@@ -126,7 +126,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   the map header's environment byte tells inside from out), the landmark outdoors, the room alone in the link rooms
   and Pokémon Center 2F. `ScoreRow.trainerName` / `TrainerCard.trainerName` = wPlayerName.
 - Done: Gen 2 art from the player's ROM (`Gen2Pic`: pret's LZ, front pics padded to 56x56 as PadFrontpic, normal
-  palette; Unown as A). `/api/v1/game/icons/{1-251}.png` and `/api/v1/game/badges/{index}.png` (the 8 Johto badges
+  palette; Unown as A). `/api/v1/game/icons/{1-251}.png` (253 = EGG: the Egg's own pic; party cards and icons show it for eggs) and `/api/v1/game/badges/{index}.png` (the 8 Johto badges
   from the trainer card's BadgeGFX + PREDEFPAL_CGB_BADGE; the ROM has no Kanto badge art, so those use v1's
   `assets/badges/*.png`). Every ROM address in `PokemonGen2.Layout`, cited from pret's .sym/.map files. "Your run"
   shows badge sprites (greyed out until earned); `PokedexBanner half={1|2}` splits the dex in two (1-126 / 127-251)

@@ -50,22 +50,36 @@ export function variant(s: Shell, atomic: boolean): Shell {
 /** What a player who never picked a colour wears: their version's, in atomic plastic. */
 export const VERSION_SHELL: Record<'Gold' | 'Silver' | 'Crystal', string> = { Gold: 'yellow', Silver: 'white', Crystal: 'light-blue' };
 
-/** The saved colour (its base, by id), whether atomic is on, and whether the player ever picked one. */
-export function savedShell(): { base: Shell; atomic: boolean; chosen: boolean } {
+/** Per player (several accounts may share a browser); without a user, the browser-wide keys of old. */
+const keys = (user?: string) => (user ? [`${KEY}:${user}`, `${ATOMIC_KEY}:${user}`] : [KEY, ATOMIC_KEY]);
+
+/**
+ * The player's saved colour (its base, by id), whether atomic is on, and whether they ever picked one. A pick saved
+ * browser-wide (before picks were per player) goes to the first player who loads it.
+ */
+export function savedShell(user?: string): { base: Shell; atomic: boolean; chosen: boolean } {
 	try {
-		const saved = localStorage.getItem(KEY) ?? '';
+		const [key, atomicKey] = keys(user);
+		if (user && localStorage.getItem(key) == null && localStorage.getItem(KEY) != null) {
+			localStorage.setItem(key, localStorage.getItem(KEY)!);
+			localStorage.setItem(atomicKey, localStorage.getItem(ATOMIC_KEY) ?? '0');
+			localStorage.removeItem(KEY);
+			localStorage.removeItem(ATOMIC_KEY);
+		}
+		const saved = localStorage.getItem(key) ?? '';
 		const retired = RETIRED[saved];
 		const base = SHELLS.find((s) => s.id === (retired ?? saved));
-		return { base: base ?? SHELLS[0], atomic: !!retired || localStorage.getItem(ATOMIC_KEY) === '1', chosen: !!base };
+		return { base: base ?? SHELLS[0], atomic: !!retired || localStorage.getItem(atomicKey) === '1', chosen: !!base };
 	} catch {
 		return { base: SHELLS[0], atomic: false, chosen: false };
 	}
 }
 
-export function saveShell(id: string, atomic: boolean) {
+export function saveShell(id: string, atomic: boolean, user?: string) {
 	try {
-		localStorage.setItem(KEY, id);
-		localStorage.setItem(ATOMIC_KEY, atomic ? '1' : '0');
+		const [key, atomicKey] = keys(user);
+		localStorage.setItem(key, id);
+		localStorage.setItem(atomicKey, atomic ? '1' : '0');
 	} catch {
 		/* private mode: not remembered */
 	}

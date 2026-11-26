@@ -17,7 +17,7 @@
 	import { on } from '#lib/events.ts';
 	import { isEmote } from '#lib/chat/bubble.ts';
 	import { loadMe, session } from '#lib/session.svelte.ts';
-	import { currentShell, wearVersion } from '#lib/shell.svelte.ts';
+	import { currentShell, shellOwner, wearVersion } from '#lib/shell.svelte.ts';
 	import { inkFor } from '#lib/shells.ts';
 	import Chat from '#lib/components/Chat.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
@@ -395,6 +395,7 @@
 		if (myGame) board.names = Object.fromEntries(myGame.available.map((c) => [c.id, c.name]));
 	});
 	// A pad nobody picked a colour for wears the player's version.
+	$effect(() => shellOwner(me?.id));
 	$effect(() => {
 		if (myGame?.game) wearVersion(versionOf(myGame.game, Object.fromEntries(myGame.available.map((c) => [c.id, c.name]))));
 	});

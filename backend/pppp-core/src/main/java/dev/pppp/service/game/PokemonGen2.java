@@ -116,7 +116,7 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
                     0xDCA9, // wDigWarpNumber
                     true);
 
-    private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, EGG = 0xFD, // pokemon_constants.asm
+    private static final int DEX_SIZE = 251, DEX_BYTES = 32, NAME_LENGTH = 11, // pokemon_constants.asm
             MON_SIZE = 0x30, MON_ITEM = 0x01, MON_MOVES = 0x02, MON_ID = 0x06, MON_DVS = 0x15, MON_LEVEL = 0x1F,
             MON_STATUS = 0x20, MON_HP = 0x22, MON_MAXHP = 0x24, NUM_MOVES = 4, // party_struct (big-endian HP)
             MON_HAPPINESS = 0x1B, MON_POKERUS = 0x1C,
@@ -922,9 +922,30 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
 
     private static final int PLAYER_SPRITE_KEY = -1; // in the icon cache, beside the dex numbers
 
-    /** The front pic of Pokédex number id (Unown as A) in its normal colours, 56x56, from the ROM; null if unreadable. */
+    /**
+     * EGG (constants/pokemon_constants.asm): its pic is the Egg's own, 40x40 (5x5 tiles), with its palette at that
+     * index of PokemonPalettes. Crystal lists it in PokemonPicPointers (entry EGG); Gold and Silver load EggPic from
+     * a fixed address, $14:7A83 in both (pokegold.sym, pokesilver.sym).
+     */
+    public static final int EGG = 0xFD;
+    private static final int EGG_SIZE = 5, GOLD_SILVER_EGG_BANK = 0x14, GOLD_SILVER_EGG_PIC = 0x7A83;
+
+    /**
+     * The front pic of Pokédex number id (Unown as A), or of an Egg for EGG, in its normal colours, from the ROM
+     * (56x56); null if unreadable.
+     */
     @Override
     public byte[] icon(int id) {
+        if (id == EGG) return cached(icons, id, () -> {
+            int table = at.picPointers + (EGG - 1) * PIC_POINTER_SIZE;
+            int pic = at.crystal ? rom(picBank(rom[table] & 0xFF), (rom[table + 1] & 0xFF) | (rom[table + 2] & 0xFF) << 8)
+                    : rom(GOLD_SILVER_EGG_BANK, GOLD_SILVER_EGG_PIC);
+            byte[] tiles = Gen2Pic.decompress(rom, pic);
+            if (tiles.length < 25 * 16) return null; // not the Egg's 5x5 tiles
+            int pal = at.monPalettes + EGG * PALETTE_SIZE;
+            int[] argb = {0xFFFFFFFF, Gen2Pic.rgb(rom, pal), Gen2Pic.rgb(rom, pal + 2), 0xFF000000};
+            return Gen2Pic.png(Gen2Pic.frontpic(tiles, EGG_SIZE), argb);
+        });
         if (id < 1 || id > DEX_SIZE) return null;
         return cached(icons, id, () -> {
             int table = id == UNOWN ? at.unownPicPointers + (UNOWN_A - 1) * PIC_POINTER_SIZE

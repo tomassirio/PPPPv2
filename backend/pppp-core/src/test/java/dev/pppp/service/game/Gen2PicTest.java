@@ -72,6 +72,19 @@ class Gen2PicTest {
             for (int n = 0; n < 8; n++) assertThat(size(p.badge(n))).as("badge " + n).isEqualTo(16);
             assertThat(p.badge(8)).isNull();
             assertThat(p.icon(252)).isNull();
+            // The Egg (EGG, 253): its own 40x40 pic, padded into the box; an oval, not noise or an empty square.
+            var egg = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(p.icon(PokemonGen2.EGG)));
+            assertThat(egg.getWidth()).isEqualTo(56);
+            int opaque = 0, corners = 0;
+            for (int y = 0; y < 56; y++) {
+                for (int x = 0; x < 56; x++) {
+                    if ((egg.getRGB(x, y) >>> 24) == 0) continue;
+                    opaque++;
+                    if ((x < 12 || x > 43) && (y < 22 || y > 51)) corners++;
+                }
+            }
+            assertThat(opaque).as("egg pixels").isBetween(400, 1400);
+            assertThat(corners).as("an oval leaves the box's corners empty").isLessThan(40);
         }
     }
 

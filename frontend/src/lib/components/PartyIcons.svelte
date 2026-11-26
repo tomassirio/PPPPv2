@@ -48,7 +48,7 @@
 					onclick={dex && !m.egg ? keepTap : undefined}
 				>
 					{#if m.egg}
-						<span class="egg"></span>
+						<img src="/api/v1/game/icons/253.png" alt="" loading="lazy" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />
 					{:else}
 						<img src="/api/v1/game/icons/{m.species}.png" alt="" loading="lazy" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />
 						{#if hp && m.hpPercent != null}<span class="hp"><b style:width="{m.hpPercent}%" style:background={hpColor(m.hpPercent)}></b></span>{/if}
@@ -127,12 +127,5 @@
 		font: 700 11px var(--body-font);
 		color: var(--accent-text);
 		text-shadow: 0 0 2px var(--panel);
-	}
-	.egg {
-		position: absolute;
-		inset: 20% 26%;
-		border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%;
-		background: #f4f1e8;
-		box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
 	}
 </style>

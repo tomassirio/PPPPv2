@@ -94,7 +94,7 @@
 				>
 					{#if tier}<span class="tier-tag tier-{tier}" title="{TIER_NAMES[tier]} tier">{tier}</span>{/if}
 					<span class="mon" class:fnt={m.status === 'FNT'}>
-						{#if !m.egg}<img src="/api/v1/game/icons/{m.icon}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
+						{#if m.egg}<img src="/api/v1/game/icons/253.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{:else}<img src="/api/v1/game/icons/{m.icon}.png" alt="" onerror={(e) => ((e.currentTarget as HTMLImageElement).style.visibility = 'hidden')} />{/if}
 						{#if m.shiny}<span class="shiny" title="Shiny">✦</span>{/if}
 					</span>
 					<span class="info">
@@ -118,7 +118,7 @@
 	{/if}
 	{#if summary}
 		{#each rows as row, r (row.label)}
-			<div class="line" class:later={r > 0 && !row.got} class:kanto={r > 0}>
+			<div class="line" class:later={r > 0 && !row.got && rows[0].got < 8} class:kanto={r > 0} class:due={r > 0 && (row.got > 0 || rows[0].got >= 8)}>
 				<span class="muted">{row.label}</span>
 				{#if named.length}
 					<ul class="badges" aria-label="{row.label}: {row.got} of 8 earned">
@@ -436,8 +436,9 @@
 			display: none;
 		}
 	}
+	/* Kanto's row goes early while it is far off; once Johto is done (or Kanto started) it stays with the Pokédex. */
 	@container (max-height: 560px) {
-		.kanto {
+		.kanto:not(.due) {
 			display: none;
 		}
 	}
@@ -456,7 +457,8 @@
 		}
 	}
 	@container (max-height: 400px) {
-		.dex {
+		.dex,
+		.kanto {
 			display: none;
 		}
 	}
