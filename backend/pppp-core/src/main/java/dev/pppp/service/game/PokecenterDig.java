@@ -278,7 +278,82 @@ public class PokecenterDig {
         write(out, game, TRADE_SCRIPT, TRADE_X);
         write(out, game, BATTLE_SCRIPT, BATTLE_X);
         if (game.at == CRYSTAL) keepLook(out);
+        shortReceptionists(out);
         return out;
+    }
+
+    /**
+     * The receptionists' Pokecenter2F texts (maps/Pokecenter2F.asm), rewritten in place: "Welcome to the PPPPv2 TRADE
+     * CENTER." / "... BATTLE CENTER." with no "Would you like to ...?" after it, and "Please save your game." for
+     * Text_MustSaveGame (its Yes/No stays: saving is still asked). Each intro's `writetext; yesorno; iffalse .Abort`
+     * becomes `writetext; sjump <next command>` (the leftover byte is skipped), the intro ending in a prompt so it
+     * still waits for A. Texts are found by their bytes, the script by `writetext <text>` in the same bank; anything not
+     * found as pret has it is left alone.
+     */
+    static void shortReceptionists(byte[] rom) {
+        String[][] intros = {{"Welcome to CABLE", "TRADE CENTER.", "TRADE"}, {"Welcome to CABLE", "CLUB TRADE CENTER.", "TRADE"},
+                {"Welcome to CABLE", "CLUB COLOSSEUM.", "BATTLE"}};
+        for (String[] intro : intros) {
+            int at = rewrite(rom, text(intro[0], LINE, intro[1]),
+                    text("Welcome to the", LINE, "PPPPv2 " + intro[2], CONT, "CENTER.", PROMPT));
+            if (at < 0) continue;
+            int bank = at / 0x4000 * 0x4000, local = at % 0x4000 + 0x4000;
+            for (int i = bank; i + 7 <= bank + 0x4000; i++) {
+                if ((rom[i] & 0xFF) != WRITETEXT || (rom[i + 1] & 0xFF) != (local & 0xFF) || (rom[i + 2] & 0xFF) != local >> 8
+                        || (rom[i + 3] & 0xFF) != YESORNO || (rom[i + 4] & 0xFF) != IFFALSE) continue;
+                int next = (i + 7) % 0x4000 + 0x4000;
+                rom[i + 3] = (byte) SJUMP;
+                rom[i + 4] = (byte) next;
+                rom[i + 5] = (byte) (next >> 8);
+            }
+        }
+        rewrite(rom, text("Before opening the", LINE, "link, you must", CONT, "save your game.", DONE),
+                text("Please save your", LINE, "game.", DONE));
+    }
+
+    /** Script opcodes (macros/scripts/events.asm, the same in all three) and text control bytes (charmap.asm). */
+    private static final int WRITETEXT = 0x4C, YESORNO = 0x4E, IFFALSE = 0x08, SJUMP = 0x03;
+    private static final Object LINE = 0x4F, CONT = 0x55, PROMPT = 0x58, DONE = 0x57;
+
+    /** Where old starts (once in the ROM) after writing new over it, ended by `done`; -1 when absent or too short. */
+    private static int rewrite(byte[] rom, byte[] old, byte[] replacement) {
+        int at = indexOf(rom, old);
+        if (at < 0 || indexOf(rom, old, at + 1) >= 0) return -1;
+        int end = at;
+        while (end < rom.length && rom[end] != 0x57) end++; // the old text's `done`
+        if (replacement.length > end - at + 1) return -1;
+        System.arraycopy(replacement, 0, rom, at, replacement.length);
+        return at;
+    }
+
+    /** TX_START, then strings in pret's charmap (letters, space, digits, '.') and control bytes (Integer). */
+    static byte[] text(Object... parts) {
+        var out = new java.io.ByteArrayOutputStream();
+        out.write(0x00);
+        for (Object p : parts) {
+            if (p instanceof Integer b) {
+                out.write(b);
+                continue;
+            }
+            for (char ch : ((String) p).toCharArray()) {
+                out.write(ch >= 'A' && ch <= 'Z' ? 0x80 + ch - 'A' : ch >= 'a' && ch <= 'z' ? 0xA0 + ch - 'a'
+                        : ch >= '0' && ch <= '9' ? 0xF6 + ch - '0' : ch == ' ' ? 0x7F : ch == '.' ? 0xE8 : ch == ',' ? 0xF4 : -1);
+            }
+        }
+        return out.toByteArray();
+    }
+
+    private static int indexOf(byte[] hay, byte[] needle) {
+        return indexOf(hay, needle, 0);
+    }
+
+    private static int indexOf(byte[] hay, byte[] needle, int from) {
+        outer:
+        for (int i = from; i + needle.length <= hay.length; i++) {
+            for (int j = 0; j < needle.length; j++) if (hay[i + j] != needle[j]) continue outer;
+            return i;
+        }
+        return -1;
     }
 
     /**

@@ -72,13 +72,48 @@ class PokecenterDigTest {
                 assertThat(host.<Boolean>withBus(bus -> PokecenterDig.atReceptionist(game, bus, kind))).as("at her").isTrue();
                 host.press(Button.A, 6, 30); // what LinkService presses for them: she talks
                 assertThat(host.<String>withBus(bus -> PokecenterDig.check(game, bus))).as("talking").isNotNull();
-                for (int i = 0; i < 20 && host.withBus(bus -> PokecenterDig.check(game, bus)) != null; i++) {
-                    host.press(Button.B, 6, 30); // "No", and out of her dialog
+                // No cable: she waits for a friend (~8.5 s), says the link closed, and lets them go.
+                for (int i = 0; i < 120 && host.withBus(bus -> PokecenterDig.check(game, bus)) != null; i++) {
+                    host.press(Button.B, 6, 30);
                 }
             }
         } finally {
             host.shutdown();
         }
+    }
+
+    /** The receptionists welcome to the PPPPv2 centers and go straight on (no "Would you like to ...?"); saving is asked. */
+    @ParameterizedTest(allowZeroInvocations = true)
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"pokemon-crystal-version-usa-europe-rev-1",
+            "pokemon-gold-version-usa-europe-sgb-enhanced-gb-compatible", "pokemon-silver-version-usa-europe-sgb-enhanced-gb-compatible"})
+    void receptionistsAreShort(String cart) throws Exception {
+        Path rom = DATA.resolve("roms").resolve(cart + ".gbc");
+        assumeTrue(Files.exists(rom), "no " + cart);
+        byte[] original = Files.readAllBytes(rom), patched = PokecenterDig.patch(original);
+        for (String kind : new String[] {"TRADE", "BATTLE"}) {
+            byte[] intro = PokecenterDig.text("Welcome to the", 0x4F, "PPPPv2 " + kind, 0x55, "CENTER.", 0x58);
+            int at = indexOf(patched, intro);
+            assertThat(at).as(kind).isPositive();
+            int local = at % 0x4000 + 0x4000, bank = at / 0x4000 * 0x4000, scripts = 0;
+            for (int i = bank; i + 6 <= bank + 0x4000; i++) {
+                if ((patched[i] & 0xFF) != 0x4C || (patched[i + 1] & 0xFF) != (local & 0xFF) || (patched[i + 2] & 0xFF) != local >> 8) continue;
+                scripts++;
+                assertThat(patched[i + 3] & 0xFF).as("sjump, not yesorno").isEqualTo(0x03);
+                assertThat((patched[i + 4] & 0xFF) | (patched[i + 5] & 0xFF) << 8).as("to the command after iffalse").isEqualTo((i + 7) % 0x4000 + 0x4000);
+                assertThat(original[i + 3] & 0xFF).isEqualTo(0x4E);
+            }
+            assertThat(scripts).as(kind + " script").isEqualTo(1);
+        }
+        assertThat(indexOf(patched, PokecenterDig.text("Please save your", 0x4F, "game.", 0x57))).isPositive();
+    }
+
+    private static int indexOf(byte[] hay, byte[] needle) {
+        outer:
+        for (int i = 0; i + needle.length <= hay.length; i++) {
+            for (int j = 0; j < needle.length; j++) if (hay[i + j] != needle[j]) continue outer;
+            return i;
+        }
+        return -1;
     }
 
     /**
