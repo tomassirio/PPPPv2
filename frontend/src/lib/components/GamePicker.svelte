@@ -20,15 +20,31 @@
 		reveal(() => flushSync(() => (choice = id)), el);
 	}
 
+	const VOLUME = 0.25, FADE = 0.5;
+	/** The sign-in page's music switch (TitleMusic) turned off: the cries keep quiet too. */
+	function muted() {
+		try {
+			return localStorage.getItem('pppp.titleMusic') === 'off';
+		} catch {
+			return false;
+		}
+	}
+
 	async function start() {
 		if (!choice || saving) return;
 		saving = true;
 		const sound = chosen && cry(chosen);
-		if (sound) {
-			// The click is the gesture that lets it play; it keeps playing after the picker unmounts.
+		if (sound && !muted()) {
+			// The click is the gesture that lets it play; it keeps playing after the picker unmounts, fading out over its
+			// last FADE seconds.
 			const a = new Audio(sound);
-			a.volume = 0.25;
-			a.play().catch(() => {});
+			a.volume = VOLUME;
+			const fade = () => {
+				const left = a.duration - a.currentTime;
+				if (left < FADE) a.volume = Math.max(0, VOLUME * (left / FADE));
+				if (!a.paused && !a.ended) requestAnimationFrame(fade);
+			};
+			a.play().then(() => requestAnimationFrame(fade), () => {});
 		}
 		error = '';
 		try {
