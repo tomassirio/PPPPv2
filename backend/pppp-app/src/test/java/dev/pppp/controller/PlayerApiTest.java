@@ -98,6 +98,18 @@ class PlayerApiTest {
     }
 
     @Test
+    void theKonamiCodeGivesThePrimaDonnaOnceAndOnlyWithAGame() throws Exception {
+        String who = "opera@x.y";
+        RequestPostProcessor player = user(who).roles("PLAYER");
+        mvc.perform(post("/api/v1/me/konami").with(player).with(csrf())).andExpect(jsonPath("$.gift").value(false)); // no game yet
+        mvc.perform(put("/api/v1/me/game").with(player).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cartridgeId\":\"test\"}")).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/me/konami").with(player).with(csrf())).andExpect(jsonPath("$.gift").value(true));
+        mvc.perform(post("/api/v1/me/konami").with(player).with(csrf())).andExpect(jsonPath("$.gift").value(false));
+        assertThat(redis.opsForList().range("pibs:gifts:" + who, 0, -1)).containsExactly("prima-donna:1");
+    }
+
+    @Test
     void anAdminResetWipesTheRunSoThePlayerPicksAgain() throws Exception {
         String who = "reset-me@x.y";
         RequestPostProcessor player = user(who).roles("PLAYER");

@@ -37,13 +37,15 @@ public class MysteryGifts {
     /**
      * Event Pokémon, as Gen 2's distributions gave them (fixed movesets), one at a time, into the party (GiftMon): the
      * GS Ball's Celebi, Crystal's Odd Egg (a baby that knows Dizzy Punch, sometimes shiny), the event Mew and Pokémon
-     * Stadium's Surfing Pikachu. By gift id; the Odd Egg rolls its baby when it is delivered.
+     * Stadium's Surfing Pikachu; and ours: the prima donna, a shiny Jigglypuff, for a player's first Konami code (konami).
+     * By gift id; the Odd Egg rolls its baby when it is delivered.
      */
     static final Map<String, java.util.function.Function<java.util.Random, GiftMon.Spec>> EVENTS = Map.of(
             "celebi", r -> new GiftMon.Spec("Celebi", 30, List.of("Heal Bell", "Safeguard", "AncientPower", "Future Sight"), false, false),
             "odd-egg", GiftMon::oddEgg,
             "mew", r -> new GiftMon.Spec("Mew", 5, List.of("Pound"), false, false),
-            "surfing-pikachu", r -> new GiftMon.Spec("Pikachu", 5, List.of("ThunderShock", "Growl", "Surf"), false, false));
+            "surfing-pikachu", r -> new GiftMon.Spec("Pikachu", 5, List.of("ThunderShock", "Growl", "Surf"), false, false),
+            "prima-donna", r -> new GiftMon.Spec("Jigglypuff", 15, List.of("Sing", "Defense Curl", "Pound", "Disable"), false, true));
 
     public static final List<Gift> CATALOG = List.of(
             new Gift("rare-candy", "Rare Candy", 3),
@@ -68,7 +70,8 @@ public class MysteryGifts {
             new Gift("celebi", "Celebi (GS Ball, Lv 30)", 1, true),
             new Gift("odd-egg", "Odd Egg", 1, true),
             new Gift("mew", "Mew (Lv 5)", 1, true),
-            new Gift("surfing-pikachu", "Surfing Pikachu (Lv 5)", 1, true));
+            new Gift("surfing-pikachu", "Surfing Pikachu (Lv 5)", 1, true),
+            new Gift("prima-donna", "Shiny Jigglypuff (Lv 15)", 1, true));
     private final java.util.Random random = new java.util.Random();
 
     private static final int MAX_PC_ITEMS = 50, MAX_STACK = 99, END = 0xFF;
@@ -109,6 +112,16 @@ public class MysteryGifts {
         chat.postAdmin(adminId + " sent a Mystery Gift (" + what + ") to " + (to == null ? "everyone" : to));
         if (to == null) chat.postSystem("A Mystery Gift is on its way to every Pib: " + what + "!");
         return who.size();
+    }
+
+    /**
+     * A player entered the Konami code (the opera on /play): the first time, and only once they have picked a game, the
+     * prima donna is queued for them. Returns whether this call queued it.
+     */
+    public boolean konami(String userId) {
+        if (players.game(userId) == null || !players.claimKonamiGift(userId)) return false;
+        gifts.add(userId, "prima-donna", 1);
+        return true;
     }
 
     /** Every 10 s: each running console whose player has a gift waiting and stands free gets the oldest one. */

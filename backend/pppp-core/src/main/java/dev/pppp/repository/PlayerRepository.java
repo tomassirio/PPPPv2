@@ -7,7 +7,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 /**
- * Per-player facts in the Redis hash "pibs:player:{userId}" {game, sprite (the trainer they walk as, PlayerSprites), spriteColor (null: its own)}. Picking also enters the player on the scoreboard.
+ * Per-player facts in the Redis hash "pibs:player:{userId}" {game, sprite (the trainer they walk as, PlayerSprites), spriteColor (null: its own), aaaaMail, konamiGift}. Picking also enters the player on the scoreboard.
  * Key bindings live apart in "pibs:keys:{userId}" {up, down, left, right, a, b, start, select, fast ("" = none)}, so a reset keeps them.
  */
 @Repository
@@ -42,6 +42,11 @@ public class PlayerRepository {
 
     public void markAaaaMail(String userId) {
         redis.opsForHash().put(key(userId), "aaaaMail", String.valueOf(System.currentTimeMillis()));
+    }
+
+    /** Marks the Konami code's gift as given (field konamiGift); false when it already was. A reset forgets it. */
+    public boolean claimKonamiGift(String userId) {
+        return redis.opsForHash().putIfAbsent(key(userId), "konamiGift", String.valueOf(System.currentTimeMillis()));
     }
 
     /** The trainer sprite key the player walks as, or null for the game's own. */

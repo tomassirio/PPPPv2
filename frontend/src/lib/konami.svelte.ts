@@ -2,7 +2,7 @@
 const CODE = ['up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'b', 'a'];
 let typed: string[] = [];
 
-/** `at` changes each time the code is entered; PokeballRain watches it. */
+/** `at` changes each time the code is entered; KonamiOpera watches it. */
 export const konami = $state({ at: 0 });
 
 export function konamiPress(button: string) {

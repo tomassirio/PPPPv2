@@ -182,6 +182,12 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   redrawn as Á). Controller colours: the picker is a popover (never clipped); a Solid / Atomic switch picks the
   see-through plastic for colours that have one (`Shell.atomic`, `variant`, localStorage `pppp.padAtomic:{user}`, colour `pppp.pad:{user}`; none picked: the version's, `VERSION_SHELL`); atomic
   shells show the board inside (Gamepad `::before`, membranes via `--guts`).
+- Done: the Konami code on /play (↑↑↓↓←→←→ B A, `konami.svelte.ts`) plays `KonamiOpera`: a ~35 s opera of PIBSIGNO.'s
+  face (Act I aria, Act II can-can kick line + internet acronyms, Act III deep fried), music from `teaser.ts` `aria()`
+  (square-wave melody, triangle bass, drums, a deep-fry distortion from a given time); curtains close, then open back
+  onto the page. Skip/Esc/click ends it; reduced motion holds it still. The first time (with a game picked),
+  `POST /api/v1/me/konami` ({gift}) queues the prima donna (`MysteryGifts` "prima-donna": shiny Jigglypuff Lv 15, Sing,
+  Defense Curl, Pound, Disable; also in the admin catalog), once per run (`pibs:player` field `konamiGift`).
 - Done: Mystery Gifts. Admins send one of `MysteryGifts.CATALOG` (19 fair items, each with a cap: Rare Candy 3,
   stones 1, Max Repel 10, ...; names resolved per ROM by `PokemonGen2.itemId`) to one player (admin player page) or
   everyone who picked a game (admin page, confirm; a chat line says so): `GET/POST /api/v1/admin/gifts`
