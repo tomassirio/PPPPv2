@@ -94,4 +94,29 @@ class LinkWaitTest {
             b.host.shutdown();
         }
     }
+
+    /** A girl in Crystal walks into the trade room as herself: no "We need to change the look here..." into Chris. */
+    @Test
+    void aGirlKeepsHerLook() throws Exception {
+        Player a = boot("linktest@local", CRYSTAL, "TRADE"), b = boot("linktest@local", CRYSTAL, "TRADE");
+        int gender = PlayerSprites.CRYSTAL_GENDER, player = Ghosts.CRYSTAL.playerStruct();
+        a.host.withBus(bus -> {
+            bus.setByte(gender, bus.getByte(gender) | 1);
+            return null;
+        });
+        try {
+            EmulatorHost.link(a.host, b.host);
+            Thread.sleep(5000); // the dig (its new map loads her as Kris)
+            for (int i = 0; i < 80 && !("TRADE_CENTER".equals(a.map()) && "TRADE_CENTER".equals(b.map())); i++) {
+                Thread other = Thread.ofVirtual().start(() -> a.host.press(Button.A, 6, 24));
+                b.host.press(Button.A, 6, 24);
+                other.join();
+            }
+            assertThat(a.map()).isEqualTo("TRADE_CENTER");
+            assertThat(a.host.<Integer>withBus(bus -> bus.getByte(player))).as("SPRITE_KRIS").isEqualTo(0x60);
+        } finally {
+            a.host.shutdown();
+            b.host.shutdown();
+        }
+    }
 }

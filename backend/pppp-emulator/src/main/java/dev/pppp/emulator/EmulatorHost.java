@@ -365,10 +365,7 @@ public class EmulatorHost {
             throw new IllegalArgumentException("Range not readable: " + Integer.toHexString(address) + "+" + length);
         }
         return call(() -> {
-            // SVBK (FF70) reads back the switched-in bank (0 means 1) without side effects; FF in DMG mode,
-            // which has no banks.
-            int svbk = SameBoy.read(h, 0xFF70);
-            if (address <= 0xDFFF && end >= 0xD000 && svbk != 0xFF && (svbk & 7) > 1) return null;
+            if (address <= 0xDFFF && end >= 0xD000 && bus().wramBank() != 1) return null;
             byte[] out = new byte[length];
             for (int i = 0; i < length; i++) out[i] = (byte) SameBoy.read(h, address + i);
             return out;
@@ -385,7 +382,7 @@ public class EmulatorHost {
 
     /**
      * Runs hook on the emulator thread after every frame with the bus, to read and write memory. A Game Boy Color
-     * game may have any WRAM bank in at D000-DFFF (SVBK, FF70): check it before touching that range.
+     * game may have any WRAM bank in at D000-DFFF: check {@link Bus#wramBank} before touching that range.
      */
     public void afterFrame(Consumer<Bus> hook) {
         frameHooks.add(hook);

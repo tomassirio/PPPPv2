@@ -54,6 +54,13 @@ public class LinkService {
     private final Map<String, String> wrongRoom = new HashMap<>();
     /** Linked players who have been in the link room that fits their session: leaving it ends the session. */
     private final Set<String> visited = new java.util.HashSet<>();
+    /** Visited players read outside every link room: userId -> readings in a row. LEAVE_READINGS of them end it. */
+    private final Map<String, Integer> outside = new HashMap<>();
+    /**
+     * One stray reading must not pull the cable mid-trade (the game would hang before saving it): leaving takes
+     * this many sweeps in a row, about 3 s.
+     */
+    private static final int LEAVE_READINGS = 3;
     /** Linked players about to talk to their receptionist: userId -> give up after (epoch ms). */
     private final Map<String, Long> talk = new HashMap<>();
     /** Players in a link room with no cable plugged in (it came out mid-battle): userId -> since when. */
@@ -210,8 +217,8 @@ public class LinkService {
      * Drops challenges nobody answered in time, ends the session of a player who has had no page open for awayLimit
      * (sessions have no time cap: a battle must not be cut off), and tells a pair when one of them walks into the
      * wrong link room (LINK_SESSION status ROOM): the trade room for a battle, the Colosseum for a trade. A player who
-     * was in the right room and is back upstairs is done: the cable comes out (ENDED, FINISHED). A wrong room, left
-     * as the warning says, does not count.
+     * was in the right room and is read back upstairs LEAVE_READINGS sweeps in a row is done: the cable comes out
+     * (ENDED, FINISHED). A wrong room, left as the warning says, does not count.
      */
     @Scheduled(fixedDelay = 1000)
     public synchronized void sweep() {
@@ -265,19 +272,24 @@ public class LinkService {
             }
         }
         for (SessionEvent s : sessions.values().stream().distinct().toList()) {
-            boolean changed = false, finished = false;
+            boolean changed = false;
+            String finished = null;
             for (String id : List.of(s.a(), s.b())) {
                 String map = dig.map(id);
                 if (map == null) continue; // cannot tell this second
                 String room = PokecenterDig.LINK_ROOMS.contains(map) ? map : null;
                 if (room != null && fits(s.kind(), room) && visited.add(id)) consoles.pin(id, false);
-                else if (room == null && visited.contains(id)) finished = true;
+                else if (room == null && visited.contains(id) && outside.merge(id, 1, Integer::sum) >= LEAVE_READINGS) {
+                    finished = id + " in " + map;
+                }
+                if (room != null) outside.remove(id);
                 String wrong = room == null || fits(s.kind(), room) ? null : room;
                 if (java.util.Objects.equals(wrong, wrongRoom.get(id))) continue;
                 if (wrong == null) wrongRoom.remove(id); else wrongRoom.put(id, wrong);
                 changed = true;
             }
-            if (finished) {
+            if (finished != null) {
+                log.info("Link {} {} and {}: left the link room ({}, {} readings in a row)", s.kind(), s.a(), s.b(), finished, LEAVE_READINGS);
                 end(s.a(), "FINISHED");
             } else if (changed) {
                 events.publishEvent(new LiveEvent("LINK_SESSION", new SessionEvent(s.a(), s.b(), s.kind(), s.since(), "ROOM", null)));
@@ -326,6 +338,8 @@ public class LinkService {
         away.remove(s.b());
         visited.remove(s.a());
         visited.remove(s.b());
+        outside.remove(s.a());
+        outside.remove(s.b());
         talk.remove(s.a());
         talk.remove(s.b());
         bits.remove(s.a());

@@ -106,6 +106,14 @@ class EmulatorHostTest {
         host.powerOff();
         host.eject();
 
+        // SVBK reads FF with bank 7 in, as it does in DMG mode: still not bank 1 (Crystal's menus live there).
+        host.insert("bank7", TestRom.write(dir, "bank7.gbc", TestRom.wramBanks(7), true), dir.resolve("bank7.sav"));
+        host.powerOn();
+        host.press(Button.WAIT, 30, 0); // past the boot ROM
+        assertThat(host.readBytes(0xD000, 1)).isNull();
+        host.powerOff();
+        host.eject();
+
         host.insert("bank0", TestRom.write(dir, "bank0.gbc", TestRom.wramBanks(0), true), dir.resolve("bank0.sav"));
         host.powerOn();
         host.press(Button.WAIT, 30, 0); // past the boot ROM

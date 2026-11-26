@@ -374,10 +374,11 @@ public class PlayerConsoles {
             if (!isAwake(userA) || !isAwake(userB)) throw new IllegalStateException("Both consoles must be open to link");
             Console a = consoles.get(userA), b = consoles.get(userB);
             // Each side's link room friend walks as the other's trainer, and its battle opponent (CAL) is drawn as them.
-            var friendA = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(a.cartridgeId()), players.sprite(userB)));
-            friendA.putAll(PlayerPic.linkOpponent(rom(a.cartridgeId()), players.sprite(userB), players.sprite(userA)));
-            var friendB = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(b.cartridgeId()), players.sprite(userA)));
-            friendB.putAll(PlayerPic.linkOpponent(rom(b.cartridgeId()), players.sprite(userA), players.sprite(userB)));
+            String spriteA = cableSprite(userA, a), spriteB = cableSprite(userB, b);
+            var friendA = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(a.cartridgeId()), spriteB));
+            friendA.putAll(PlayerPic.linkOpponent(rom(a.cartridgeId()), spriteB, spriteA));
+            var friendB = new java.util.HashMap<>(PlayerSprites.cableFriend(rom(b.cartridgeId()), spriteA));
+            friendB.putAll(PlayerPic.linkOpponent(rom(b.cartridgeId()), spriteA, spriteB));
             EmulatorHost.link(a.host(), b.host());
             a.host().patchRom(friendA);
             b.host().patchRom(friendB);
@@ -387,6 +388,17 @@ public class PlayerConsoles {
             speeds.remove(userB);
         }
         log.info("Link cable plugged: {} and {}", userA, userB);
+    }
+
+    /**
+     * The trainer the other end of a cable sees: the player's pick, else Kris for a girl in Crystal (wPlayerGender,
+     * pokecrystal11.sym, bit 0), whom the friend object would otherwise draw as Chris. Gold/Silver draw her as Chris.
+     */
+    private String cableSprite(String userId, Console c) {
+        String key = players.sprite(userId);
+        if (key != null || !PlayerSprites.crystal(rom(c.cartridgeId()))) return key;
+        byte[] gender = c.host().readBytes(PlayerSprites.CRYSTAL_GENDER, 1); // null with another WRAM bank in: Chris
+        return gender != null && (gender[0] & 1) != 0 ? "KRIS" : null;
     }
 
     /** The trainers the player can walk as (their game's walking sprites); empty before they pick a game. */

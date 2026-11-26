@@ -71,6 +71,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   Crystal's ChrisPic/KrisPic (intro, Hall of Fame), ChrisCardPic/KrisCardPic (card) and PlayerPalette; Gold/Silver's CAL entries (intro, HoF) and
   the 5x7 card pic. Link battles draw the opponent as CAL: `PlayerPic.linkOpponent` points it at the peer's class while
   linked (restored on unlink). No back sprites exist for trainer classes, so battle backs stay Chris/Kris.
+  A girl in Crystal keeps her look: `PokecenterDig.keepLook` makes both "We need to change the look here..." checks
+  (Cable Club, Time Capsule) fall through, so she walks in as herself; her partner sees Kris when she picked no sprite
+  (`PlayerConsoles.cableSprite`, wPlayerGender). Link sessions end only after 3 readings in a row outside the link
+  rooms (`LinkService.LEAVE_READINGS`), and `Bus.wramBank` tells WRAM bank 7 (SVBK reads FF) from DMG mode.
   The friend in TradeCenter/Colosseum walks as the peer's chosen sprite: `PlayerConsoles.link` patches both friend
   objects' sprite bytes in each running ROM (`PlayerSprites.cableFriend`, `EmulatorHost.patchRom`); unlink puts Chris back.
   A linked player's console keeps running when they leave /play (ScreenWebSocketHandler). `PokecenterDigTest` runs

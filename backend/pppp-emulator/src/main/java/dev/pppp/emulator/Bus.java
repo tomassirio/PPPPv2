@@ -9,4 +9,15 @@ public interface Bus {
     int getByte(int address);
 
     void setByte(int address, int value);
+
+    /**
+     * The WRAM bank at D000-DFFF: SVBK's 1-7 in a Game Boy Color game, 1 in an original Game Boy one (no banks).
+     * SVBK reads back as value | ~7, so bank 7 reads FF just like DMG mode does; KEY1 (FF4D) reads FF only in DMG
+     * mode. (Taking bank 7 for bank 1 once read Crystal's menu backups as the map and pulled a link cable mid-trade.)
+     */
+    default int wramBank() {
+        if (getByte(0xFF4D) == 0xFF) return 1;
+        int bank = getByte(0xFF70) & 7;
+        return bank == 0 ? 1 : bank;
+    }
 }

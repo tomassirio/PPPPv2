@@ -66,7 +66,7 @@ public class PokecenterDig {
                     0xDCAC, 0xDCB2, 0xDCB5, 0xD001, new int[] {0x4C3C},
                     new Op(0x54, 0x49, 0x85, 0x69, 0x1E, 0x8A, 0x91, 0x76, 0x1B));
 
-    private static final int DIG_BANK = 3, SVBK = 0xFF70, SCRIPT_READ = 1, MAPSTATUS_HANDLE = 2, MAPEVENTS_ON = 0,
+    private static final int DIG_BANK = 3, SCRIPT_READ = 1, MAPSTATUS_HANDLE = 2, MAPEVENTS_ON = 0,
             BUG_CONTEST_TIMER = 1 << 2, TOWN = 1, ROUTE = 2, CAVE = 4, DUNGEON = 7, MAPSETUP_DOOR = 0xF5,
             MAPSETUP_TELEPORT = 0xF4, SPAWN_N_A = 0xFF, PLAYER = 0, UP = 1, SCRIPT_SIZE = 0x40;
     /** wLinkTimeoutFrames (WRAM bank 0); 12 extensions of 256 frames: 8.5 s + 51 s, about a minute. */
@@ -150,8 +150,7 @@ public class PokecenterDig {
      */
     static String busy(Game game, Bus bus) {
         Layout at = game.at;
-        int svbk = bus.getByte(SVBK);
-        if (svbk != 0xFF && (svbk & 7) > 1) return "busy"; // WRAM bank 1 is out: the game is mid-routine
+        if (bus.wramBank() != 1) return "busy"; // WRAM bank 1 is out: the game is mid-routine
         if (u8(bus, at.battleMode) != 0) return "in a battle";
         int group = u8(bus, at.mapGroup), number = u8(bus, at.mapGroup + 1);
         String map = game.maps.mapId(group, number);
@@ -278,7 +277,24 @@ public class PokecenterDig {
         byte[] out = rom.clone();
         write(out, game, TRADE_SCRIPT, TRADE_X);
         write(out, game, BATTLE_SCRIPT, BATTLE_X);
+        if (game.at == CRYSTAL) keepLook(out);
         return out;
+    }
+
+    /**
+     * Crystal's Pokecenter2F_CheckGender and TimeCapsuleScript_CheckPlayerGender (maps/Pokecenter2F.asm, bank $64):
+     * `checkflag ENGINE_PLAYER_IS_FEMALE` ($34, flag 99), `iftrue .Female`, where the receptionist says "We need to
+     * change the look here..." and the player spins into Chris (ENGINE_KRIS_IN_CABLE_CLUB) for Gold/Silver's sake.
+     * Each iftrue is pointed at the next command, so a girl walks in as herself (the sprite she picked, as everyone
+     * else does); the way out checks ENGINE_KRIS_IN_CABLE_CLUB, never set now, and skips the spin back too.
+     */
+    static void keepLook(byte[] rom) {
+        for (int i : new int[] {0x192B04, 0x192BC4}) {
+            if ((rom[i] & 0xFF) != 0x34 || rom[i + 1] != 99 || rom[i + 2] != 0 || rom[i + 3] != 0x09) continue;
+            int next = (i + 6) % 0x4000 + 0x4000;
+            rom[i + 4] = (byte) next;
+            rom[i + 5] = (byte) (next >> 8);
+        }
     }
 
     private static void write(byte[] rom, Game game, int address, int x) {
@@ -388,8 +404,7 @@ public class PokecenterDig {
                 int lo = u8(bus, timeout), hi = u8(bus, timeout + 1);
                 if (hi == 2 && lo == 0xFF) extensions = 0;
                 if (hi != 1 || lo != 0x80 || extensions >= WAIT_EXTENSIONS) return;
-                int svbk = bus.getByte(SVBK);
-                if (svbk != 0xFF && (svbk & 7) > 1) return;
+                if (bus.wramBank() != 1) return;
                 if (u8(bus, at.mapGroup) != pc2f[0] || u8(bus, at.mapGroup + 1) != pc2f[1]) return;
                 bus.setByte(timeout + 1, 2);
                 extensions++;

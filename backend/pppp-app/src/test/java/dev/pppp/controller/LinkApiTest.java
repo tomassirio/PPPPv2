@@ -232,7 +232,7 @@ class LinkApiTest {
         as(GARY, delete("/api/v1/link/session"), null).andExpect(status().isOk());
     }
 
-    /** Back upstairs after the trade: the cable comes out. A wrong room walked out of again does not count. */
+    /** Back upstairs after the trade (3 readings in a row): the cable comes out. A wrong room walked out of again does not count. */
     @Test
     void leavingTheLinkRoomAfterwardsUnplugs() throws Exception {
         var real = ReflectionTestUtils.getField(link, "dig");
@@ -255,8 +255,17 @@ class LinkApiTest {
             org.mockito.Mockito.when(dig.map(SAM)).thenReturn(null); // cannot tell: nothing happens
             link.sweep();
             assertThat(consoles.linkedWith(SAM)).isEqualTo(ASH);
+            org.mockito.Mockito.when(dig.map(SAM)).thenReturn("POKECENTER_2F"); // one stray reading
+            link.sweep();
+            link.sweep();
+            org.mockito.Mockito.when(dig.map(SAM)).thenReturn("TRADE_CENTER");
+            link.sweep();
+            assertThat(consoles.linkedWith(SAM)).as("two readings outside, then back in: still trading").isEqualTo(ASH);
             org.mockito.Mockito.when(dig.map(SAM)).thenReturn("POKECENTER_2F");
             link.sweep();
+            link.sweep();
+            assertThat(consoles.linkedWith(SAM)).isEqualTo(ASH);
+            link.sweep(); // the third in a row
             assertThat(consoles.linkedWith(SAM)).isNull();
             assertThat(consoles.linkedWith(ASH)).isNull();
         } finally {

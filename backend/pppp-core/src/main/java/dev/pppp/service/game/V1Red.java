@@ -76,8 +76,7 @@ public final class V1Red {
     /** Frame hook: AAAA's nicknames while Red's battle runs. No-op unless {@link #patch} changed the ROM. */
     public void nicknames(Bus bus) {
         if (enemyNickname == 0) return;
-        int svbk = bus.getByte(0xFF70);
-        if (svbk != 0xFF && (svbk & 7) > 1) return; // another WRAM bank is in
+        if (bus.wramBank() != 1) return; // another WRAM bank is in
         if (bus.getByte(battleMode) != 2 || bus.getByte(trainerClass) != RED_CLASS) return;
         int slot = bus.getByte(curOTMon);
         if (slot >= NICKNAMES.length / 11) return;

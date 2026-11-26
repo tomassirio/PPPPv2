@@ -156,8 +156,7 @@ public final class PlayerSprites {
         Layout at = layout(rom);
         Choice c = at == null ? null : choice(rom, key == null ? DEFAULT : key);
         if (c == null) return false;
-        int svbk = bus.getByte(0xFF70);
-        if (svbk != 0xFF && (svbk & 7) > 1) return false;
+        if (bus.wramBank() != 1) return false;
         Integer pal = palette(color);
         int palette = pal != null ? pal : rom[at.overworldSprites + (c.id - 1) * SPRITE_ENTRY + SPRITE_PALETTE] & 7;
         int address = (at == CRYSTAL ? Ghosts.CRYSTAL : Ghosts.GOLD_SILVER).playerStruct() + OBJECT_PALETTE;
@@ -252,6 +251,13 @@ public final class PlayerSprites {
     private static boolean table(byte[] rom, int at, int normal, int bike) {
         return (rom[at] & 0xFF) == PLAYER_NORMAL && (rom[at + 1] & 0xFF) == normal
                 && (rom[at + 2] & 0xFF) == PLAYER_BIKE && (rom[at + 3] & 0xFF) == bike;
+    }
+
+    /** wPlayerGender in Crystal (pokecrystal11.sym): bit 0 set for a girl. */
+    public static final int CRYSTAL_GENDER = 0xD472;
+
+    public static boolean crystal(byte[] rom) {
+        return layout(rom) == CRYSTAL;
     }
 
     private static Layout layout(byte[] rom) {
