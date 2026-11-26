@@ -176,7 +176,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Done: the end credits name only "TOMÁS SIRIO" (`Credits.patch` at insert: every CreditsStringsPointers entry before
   .End, 70 Crystal / 50 Gold-Silver, points at one string over SATOSHI TAJIRI's bytes; the font's unused Ä tile is
   redrawn as Á). Controller colours: the picker is a popover (never clipped); a Solid / Atomic switch picks the
-  see-through plastic for colours that have one (`Shell.atomic`, `variant`, localStorage `pppp.shellAtomic`); atomic
+  see-through plastic for colours that have one (`Shell.atomic`, `variant`, localStorage `pppp.padAtomic:{user}`, colour `pppp.pad:{user}`; none picked: the version's, `VERSION_SHELL`); atomic
   shells show the board inside (Gamepad `::before`, membranes via `--guts`).
 - Done: Mystery Gifts. Admins send one of `MysteryGifts.CATALOG` (19 fair items, each with a cap: Rare Candy 3,
   stones 1, Max Repel 10, ...; names resolved per ROM by `PokemonGen2.itemId`) to one player (admin player page) or

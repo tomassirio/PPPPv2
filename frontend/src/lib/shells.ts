@@ -35,7 +35,7 @@ export const SHELLS: Shell[] = [
 	{ id: 'yellow', name: 'Yellow', shell: '#f6b93b', atomic: 'rgb(246 185 59 / 0.62)', dpad: '#7a5208', ab: '#c98a12', pill: '#c98a12' }
 ];
 
-const KEY = 'pppp.shell', ATOMIC_KEY = 'pppp.shellAtomic';
+const KEY = 'pppp.pad', ATOMIC_KEY = 'pppp.padAtomic';
 /** Shells folded into another's atomic version: a saved one picks that colour, atomic. */
 const RETIRED: Record<string, string> = { atomic: 'purple', 'clear-purple': 'purple', 'clear-black': 'black', 'clear-green': 'green', clear: 'white' };
 
@@ -50,22 +50,16 @@ export function variant(s: Shell, atomic: boolean): Shell {
 /** What a player who never picked a colour wears: their version's, in atomic plastic. */
 export const VERSION_SHELL: Record<'Gold' | 'Silver' | 'Crystal', string> = { Gold: 'yellow', Silver: 'white', Crystal: 'light-blue' };
 
-/** Per player (several accounts may share a browser); without a user, the browser-wide keys of old. */
-const keys = (user?: string) => (user ? [`${KEY}:${user}`, `${ATOMIC_KEY}:${user}`] : [KEY, ATOMIC_KEY]);
+/** Per player (several accounts may share a browser): every player starts on their version's colour until they
+ * pick one. */
+const keys = (user?: string) => [`${KEY}:${user ?? ''}`, `${ATOMIC_KEY}:${user ?? ''}`];
 
-/**
- * The player's saved colour (its base, by id), whether atomic is on, and whether they ever picked one. A pick saved
- * browser-wide (before picks were per player) goes to the first player who loads it.
- */
+/** The player's saved colour (its base, by id), whether atomic is on, and whether they ever picked one. */
 export function savedShell(user?: string): { base: Shell; atomic: boolean; chosen: boolean } {
 	try {
 		const [key, atomicKey] = keys(user);
-		if (user && localStorage.getItem(key) == null && localStorage.getItem(KEY) != null) {
-			localStorage.setItem(key, localStorage.getItem(KEY)!);
-			localStorage.setItem(atomicKey, localStorage.getItem(ATOMIC_KEY) ?? '0');
-			localStorage.removeItem(KEY);
-			localStorage.removeItem(ATOMIC_KEY);
-		}
+		// Picks saved as pppp.shell* (browser-wide, then copied to one player) are dropped.
+		for (const k of Object.keys(localStorage)) if (k.startsWith('pppp.shell')) localStorage.removeItem(k);
 		const saved = localStorage.getItem(key) ?? '';
 		const retired = RETIRED[saved];
 		const base = SHELLS.find((s) => s.id === (retired ?? saved));
