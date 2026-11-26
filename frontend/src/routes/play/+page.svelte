@@ -45,7 +45,7 @@
 	import { place, versionOf } from '#lib/play.ts';
 	import ShellPicker from '#lib/components/ShellPicker.svelte';
 	import ViewportDebug from '#lib/components/ViewportDebug.svelte';
-	import PokeballRain from '#lib/components/PokeballRain.svelte';
+	import KonamiOpera from '#lib/components/KonamiOpera.svelte';
 	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { closeDexCards } from '#lib/dexhover.svelte.ts';
@@ -507,7 +507,7 @@
 	{#if talking}
 		<LinkFinder bind:open={talking} nearby={screen?.nearby() ?? []} />
 	{/if}
-	<PokeballRain />
+	<KonamiOpera />
 	<Coach />
 	<NoteComposer />
 {:else if loadFailed}

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Per-player facts in the Redis hash "pibs:player:{userId}" {game, sprite (the trainer they walk as, PlayerSprites), spriteColor (null: its own),
- * aaaaMail, cableClub, call:{id} (AAAA's phone calls: "pending" or when it rang)}. Picking also enters the player on the scoreboard.
+ * aaaaMail, cableClub, konamiGift, call:{id} (AAAA's phone calls: "pending" or when it rang)}. Picking also enters the player on the scoreboard.
  * Key bindings live apart in "pibs:keys:{userId}" {up, down, left, right, a, b, start, select, fast ("" = none)}, so a reset keeps them.
  */
 @Repository
@@ -66,6 +66,11 @@ public class PlayerRepository {
     /** Dev only: forgets a call, so its moment rings it again. */
     public void forgetAaaaCall(String userId, String call) {
         redis.opsForHash().delete(key(userId), "call:" + call);
+    }
+
+    /** Marks the Konami code's gift as given (field konamiGift); false when it already was. A reset forgets it. */
+    public boolean claimKonamiGift(String userId) {
+        return redis.opsForHash().putIfAbsent(key(userId), "konamiGift", String.valueOf(System.currentTimeMillis()));
     }
 
     /** The trainer sprite key the player walks as, or null for the game's own. */

@@ -37,6 +37,7 @@ public class PlayerController {
     public record SpeedNow(Double speed, Double actual, dev.pppp.emulator.EmulatorHost.Timing timing) {}
     public record Pick(String cartridgeId) {}
     public record InputRequest(String command, Integer repeat) {}
+    public record Konami(boolean gift) {}
 
     private final PlayerConsoles consoles;
     private final CartridgeService cartridges;
@@ -47,10 +48,12 @@ public class PlayerController {
     private final dev.pppp.service.game.PokecenterDig dig;
     private final ProgressTracker tracker;
     private final dev.pppp.service.LinkService link;
+    private final dev.pppp.service.game.MysteryGifts gifts;
 
     public PlayerController(PlayerConsoles consoles, CartridgeService cartridges, PlayerResetService resets, KeyBindingService keys,
                             EventPublisher events, ChatService chat, dev.pppp.service.game.PokecenterDig dig,
-                            ProgressTracker tracker, dev.pppp.service.LinkService link) {
+                            ProgressTracker tracker, dev.pppp.service.LinkService link, dev.pppp.service.game.MysteryGifts gifts) {
+        this.gifts = gifts;
         this.dig = dig;
         this.tracker = tracker;
         this.link = link;
@@ -76,6 +79,12 @@ public class PlayerController {
     }
 
     /** 1, 2 or 4 (400 otherwise); 409 while the console is off or a link cable is plugged in. */
+    /** The Konami code was entered on /play: gift true when this was the first time and the prima donna is on her way. */
+    @PostMapping("/api/v1/me/konami")
+    public Konami konami(Authentication auth) {
+        return new Konami(gifts.konami(CurrentUser.id(auth)));
+    }
+
     @GetMapping("/api/v1/me/speed")
     public SpeedNow speedNow(Authentication auth) {
         String id = CurrentUser.id(auth);

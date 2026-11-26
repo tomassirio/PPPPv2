@@ -89,3 +89,114 @@ export const fanfare = () =>
 	chime([[523.3, 0.1], [659.3, 0.1], [784, 0.1], [1046.5, 0.1], [784, 0.1], [1046.5, 0.4]]);
 /** Konami on /play: the ball shakes three times, then the catch. */
 export const gotcha = () => chime([[330, 0.12], [262, 0.12], [330, 0.12], [262, 0.12], [330, 0.12], [1318.5, 0.08], [1568, 0.5]]);
+
+/**
+ * Konami on /play: the opera's aria. melody and bass are [MIDI note, beats][] (0 = rest); the melody sings on a square
+ * wave with a soprano's vibrato, the bass goes oom-pah-pah on a triangle. drums: [1 kick | 2 snare | 3 boom | 0 rest,
+ * beats][]. From fryAt seconds on, everything is deep fried: bass boosted and clipped, at about the same loudness.
+ * Returns stop(): fades it out at once.
+ */
+export function aria(
+	beat: number,
+	melody: [number, number][],
+	bass: [number, number][],
+	drums: [number, number][] = [],
+	fryAt = Infinity,
+	volume = 0.05
+) {
+	try {
+		audio ??= new AudioContext();
+		const ctx = audio;
+		const out = ctx.createGain();
+		const hz = (n: number) => 440 * 2 ** ((n - 69) / 12);
+		const start = ctx.currentTime + 0.05;
+		// Two ways out: clean, and fried (driven into a bass shelf and a tanh clipper, turned down after).
+		const clean = ctx.createGain();
+		const drive = ctx.createGain();
+		const shelf = ctx.createBiquadFilter();
+		const clip = ctx.createWaveShaper();
+		const fried = ctx.createGain();
+		drive.gain.value = 8;
+		shelf.type = 'lowshelf';
+		shelf.frequency.value = 120;
+		shelf.gain.value = 14;
+		clip.curve = Float32Array.from({ length: 1024 }, (_, i) => Math.tanh(3 * (i / 511.5 - 1)));
+		fried.gain.value = 0;
+		if (Number.isFinite(fryAt)) {
+			clean.gain.setValueAtTime(0, start + fryAt);
+			fried.gain.setValueAtTime(0.18, start + fryAt);
+		}
+		out.connect(clean).connect(ctx.destination);
+		out.connect(drive).connect(shelf).connect(clip).connect(fried).connect(ctx.destination);
+		const voice = (notes: [number, number][], type: OscillatorType, vol: number, vibrato: boolean) => {
+			let t = start;
+			for (const [n, beats] of notes) {
+				const len = beats * beat;
+				if (n) {
+					const osc = ctx.createOscillator();
+					const gain = ctx.createGain();
+					osc.type = type;
+					osc.frequency.value = hz(n);
+					if (vibrato && len > beat) {
+						// The vibrato swells in after the note's attack, as a singer's does.
+						const lfo = ctx.createOscillator();
+						const depth = ctx.createGain();
+						lfo.frequency.value = 5.5;
+						depth.gain.setValueAtTime(0, t);
+						depth.gain.linearRampToValueAtTime(hz(n) * 0.015, t + Math.min(len, 0.6));
+						lfo.connect(depth).connect(osc.frequency);
+						lfo.start(t);
+						lfo.stop(t + len);
+					}
+					gain.gain.setValueAtTime(0.0001, t);
+					gain.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+					gain.gain.setValueAtTime(vol, t + len * 0.85);
+					gain.gain.exponentialRampToValueAtTime(0.0001, t + len * 0.98);
+					osc.connect(gain).connect(out);
+					osc.start(t);
+					osc.stop(t + len);
+				}
+				t += len;
+			}
+		};
+		voice(melody, 'square', volume, true);
+		voice(bass, 'triangle', volume * 2.4, false);
+		// Kick: a sine dropping in pitch. Snare: a burst of high-passed noise.
+		const noise = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+		noise.getChannelData(0).forEach((_, i, d) => (d[i] = Math.random() * 2 - 1));
+		let t = start;
+		for (const [hit, beats] of drums) {
+			const gain = ctx.createGain();
+			gain.connect(out);
+			if (hit === 1 || hit === 3) {
+				// The boom is a kick that takes its time.
+				const len = hit === 3 ? 1 : 0.15;
+				const osc = ctx.createOscillator();
+				osc.frequency.setValueAtTime(hit === 3 ? 110 : 150, t);
+				osc.frequency.exponentialRampToValueAtTime(hit === 3 ? 32 : 40, t + len * 0.8);
+				gain.gain.setValueAtTime(volume * (hit === 3 ? 8 : 5), t);
+				gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
+				osc.connect(gain);
+				osc.start(t);
+				osc.stop(t + len);
+			} else if (hit === 2) {
+				const src = ctx.createBufferSource();
+				const hp = ctx.createBiquadFilter();
+				src.buffer = noise;
+				hp.type = 'highpass';
+				hp.frequency.value = 1500;
+				gain.gain.setValueAtTime(volume * 2.5, t);
+				gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+				src.connect(hp).connect(gain);
+				src.start(t);
+			}
+			t += beats * beat;
+		}
+		return () => {
+			out.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+			setTimeout(() => (clean.disconnect(), fried.disconnect()), 400);
+		};
+	} catch {
+		return () => {};
+	}
+}
