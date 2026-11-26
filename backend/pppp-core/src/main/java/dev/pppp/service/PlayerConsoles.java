@@ -5,6 +5,7 @@ import dev.pppp.emulator.Bus;
 import dev.pppp.emulator.EmulatorHost;
 import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
+import dev.pppp.service.game.AaaaCalls;
 import dev.pppp.service.game.Credits;
 import dev.pppp.service.game.Ghosts;
 import dev.pppp.service.game.PlayerPic;
@@ -62,6 +63,8 @@ public class PlayerConsoles {
     private final List<Consumer<String>> awayListeners = new CopyOnWriteArrayList<>();
     /** Told whenever the player does something on their console or page (ActivityService: daily active players). */
     private final List<Consumer<String>> activeListeners = new CopyOnWriteArrayList<>();
+    /** Told how each battle ends on a Gold/Silver/Crystal console: "beaten", "lost" or "blackout" (AaaaCalls.battles). */
+    private final List<BiConsumer<String, String>> battleListeners = new CopyOnWriteArrayList<>();
     /** When each player last did something (a button, or the browser's activity ping): userId -> epoch ms. */
     private final Map<String, Long> lastActive = new ConcurrentHashMap<>();
     /** Consoles parked since: userId -> epoch ms; set and cleared inside the consoles map's compute for that key. */
@@ -358,6 +361,11 @@ public class PlayerConsoles {
         activeListeners.add(listener);
     }
 
+    /** Runs on the emulator thread: hand off and return. */
+    public void onBattle(BiConsumer<String, String> listener) {
+        battleListeners.add(listener);
+    }
+
     public void onIdle(Consumer<String> listener) {
         idleListeners.add(listener);
     }
@@ -598,6 +606,12 @@ public class PlayerConsoles {
     }
 
     /** Runs task on the player's console between frames with its bus, to read and write. Null when their console is not in memory. */
+    /** Patches the running console's ROM (offset -> byte); nothing when it is not in memory. */
+    public void patchRom(String userId, Map<Integer, Integer> bytes) {
+        Console c = consoles.get(userId);
+        if (c != null) c.host().patchRom(bytes);
+    }
+
     public <T> T withBus(String userId, Function<Bus, T> task) {
         Console c = consoles.get(userId);
         try {
@@ -655,9 +669,11 @@ public class PlayerConsoles {
         EmulatorHost host = new EmulatorHost();
         V1Red red = new V1Red();
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game),
-                rom -> PlayerPic.patch(PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(rom))), players.sprite(userId),
+                rom -> PlayerPic.patch(PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(
+                        AaaaCalls.patch(rom, AaaaCalls.stage(players.aaaaCalls(userId)))))), players.sprite(userId),
                         players.spriteColor(userId)), players.sprite(userId)));
         host.afterFrame(red::nicknames);
+        host.afterFrame(AaaaCalls.battles(outcome -> battleListeners.forEach(l -> l.accept(userId, outcome))));
         host.afterFrame(PokecenterDig.patientReceptionist(host::isLinked));
         host.onFrame(pixels -> {
             ghosts.frame(userId, game, host, pixels); // before the listeners: they send this array to the browser

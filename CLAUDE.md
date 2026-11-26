@@ -214,6 +214,18 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   waits on Mt. Silver as Red: `V1Red`) into each Gen 2 player's PC mailbox and its backup, once (`aaaaMail` in
   `pibs:player:{userId}`), after their first save, while they are free in the overworld (`PokecenterDig.busy`),
   opening and closing save RAM as the game does. `AaaaMailTest` runs it on the real ROMs and parked games in data/.
+- Done: AAAA's phone calls (`AaaaCalls`, core). Real Pokégear calls in Gold/Silver/Crystal: "???" (static on the line)
+  at the Zephyr Badge (and gets into the phone), Rocket bust, first blackout, Ho-Oh/Lugia caught, Champion, all Kanto
+  badges; "AAAA" when he wins on Mt. Silver ("AY LMAOCHAMP") and when beaten ("GG champ! Thanks for playing PPPPv2!").
+  Once per player, only at the moment (ACHIEVEMENT_UNLOCKED, or `AaaaCalls.battles`, a frame hook reading
+  wBattleResult as each battle ends: Red's class won/lost, else a loss that blacks out). Queued in `pibs:player:{userId}`
+  fields `call:{id}` ("pending", then when it rang); every 5 s an awake, free console rings the oldest: wCurCaller = 8,
+  wCallerContact's caller script, then the map re-entry queue runs `pause 30; farsjump Script_ReceivePhoneCall`.
+  ROM at insert: PhoneContacts entry 8 (unused) is the caller; NonTrainerCallerNames copied with "???" (6) and "AAAA" (7)
+  to $24:7fc0; texts and scripts in bank 3 $7b00-$7eff. Calling him: ??? answers dots twice, then "so many commands at
+  once" (event flags 2046/2047, unused), AAAA "AY LMAOCHAMP" until beaten, then the thanks (stage from the calls that
+  rang, patched at insert and when an AAAA call rings). Dev only: `GET /dev/call?user=&call=<id>|forget`.
+  `AaaaCallsTest` rings them on the parked games in data/.
 - Speed: one Fast toggle (`SpeedControl`; on = the server's 4x: as fast as it manages, ~3x on the Pi since SameBoy; `GET /api/v1/me/speed` still reports the measured rate); a Pi 4
   core ran a Gen 2 console at about 1.2x on Coffee GB (`GET /api/v1/me/speed` timing: all of it in the emulator);
   hence SameBoy (2.1.0): ~2.7x cheaper per frame on a Mac, Pi numbers still to measure.

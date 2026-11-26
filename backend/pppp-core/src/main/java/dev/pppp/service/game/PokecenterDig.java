@@ -326,7 +326,7 @@ public class PokecenterDig {
         return at;
     }
 
-    /** TX_START, then strings in pret's charmap (letters, space, digits, '.') and control bytes (Integer). */
+    /** TX_START, then strings in pret's charmap (letters, space, digits, . , ? ! :) and control bytes (Integer). */
     static byte[] text(Object... parts) {
         var out = new java.io.ByteArrayOutputStream();
         out.write(0x00);
@@ -337,7 +337,8 @@ public class PokecenterDig {
             }
             for (char ch : ((String) p).toCharArray()) {
                 out.write(ch >= 'A' && ch <= 'Z' ? 0x80 + ch - 'A' : ch >= 'a' && ch <= 'z' ? 0xA0 + ch - 'a'
-                        : ch >= '0' && ch <= '9' ? 0xF6 + ch - '0' : ch == ' ' ? 0x7F : ch == '.' ? 0xE8 : ch == ',' ? 0xF4 : -1);
+                        : ch >= '0' && ch <= '9' ? 0xF6 + ch - '0' : ch == ' ' ? 0x7F : ch == '.' ? 0xE8 : ch == ',' ? 0xF4
+                        : ch == '?' ? 0xE6 : ch == '!' ? 0xE7 : ch == ':' ? 0x9C : -1);
             }
         }
         return out.toByteArray();
@@ -458,11 +459,7 @@ public class PokecenterDig {
             public void accept(Bus bus) {
                 if (!linked.getAsBoolean()) return;
                 if (crystal == null) {
-                    byte[] title = new byte[15];
-                    for (int i = 0; i < 15; i++) title[i] = (byte) bus.getByte(0x134 + i);
-                    String t = new String(title, java.nio.charset.StandardCharsets.US_ASCII);
-                    crystal = t.equals("PM_CRYSTAL\0BYTE") ? Boolean.TRUE
-                            : t.equals("POKEMON_GLDAAUE") || t.equals("POKEMON_SLVAAXE") ? Boolean.FALSE : null;
+                    crystal = crystal(bus);
                     if (crystal == null) {
                         crystal = Boolean.FALSE;
                         pc2f = new int[] {-1, -1}; // not a game we know: never matches
@@ -485,6 +482,15 @@ public class PokecenterDig {
                 extensions++;
             }
         };
+    }
+
+    /** Crystal (true), Gold or Silver (false) by the running cartridge's ROM header title; null for anything else. */
+    static Boolean crystal(Bus bus) {
+        byte[] title = new byte[15];
+        for (int i = 0; i < 15; i++) title[i] = (byte) bus.getByte(0x134 + i);
+        String t = new String(title, java.nio.charset.StandardCharsets.US_ASCII);
+        return t.equals("PM_CRYSTAL\0BYTE") ? Boolean.TRUE
+                : t.equals("POKEMON_GLDAAUE") || t.equals("POKEMON_SLVAAXE") ? Boolean.FALSE : null;
     }
 
     private static int offset(int address) {
