@@ -1,7 +1,7 @@
 // One shared WebSocket on /ws/events for every component: everything that changes for everyone while people play
 // (scoreboard, chat, who is online, lobby, link sessions, progress). Each message is {"type": ..., "data": ...}.
 // Types: CHAT_MESSAGE, CHAT_DELETED, CHAT_REACTION, CHAT_CLEARED, GAME_STATE, PRESENCE, PROGRESS, ACHIEVEMENT_UNLOCKED,
-// SCOREBOARD_CHANGED, LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION, PLAYER_RESET, ACCESS_REQUESTS.
+// SCOREBOARD_CHANGED, LOBBY_CHANGED, LINK_CHALLENGE, LINK_SESSION, PLAYER_RESET, ACCESS_REQUESTS, WATCH_REACTION.
 import { backoff } from './play';
 
 type Handler = (data: any) => void;

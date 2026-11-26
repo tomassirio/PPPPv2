@@ -188,6 +188,20 @@ class ChatApiTest {
                 .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("reaction", reaction))));
     }
 
+    ResultActions cheer(String reaction) throws Exception {
+        return mvc.perform(post("/api/v1/watch/Ana@y.z/reactions").with(user("a@y.z").roles("PLAYER")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("reaction", reaction))));
+    }
+
+    @Test
+    void watchReactionsGoLiveRateLimited() throws Exception {
+        cheer("wow").andExpect(status().isNoContent());
+        verify(events).publish("WATCH_REACTION", Map.of("user", "ana@y.z", "from", "a@y.z", "reaction", "wow"));
+        cheer("wow").andExpect(status().isTooManyRequests());
+        Thread.sleep(300);
+        cheer("😀").andExpect(status().isBadRequest());
+    }
+
     @Test
     void reactionsOnePerUserLiveAndInHistory() throws Exception {
         String id = json.readTree(send("p@y.z", "gg").andReturn().getResponse().getContentAsString()).get("id").asText();

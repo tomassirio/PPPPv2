@@ -90,6 +90,15 @@ public class ChatService {
         return changeReaction(userId, id, null);
     }
 
+    /** A spectator's reaction floating over {@code watched}'s screen on /watch: WATCH_REACTION to everyone, not stored. */
+    public void cheer(String userId, String watched, String reaction) {
+        if (!REACTIONS.contains(reaction)) throw new IllegalArgumentException("Unknown reaction");
+        if (isMuted(userId)) throw new ForbiddenException("You are muted");
+        if (!repo.tryAcquireReactionSlot(userId, Duration.ofMillis(250))) throw new RateLimitedException("Too many reactions");
+        events.publishEvent(new LiveEvent("WATCH_REACTION",
+                Map.of("user", watched.toLowerCase(java.util.Locale.ROOT), "from", userId, "reaction", reaction)));
+    }
+
     private Map<String, List<String>> changeReaction(String userId, String id, String reaction) {
         if (id == null || !id.matches("\\d+-\\d+")) throw new IllegalArgumentException("Invalid message id");
         String kind = repo.kindOf(id);

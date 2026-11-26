@@ -2,7 +2,9 @@
      and it sends no buttons. A dark stage: the match bar (each trainer with their game, rank, badges and link record; the head-to-head
      score between them, GET /link/versus), then both Game Boys with each party beside its screen (from their profile,
      GET /players/{id}/profile, every few seconds while live; sprites from that player's own ROM, icons?of=) and the
-     latest results between them down the middle. Narrow windows stack it. When the cable comes out it says so. -->
+     latest results between them down the middle. Narrow windows stack it. When the cable comes out it says so.
+     Under each live screen the chat's Pikachu faces: a click floats it up that screen for everyone watching
+     and for that player on /play (POST /watch/{id}/reactions -> WATCH_REACTION; GameScreen's ReactionFloats). -->
 <script lang="ts">
 	import Name from '#lib/components/Name.svelte';
 	import { api } from '#lib/api.ts';
@@ -13,6 +15,7 @@
 	import { clock, link, since, watchLink } from '#lib/link.svelte.ts';
 	import { ago, badgeMasks, bitCount, hpColor, TIER_NAMES, TYPE_COLORS, versionOf, winRate, type ProfileMon, type ScoreEvent, type Tier } from '#lib/play.ts';
 	import { nameOf } from '#lib/pictures.svelte.ts';
+	import { REACTIONS } from '#lib/chat/messages.ts';
 
 	type Versus = { a: string; b: string; aWins: number; bWins: number; recent: ScoreEvent[] };
 	type Mon = { species: number; label: string; species_: string | null; level: number; hp: number | null; status: string | null; types: string[]; egg: boolean; tier: Tier | null };
@@ -94,6 +97,9 @@
 			tier: m.tier ?? null
 		}));
 	}
+	const cheer = (user: string, reaction: string) =>
+		api('POST', `/watch/${encodeURIComponent(user)}/reactions`, { reaction }).catch(() => {}); // 429: too fast, dropped
+
 	const VERSION_COLOR: Record<string, string> = { Gold: 'var(--cart-gold)', Silver: 'var(--cart-silver)', Crystal: 'var(--cart-crystal)' };
 </script>
 
@@ -113,6 +119,19 @@
 			</span>
 		</div>
 	</div>
+{/snippet}
+
+{#snippet screen(user: string)}
+	<figure>
+		<GameScreen watch={user} />
+		{#if live}
+			<div class="cheers" role="group" aria-label="React to {nameOf(user)}">
+				{#each REACTIONS as r (r.id)}
+					<button type="button" title={r.label} aria-label="{r.label} for {nameOf(user)}" onclick={() => cheer(user, r.id)}><img src={r.src} alt="" width="28" height="28" /></button>
+				{/each}
+			</div>
+		{/if}
+	</figure>
 {/snippet}
 
 {#snippet partyColumn(user: string, side: 'a' | 'b')}
@@ -163,7 +182,7 @@
 
 			<div class="arena">
 				{@render partyColumn(shown.a, 'a')}
-				<figure><GameScreen watch={shown.a} /></figure>
+				{@render screen(shown.a)}
 				<aside class="results" aria-label="Latest results between them">
 					<span class="label">Latest</span>
 					{#if versus?.recent.length}
@@ -179,7 +198,7 @@
 						<span class="first">Their first battle</span>
 					{/if}
 				</aside>
-				<figure><GameScreen watch={shown.b} /></figure>
+				{@render screen(shown.b)}
 				{@render partyColumn(shown.b, 'b')}
 			</div>
 		</section>
@@ -351,8 +370,37 @@
 		margin: 0;
 		width: 100%;
 		/* As big as fits under the header, the match bar and the page's margins. */
-		max-width: calc((100vh - 330px) * 160 / 144 + 32px);
+		max-width: calc((100vh - 380px) * 160 / 144 + 32px); /* 50px of it for the reactions */
 		justify-self: center;
+	}
+	.cheers {
+		display: flex;
+		justify-content: center;
+		gap: 4px;
+		margin-top: 8px;
+	}
+	.cheers button {
+		display: inline-flex;
+		padding: 4px;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--sunk);
+		cursor: pointer;
+		transition: transform 120ms ease;
+	}
+	.cheers button:hover {
+		border-color: var(--accent-text);
+		transform: translateY(-2px);
+	}
+	.cheers button:active {
+		transform: scale(0.9);
+	}
+	.cheers button:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
+	.cheers img {
+		image-rendering: pixelated;
 	}
 	.party {
 		list-style: none;
@@ -515,6 +563,9 @@
 			animation: none;
 		}
 		.hp i {
+			transition: none;
+		}
+		.cheers button {
 			transition: none;
 		}
 	}

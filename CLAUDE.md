@@ -50,6 +50,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   session ends, and the sweep presses A once `PokecenterDig.atReceptionist` (dig done, facing her).
   Spectators: `/ws/watch/{userId}` (`WatchWebSocketHandler`) streams a linked player's screen, read only, closing 4404
   when they are not linked; `/watch/{id}` shows both ends, linked from the Link cable card's "Live now".
+  Spectator reactions: under each live screen on /watch (`LiveStage`) the chat's six Pikachu faces; a click
+  (`POST /api/v1/watch/{userId}/reactions` {reaction}, `ChatService.cheer`: chat's mute + 250 ms reaction limit, not
+  stored) sends `WATCH_REACTION` {user, from, reaction} to everyone; `ReactionFloats` (in GameScreen) floats it up that
+  player's screen with the sender's name: on /watch, on their own /play and on the admin player page.
   Reset button on the bezel (`ResetControl`, `POST /api/v1/me/reset`, `PlayerConsoles.reset`): ends a link session,
   boots the cartridge again from its battery save. A console left in a link room without a cable for 60 s is reset by
   the link sweep (a chat line says so).

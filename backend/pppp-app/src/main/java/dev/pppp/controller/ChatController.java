@@ -65,6 +65,13 @@ class ChatController {
         return chat.react(CurrentUser.id(auth), id, body.reaction());
     }
 
+    /** A reaction floating over a linked player's screen for everyone watching on /watch. */
+    @PostMapping("/watch/{userId}/reactions")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void cheer(@PathVariable String userId, @RequestBody ReactRequest body, Authentication auth) {
+        chat.cheer(CurrentUser.id(auth), userId, body.reaction());
+    }
+
     @DeleteMapping("/chat/messages/{id}/reaction")
     Map<String, List<String>> unreact(@PathVariable String id, Authentication auth) {
         return chat.unreact(CurrentUser.id(auth), id);
