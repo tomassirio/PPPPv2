@@ -47,15 +47,18 @@ export function variant(s: Shell, atomic: boolean): Shell {
 	return { ...s, name: `Atomic ${s.name}`, shell: clear };
 }
 
-/** The saved colour (its base, by id) and whether atomic is on. */
-export function savedShell(): { base: Shell; atomic: boolean } {
+/** What a player who never picked a colour wears: their version's, in atomic plastic. */
+export const VERSION_SHELL: Record<'Gold' | 'Silver' | 'Crystal', string> = { Gold: 'yellow', Silver: 'white', Crystal: 'light-blue' };
+
+/** The saved colour (its base, by id), whether atomic is on, and whether the player ever picked one. */
+export function savedShell(): { base: Shell; atomic: boolean; chosen: boolean } {
 	try {
 		const saved = localStorage.getItem(KEY) ?? '';
 		const retired = RETIRED[saved];
-		const base = SHELLS.find((s) => s.id === (retired ?? saved)) ?? SHELLS[0];
-		return { base, atomic: !!retired || localStorage.getItem(ATOMIC_KEY) === '1' };
+		const base = SHELLS.find((s) => s.id === (retired ?? saved));
+		return { base: base ?? SHELLS[0], atomic: !!retired || localStorage.getItem(ATOMIC_KEY) === '1', chosen: !!base };
 	} catch {
-		return { base: SHELLS[0], atomic: false };
+		return { base: SHELLS[0], atomic: false, chosen: false };
 	}
 }
 

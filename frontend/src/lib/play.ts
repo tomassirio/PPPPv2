@@ -342,11 +342,34 @@ export function progressPct(a: Pick<ProfileAchievement, 'unlocked' | 'progress' 
  * are worth: sightings (2) common, level milestones (5) uncommon, catches (10) rare, badges epic, the Hall of Fame
  * legendary. A link battle won is rare; lost, and title changes (0 points), common.
  */
-export function tierOf(e: Pick<ScoreEvent, 'type' | 'points'>): Rarity {
+export function tierOf(e: Pick<ScoreEvent, 'type' | 'points'> & { detail?: string }): Rarity {
 	if (e.type === 'HALL_OF_FAME') return 'legendary';
 	if (e.type === 'LINK_WIN') return 'rare';
-	if (e.type === 'BADGE') return 'epic';
+	// The badge that finishes a region: Clair's Rising Badge is always Johto's last, and Blue only gives the Earth
+	// Badge once the other seven Kanto badges are in.
+	if (e.type === 'BADGE') return /^(Rising|Earth)$/i.test(e.detail ?? '') ? 'legendary' : 'epic';
+	if (e.type === 'TITLE') return gradeRarity(e.detail);
+	if (e.type === 'LEVEL' && Number.isFinite(Number(e.detail ?? NaN))) return levelRarity(Number(e.detail));
+	if (e.type === 'GIFT') return giftRarity(e.detail);
 	return rarityOf(e.points);
+}
+
+/** A level milestone's tier: 10-20 common, 30-40 uncommon, 50-60 rare, 70-90 epic, 100 legendary. */
+export const levelRarity = (level: number): Rarity =>
+	level >= 100 ? 'legendary' : level >= 70 ? 'epic' : level >= 50 ? 'rare' : level >= 30 ? 'uncommon' : 'common';
+
+/** A Mystery Gift's tier from its card line: an event Pokémon ("... joined your party") legendary, Rare Candy and the
+ * evolution stones epic, any other item rare. */
+export function giftRarity(detail: string | undefined): Rarity {
+	if (/joined your party$/.test(detail ?? '')) return 'legendary';
+	return /Rare Candy|(Fire|Water|Leaf|Moon|Sun) Stone|Thunderstone/.test(detail ?? '') ? 'epic' : 'rare';
+}
+
+/** A new title's tier from its grade, the "(S+)" ending its detail ("Pokémon Master (S+)"): S+ and S legendary, A
+ * epic, B rare, C uncommon, D-F common. */
+export function gradeRarity(detail: string | undefined): Rarity {
+	const grade = /\(([A-FS]\+?)\)\s*$/.exec(detail ?? '')?.[1];
+	return grade === 'S+' || grade === 'S' ? 'legendary' : grade === 'A' ? 'epic' : grade === 'B' ? 'rare' : grade === 'C' ? 'uncommon' : 'common';
 }
 
 /** An older backend has no rarity: 1-3 points common, 5 uncommon, 10 rare, 25 epic, 50 legendary. */

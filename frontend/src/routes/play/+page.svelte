@@ -17,7 +17,7 @@
 	import { on } from '#lib/events.ts';
 	import { isEmote } from '#lib/chat/bubble.ts';
 	import { loadMe, session } from '#lib/session.svelte.ts';
-	import { currentShell } from '#lib/shell.svelte.ts';
+	import { currentShell, wearVersion } from '#lib/shell.svelte.ts';
 	import { inkFor } from '#lib/shells.ts';
 	import Chat from '#lib/components/Chat.svelte';
 	import GameScreen from '#lib/components/GameScreen.svelte';
@@ -42,7 +42,7 @@
 	import { nameOf } from '#lib/pictures.svelte.ts';
 	import SoundControl from '#lib/components/SoundControl.svelte';
 	import AppHeader from '#lib/components/AppHeader.svelte';
-	import { place } from '#lib/play.ts';
+	import { place, versionOf } from '#lib/play.ts';
 	import ShellPicker from '#lib/components/ShellPicker.svelte';
 	import ViewportDebug from '#lib/components/ViewportDebug.svelte';
 	import PokeballRain from '#lib/components/PokeballRain.svelte';
@@ -393,6 +393,10 @@
 	// Cartridge id -> name, for "Pokémon Gold" next to other players.
 	$effect(() => {
 		if (myGame) board.names = Object.fromEntries(myGame.available.map((c) => [c.id, c.name]));
+	});
+	// A pad nobody picked a colour for wears the player's version.
+	$effect(() => {
+		if (myGame?.game) wearVersion(versionOf(myGame.game, Object.fromEntries(myGame.available.map((c) => [c.id, c.name]))));
 	});
 </script>
 

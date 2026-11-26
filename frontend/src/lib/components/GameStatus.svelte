@@ -8,7 +8,7 @@
 	import RunSummary from '#lib/components/RunSummary.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
 	import { game, watchGame } from '#lib/game.svelte.ts';
-	import { hpColor, TIER_NAMES } from '#lib/play.ts';
+	import { hpColor, TIER_NAMES, versionOf } from '#lib/play.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 	import DexCard from '#lib/components/DexCard.svelte';
@@ -24,6 +24,8 @@
 	const summary = $derived(game.summary);
 	const rank = $derived(board.rows.findIndex((r) => r.userId === session.me?.id));
 	const mine = $derived(rank >= 0 ? board.rows[rank] : null);
+	/** The cartridge they play (Gold, Silver or Crystal), in its colour by the heading. */
+	const version = $derived(versionOf(mine?.game ?? null, board.names));
 	const counter = (label: string) => summary?.counters.find((c) => c.label === label);
 	const dex = $derived(counter('Pokédex'));
 	const seen = $derived(counter('Seen'));
@@ -74,7 +76,7 @@
 
 <section class="panel card" aria-labelledby="run-h">
 	<div class="head">
-		<h2 id="run-h">Your run</h2>
+		<h2 id="run-h">Your run{#if version}<span class="version ver-{version}"> · Pokémon {version}</span>{/if}</h2>
 		{#if mine?.trainerName}<span class="trainer"><span class="muted xs">Trainer</span> <b class="pixel">{mine.trainerName}</b></span>{/if}
 	</div>
 	{#if mine}
@@ -204,6 +206,11 @@
 	p.muted {
 		font-size: 13px;
 		line-height: 19px;
+	}
+	.version {
+		text-transform: none;
+		letter-spacing: 0;
+		font-weight: 700;
 	}
 	.trainer {
 		white-space: nowrap;

@@ -151,7 +151,7 @@
 		const t = n >= 0 ? tiers[n + 1] : null;
 		return t ? MON_RARITY[t] : null;
 	}
-	const tier = (e: ScoreEvent) => (e.type === 'MENTION' ? 'ping' : e.type === 'GIFT' ? 'legendary' : (monRarity(e) ?? tierOf(e)));
+	const tier = (e: ScoreEvent) => (e.type === 'MENTION' ? 'ping' : (monRarity(e) ?? tierOf(e)));
 	const loud = (e: ScoreEvent) => tier(e) === 'epic' || tier(e) === 'legendary';
 	let broken = $state(false);
 	$effect(() => {

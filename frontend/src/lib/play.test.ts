@@ -160,6 +160,21 @@ describe('profile helpers', () => {
 		const tiers = [['SEEN', 2], ['LEVEL', 5], ['CAUGHT', 10], ['BADGE', 100], ['HALL_OF_FAME', 500], ['ACHIEVEMENT', 25], ['TITLE', 0], ['LINK_WIN', 0], ['LINK_LOSS', 0]] as const;
 		expect(tiers.map(([type, points]) => tierOf({ type, points }))).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary', 'epic', 'common', 'rare', 'common']);
 	});
+	it('rates level milestones, region-finishing badges and Mystery Gifts', () => {
+		expect([10, 20, 30, 50, 70, 90, 100].map((l) => tierOf({ type: 'LEVEL', points: 5, detail: String(l) }))).toEqual([
+			'common', 'common', 'uncommon', 'rare', 'epic', 'epic', 'legendary'
+		]);
+		expect(['Zephyr', 'Rising', 'Boulder', 'Earth'].map((detail) => tierOf({ type: 'BADGE', points: 100, detail }))).toEqual(['epic', 'legendary', 'epic', 'legendary']);
+		expect(['Celebi joined your party', 'An Odd Egg joined your party', '3× Rare Candy in your PC', '1× Thunderstone in your PC', '1× Moon Stone in your PC', '1× Everstone in your PC', '10× Ultra Ball in your PC'].map((detail) => tierOf({ type: 'GIFT', points: 0, detail }))).toEqual([
+			'legendary', 'legendary', 'epic', 'epic', 'epic', 'rare', 'rare'
+		]);
+	});
+	it('rates a new title by its grade', () => {
+		const title = (detail: string) => tierOf({ type: 'TITLE', points: 0, detail });
+		expect(['Pokémon Master (S+)', 'Champion (S)', 'Ace Trainer (A)', 'Cooltrainer (B)', 'Rival (C)', 'Youngster (F)', 'odd'].map(title)).toEqual([
+			'legendary', 'legendary', 'epic', 'rare', 'uncommon', 'common', 'common'
+		]);
+	});
 
 	it('sorts achievements by rarity and masks hidden ones until unlocked', () => {
 		const a = (id: string, points: number, unlocked: boolean, extra = {}) => ({ id, name: id, description: `${id}!`, points, unlocked, ...extra });
