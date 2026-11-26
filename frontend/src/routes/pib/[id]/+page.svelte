@@ -7,6 +7,7 @@
 	import Name from '#lib/components/Name.svelte';
 	import RunSummary from '#lib/components/RunSummary.svelte';
 	import FindButton from '#lib/components/FindButton.svelte';
+	import LinkHistory from '#lib/components/LinkHistory.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
 	import KindIcon from '#lib/components/KindIcon.svelte';
 	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
@@ -103,29 +104,26 @@
 		{ id: 'recent', label: 'Recent' }
 	] as const;
 	let tab = $state<(typeof TABS)[number]['id']>(page.url.searchParams.has('ach') ? 'achievements' : 'overview');
-	// Achievements in pages of three rows: the grid's width says how many fit in a row (180px cards, 10px gaps).
-	let achWidth = $state(0);
-	let achPage = $state(0);
 	// A rarity tier picked in the legend shows only that tier's achievements; picking it again shows all.
 	let tierFilter = $state<string | null>(null);
+	// No pages and no endless list: one row per category (its count and a bar); the open one shows its achievements
+	// as a grid of balls, and the ball picked shows its card.
+	const categories = $derived([...new Set(achievements.map((a) => a.category ?? 'Other'))]);
+	let openCat = $state<string | null>(null);
+	let achPeek = $state<string | null>(null);
 	const shownAch = $derived(tierFilter ? achievements.filter((a) => a.rarity === tierFilter) : achievements);
-	const perPage = $derived(Math.max(4, Math.floor((achWidth + 10) / 190) * 3));
-	const achPages = $derived(Math.max(1, Math.ceil(shownAch.length / perPage)));
-	const pageAch = $derived(shownAch.slice(achPage * perPage, achPage * perPage + perPage));
-	$effect(() => {
-		if (achPage >= achPages) achPage = achPages - 1;
-	});
 	// ?ach=<name> (from an activity entry): that achievement's page, scrolled to and ringed for a moment.
 	const spotlight = $derived(page.url.searchParams.get('ach'));
 	let spotted = $state<string | null>(null);
 	$effect(() => {
 		const want = spotlight;
-		if (!want || !achievements.length || !achWidth) return;
+		if (!want || !achievements.length) return;
 		const at = achievements.findIndex((x) => x.name === want);
 		if (at < 0) return;
 		const a = achievements[at];
 		tierFilter = null;
-		achPage = Math.floor(at / perPage);
+		openCat = a.category ?? 'Other';
+		achPeek = a.id;
 		requestAnimationFrame(() => {
 			const el = document.getElementById(`ach-${a.id}`);
 			if (!el) return;
@@ -134,6 +132,12 @@
 		});
 	});
 	const linkAch = $derived(achievements.filter((a) => a.category === 'Link'));
+	// The Link achievement a ball is showing (hovered, focused or tapped): its card under the row.
+	// A ball clicked pins its card (clicking it again unpins; another moves the pin); hover and focus only preview.
+	let peek = $state<string | null>(null);
+	let historyOpen = $state(false);
+	let pinned = $state<string | null>(null);
+	const peeked = $derived(linkAch.find((a) => a.id === peek) ?? null);
 	// Link record: the profile's stats when the backend has them, else the scoreboard row's.
 	const lr = $derived({
 		wins: profile?.stats.linkWins ?? row?.link?.wins ?? 0,
@@ -354,16 +358,46 @@
 							{#if linkAch.length}
 								<div class="col tight">
 									<div class="between"><span class="label">Link achievements</span><span class="muted xs">{linkAch.filter((a) => a.unlocked).length} of {linkAch.length}</span></div>
-									<!-- One row of balls (name and what it takes on hover); the cards are in the Achievements tab. -->
+									<!-- One row of balls; hovering, focusing or tapping one shows its card under the row (tap again to
+									     close). The full cards are in the Achievements tab. -->
 									<ul class="linkballs">
 										{#each linkAch as a (a.id)}
-											<li class:got={a.unlocked} title="{a.name}: {a.description}{a.unlocked ? '' : ' (locked)'}"
-												><RarityBall rarity={a.rarity} locked={!a.unlocked} size={24} /><span class="sr-only">{a.name}, {a.unlocked ? 'unlocked' : 'locked'}</span></li
-											>
+											<li class:got={a.unlocked}>
+												<button
+													type="button"
+													class:on={peek === a.id}
+													aria-label="{a.name ?? 'Hidden achievement'}, {a.unlocked ? 'unlocked' : 'locked'}"
+													aria-expanded={peek === a.id}
+													onpointerenter={(e) => e.pointerType === 'mouse' && !pinned && (peek = a.id)}
+													onpointerleave={(e) => e.pointerType === 'mouse' && !pinned && (peek = null)}
+													onfocus={() => !pinned && (peek = a.id)}
+													onblur={() => !pinned && (peek = null)}
+													onclick={() => {
+														pinned = pinned === a.id ? null : a.id;
+														peek = pinned;
+													}}><RarityBall rarity={a.rarity} locked={!a.unlocked} size={24} /></button
+												>
+											</li>
 										{/each}
 									</ul>
+									{#if peeked}
+										<div class="peek floating {peeked.rarity ?? 'common'}" role="status">
+											<div class="between">
+												<b>{peeked.name ?? '???'}</b>
+												<span class="xs">{peeked.unlocked ? 'Unlocked' : 'Locked'} · {peeked.points} pts</span>
+											</div>
+											<span class="muted small">{peeked.description ?? 'A secret, until someone unlocks it.'}</span>
+										</div>
+									{/if}
 								</div>
 							{/if}
+							<button type="button" class="history" onclick={() => (historyOpen = true)}>
+								<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+									><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" /></svg
+								>
+								<span>Link history</span>
+							</button>
+							<LinkHistory bind:open={historyOpen} user={id} {you} />
 							{#if !you}
 								<div class="offers">
 									<button
@@ -399,11 +433,6 @@
 						<h2 id="ach-h">Achievements</h2>
 						<span class="pager">
 							<span class="muted small">{tierFilter ? `${shownAch.filter((a) => a.unlocked).length} of ${shownAch.length} ${tierFilter}` : `${got} of ${achievements.length}`}</span>
-							{#if achPages > 1}
-								<button type="button" class="pg" onclick={() => (achPage = Math.max(0, achPage - 1))} disabled={achPage === 0} aria-label="Previous achievements">‹</button>
-								<span class="muted xs" aria-live="polite">{achPage + 1} / {achPages}</span>
-								<button type="button" class="pg" onclick={() => (achPage = Math.min(achPages - 1, achPage + 1))} disabled={achPage >= achPages - 1} aria-label="Next achievements">›</button>
-							{/if}
 						</span>
 					</div>
 					{#if achievements.length}
@@ -418,31 +447,70 @@
 										title={tierFilter === t.rarity ? 'Show every tier' : `Show only ${t.rarity}`}
 										onclick={() => {
 											tierFilter = tierFilter === t.rarity ? null : t.rarity;
-											achPage = 0;
 										}}><RarityBall rarity={t.rarity} size={18} /><span class="tier">{t.rarity}</span><span class="muted">{t.got} of {t.of}</span></button
 									>
 								</li>
 							{/each}
 						</ul>
-						<ul class="ach" bind:clientWidth={achWidth}>
-							{#each pageAch as a (a.id)}
-								{@const pct = progressPct(a)}
-								<li class="ac r-{a.rarity}" class:locked={!a.unlocked} class:spot={spotted === a.id} id="ach-{a.id}">
-									<span title={BALL[a.rarity]}><RarityBall rarity={a.rarity} locked={!a.unlocked} /></span>
-									<div class="col tight grow">
-										<b class="small">{a.name}<span class="sr-only">, {a.rarity}, {a.unlocked ? 'unlocked' : 'locked'}</span></b>
-										<span class="muted xs">{a.description}</span>
-										{#if pct != null}
-											<span class="prog xs muted"
-												><span class="bar" role="meter" aria-label="Progress" aria-valuemin="0" aria-valuemax={a.goal} aria-valuenow={a.progress}
-													><b style:width="{pct}%"></b></span
-												>{pct}% · {a.progress} of {a.goal}</span
+							<ul class="shelves">
+								{#each categories as c (c)}
+									{@const inCat = shownAch.filter((x) => (x.category ?? 'Other') === c)}
+									{@const done = inCat.filter((x) => x.unlocked).length}
+									{#if inCat.length}
+										<li class="shelf" class:open={openCat === c}>
+											<button
+												type="button"
+												class="shelf-h"
+												aria-expanded={openCat === c}
+												onclick={() => {
+													openCat = openCat === c ? null : c;
+													achPeek = null;
+												}}
 											>
-										{/if}
-									</div>
-								</li>
-							{/each}
-						</ul>
+												<b>{c}</b>
+												<span class="sbar" aria-hidden="true"><b style:width="{(done * 100) / inCat.length}%"></b></span>
+												<span class="muted xs">{done} of {inCat.length}</span>
+												<svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+													><path d="M6 9l6 6 6-6" /></svg
+												>
+											</button>
+											{#if openCat === c}
+												<ul class="trophies">
+													{#each inCat as a (a.id)}
+														<li>
+															<button
+																type="button"
+																id="ach-{a.id}"
+																class:on={achPeek === a.id}
+																class:locked={!a.unlocked}
+																class:spot={spotted === a.id}
+																aria-label="{a.name ?? 'Hidden achievement'}, {a.rarity}, {a.unlocked ? 'unlocked' : 'locked'}"
+																onclick={() => (achPeek = achPeek === a.id ? null : a.id)}
+																><RarityBall rarity={a.rarity} locked={!a.unlocked} size={30} /><span class="tn">{a.name ?? '???'}</span></button
+															>
+														</li>
+													{/each}
+												</ul>
+												{@const pk = inCat.find((x) => x.id === achPeek)}
+												{@const pct = pk ? progressPct(pk) : null}
+												<!-- Always there while the category is open, so picking a ball never resizes it. -->
+												<div class="peek slot {pk?.rarity ?? 'common'}" class:empty={!pk} role="status">
+													{#if pk}
+														<div class="between">
+															<b>{pk.name ?? '???'}</b>
+															<span class="xs">{pk.unlocked ? 'Unlocked' : 'Locked'} · {pk.points} pts</span>
+														</div>
+														<span class="muted small">{pk.description ?? 'A secret, until someone unlocks it.'}</span>
+														{#if pct != null}<span class="muted xs">{pct}% · {pk.progress} of {pk.goal}</span>{/if}
+													{:else}
+														<span class="muted small">Pick one to see what it takes.</span>
+													{/if}
+												</div>
+											{/if}
+										</li>
+									{/if}
+								{/each}
+							</ul>
 					{:else}
 						<p class="muted small">No achievements to show.</p>
 					{/if}
@@ -827,6 +895,19 @@
 		cursor: not-allowed;
 	}
 
+	/* The ball's card floats under the balls (over what follows), so nothing below moves when it opens. */
+	.col.tight:has(> .linkballs) {
+		position: relative;
+	}
+	.peek.floating {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: calc(100% + 6px);
+		z-index: 5;
+		box-shadow: 0 10px 28px rgb(0 0 0 / 0.4);
+		background: var(--panel);
+	}
 	.linkballs {
 		list-style: none;
 		margin: 0;
@@ -837,9 +918,71 @@
 	}
 	.linkballs li {
 		display: inline-flex;
-		padding: 4px;
 		border-radius: 50%;
 		border: 1px solid var(--border);
+	}
+	.linkballs button {
+		display: inline-flex;
+		padding: 4px;
+		border: none;
+		border-radius: 50%;
+		background: none;
+		cursor: pointer;
+	}
+	.linkballs button.on {
+		outline: 2px solid var(--accent-text);
+		outline-offset: 1px;
+	}
+	.linkballs button:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
+	/* Link history (LinkHistory.svelte): battles and trades, a page at a time. */
+	.history {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		width: 100%;
+		height: 42px;
+		padding: 0 14px;
+		border: 1px solid var(--border-strong);
+		border-radius: 10px;
+		background: var(--sunk);
+		color: var(--text);
+		font: 600 14px var(--body-font);
+		cursor: pointer;
+	}
+	.history:hover {
+		border-color: var(--link);
+	}
+	.history:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
+	/* The ball's card: its name, what it takes, locked or not, framed in its rarity's colour. */
+	.peek {
+		--c: var(--r-common);
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 10px 12px;
+		border-radius: 10px;
+		border: 1px solid color-mix(in srgb, var(--c) 60%, var(--border));
+		border-left: 3px solid var(--c);
+		background: var(--sunk);
+	}
+	.peek.uncommon {
+		--c: var(--r-uncommon);
+	}
+	.peek.rare {
+		--c: var(--r-rare);
+	}
+	.peek.epic {
+		--c: var(--r-epic);
+	}
+	.peek.legendary {
+		--c: var(--r-legendary);
 	}
 	.linkballs li.got {
 		border-color: var(--accent-text);
@@ -1168,6 +1311,115 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 		gap: 10px;
+	}
+	/* Phones: a row per category, opening to a grid of balls; the ball tapped shows its card (.peek). */
+	.shelves {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.shelf {
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		background: var(--sunk);
+		overflow: hidden;
+	}
+	.shelf.open {
+		border-color: var(--border-strong);
+	}
+	.shelf-h {
+		width: 100%;
+		display: grid;
+		grid-template-columns: 1fr 64px auto auto;
+		align-items: center;
+		gap: 10px;
+		padding: 12px 12px;
+		border: none;
+		background: none;
+		color: var(--text);
+		font: inherit;
+		font-size: 14px;
+		text-align: left;
+		cursor: pointer;
+	}
+	.sbar {
+		height: 6px;
+		border-radius: 999px;
+		background: var(--border);
+		overflow: hidden;
+	}
+	.sbar b {
+		display: block;
+		height: 100%;
+		background: var(--accent);
+	}
+	.chev {
+		color: var(--muted);
+		transition: rotate 0.15s;
+	}
+	.open .chev {
+		rotate: 180deg;
+	}
+	.trophies {
+		list-style: none;
+		margin: 0;
+		padding: 4px 10px 10px;
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+		gap: 6px;
+	}
+	.trophies button {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		padding: 8px 2px 6px;
+		border: 1px solid transparent;
+		border-radius: 10px;
+		background: none;
+		color: var(--text);
+		font: inherit;
+		cursor: pointer;
+	}
+	.trophies button.on {
+		border-color: var(--accent-text);
+		background: var(--accent-tint);
+	}
+	.trophies button.locked .tn {
+		color: var(--muted);
+	}
+	.trophies button.spot {
+		outline: 2px solid var(--accent-text);
+	}
+	.tn {
+		max-width: 100%;
+		font-size: 10px;
+		line-height: 12px;
+		text-align: center;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+	.shelf-h:focus-visible,
+	.trophies button:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: -3px;
+	}
+	.peek.slot {
+		margin: 0 10px 10px;
+		min-height: 84px;
+		justify-content: center;
+	}
+	.peek.slot.empty {
+		align-items: center;
+		border-style: dashed;
+		border-left-width: 1px;
 	}
 	/* Reached from an activity entry: a ring of light pulses round the achievement, then stays faintly. */
 	.ac.spot {

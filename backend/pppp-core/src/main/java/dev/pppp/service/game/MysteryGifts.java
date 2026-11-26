@@ -47,6 +47,10 @@ public class MysteryGifts {
 
     public static final List<Gift> CATALOG = List.of(
             new Gift("rare-candy", "Rare Candy", 3),
+            new Gift("poke-ball", "Poké Ball", 10),
+            new Gift("super-potion", "Super Potion", 5),
+            new Gift("hyper-potion", "Hyper Potion", 5),
+            new Gift("revive", "Revive", 5),
             new Gift("fire-stone", "Fire Stone", 1),
             new Gift("water-stone", "Water Stone", 1),
             new Gift("thunderstone", "Thunderstone", 1),

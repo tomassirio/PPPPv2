@@ -48,6 +48,14 @@
 	// Notes in view (lib/notes.svelte.ts), and the one the player stands on.
 	let notes = $state<ScreenNote[]>([]);
 	const reading = $derived(notes.find((n) => n.here) ?? null);
+	// Bloodstains in view (backend Bloodstains): where someone lost a battle; standing on one tells who and to what.
+	type ScreenStain = { id: string; user: string; x: number; y: number; foe: string; at: number; mine: boolean; here: boolean };
+	let stains = $state<ScreenStain[]>([]);
+	const stain = $derived(reading ? null : (stains.find((s) => s.here) ?? null));
+	const ago = (at: number) => {
+		const m = Math.max(1, Math.round((Date.now() - at) / 60000));
+		return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+	};
 	$effect(() => {
 		if (reading && !reading.mine && !watch) tip('note');
 	});
@@ -98,6 +106,7 @@
 				const m = JSON.parse(nextGhosts);
 				ghosts = m.ghosts ?? [];
 				notes = m.notes ?? [];
+				stains = m.stains ?? [];
 				ghosts.forEach((g) => needPicture(g.user));
 				nextGhosts = null;
 			}
@@ -175,6 +184,10 @@
 				<!-- Notes on the ground: a glowing mark on each tile that has one, as Dark Souls' messages. -->
 				{#each notes as n (n.id)}
 					<span class="note-mark" class:mine={n.mine} style:left="{((n.x + 8) / 160) * 100}%" style:top="{((n.y + 12) / 144) * 100}%" aria-hidden="true"></span>
+				{/each}
+				<!-- Bloodstains: a red pool where someone lost a battle. -->
+				{#each stains as b (b.id)}
+					<span class="stain-mark" style:left="{((b.x + 8) / 160) * 100}%" style:top="{((b.y + 12) / 144) * 100}%" aria-hidden="true"></span>
 				{/each}
 				{#each ghosts as g (g.user)}
 					{@const left = `${((g.x + 8) / 160) * 100}%`}
@@ -256,6 +269,12 @@
 					</p>
 				</div>
 			{/if}
+			{#if stain && !overlay}
+				<div class="stain-read" role="status">
+					<p class="note-text">{#if stain.mine}You{:else}<Name user={stain.user} />{/if} blacked out here</p>
+					<p class="note-meta"><span>to {stain.foe} · {ago(stain.at)}</span></p>
+				</div>
+			{/if}
 			<GodMessage user={watch ?? session.me?.id} />
 			<p class="sr-only" role="status">{overlay ?? ''}</p>
 		</div>
@@ -290,6 +309,42 @@
 			opacity: 0.55;
 			scale: 0.85;
 		}
+	}
+	/* A bloodstain: a dark red pool at the foot of its tile, throbbing slowly. */
+	.stain-mark {
+		position: absolute;
+		width: 7%;
+		aspect-ratio: 2;
+		translate: -50% -50%;
+		border-radius: 50%;
+		background: radial-gradient(closest-side, #ff5a4a, #b3121f 50%, rgb(120 0 10 / 0) 100%);
+		filter: drop-shadow(0 0 4px #d01f2c);
+		pointer-events: none;
+		animation: stain-throb 3s ease-in-out infinite;
+	}
+	@keyframes stain-throb {
+		50% {
+			opacity: 0.6;
+			scale: 0.9;
+		}
+	}
+	.stain-read {
+		position: absolute;
+		left: 3%;
+		right: 3%;
+		bottom: 3%;
+		z-index: 3;
+		padding: 8px 10px;
+		border-radius: 8px;
+		background: rgb(24 4 6 / 0.85);
+		border: 2px solid #d01f2c;
+		box-shadow: 0 0 14px rgb(208 31 44 / 0.5);
+		color: #ffe1dc;
+		text-align: center;
+		animation: note-in 0.3s ease-out;
+	}
+	.stain-read .note-text {
+		text-shadow: 0 0 8px #d01f2c;
 	}
 	/* Standing on one: its words across the foot of the screen, in the game's own type. */
 	.note-read {
@@ -339,6 +394,8 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.note-mark,
+		.stain-mark,
+		.stain-read,
 		.note-read {
 			animation: none;
 		}

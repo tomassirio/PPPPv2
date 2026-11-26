@@ -211,6 +211,12 @@ public class ProgressRepository {
                 .limit(limit).map(ProgressRepository::event).toList();
     }
 
+    /** Every activity entry, oldest first. */
+    public List<ScoreEvent> oldestFirst() {
+        List<MapRecord<String, Object, Object>> records = redis.opsForStream().range(EVENTS, Range.unbounded());
+        return records == null ? List.of() : records.stream().map(ProgressRepository::event).toList();
+    }
+
     /** Every activity entry of this type, newest first. */
     public List<ScoreEvent> newestOfType(String type) {
         // ponytail: scans the whole stream (capped at ~10,000), as newest(userId) does.

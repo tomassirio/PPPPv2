@@ -22,7 +22,18 @@ import org.springframework.web.bind.annotation.RestController;
 class ScoreboardController {
     private final ProgressTracker tracker;
 
-    ScoreboardController(ProgressTracker tracker) { this.tracker = tracker; }
+    private final dev.pppp.repository.RankRepository ranks;
+
+    ScoreboardController(ProgressTracker tracker, dev.pppp.repository.RankRepository ranks) {
+        this.tracker = tracker;
+        this.ranks = ranks;
+    }
+
+    /** Each player's rank when today began (UTC): the scoreboard's up / down arrows compare with it. */
+    @GetMapping("/scoreboard/baseline")
+    java.util.Map<String, Integer> baseline() {
+        return ranks.today(tracker.scoreboard().stream().map(dev.pppp.model.ScoreRow::userId).toList());
+    }
 
     /** Ranked: best Trainer Score first, then achievement points. */
     @GetMapping("/scoreboard")
@@ -59,5 +70,11 @@ class ScoreboardController {
     @GetMapping("/players/{userId}/profile")
     PlayerProfile profile(@PathVariable String userId) {
         return tracker.playerProfile(userId.toLowerCase(Locale.ROOT));
+    }
+
+    /** A Pib's link history, newest first: battles (result, both teams), trades and Wonder Trades (the last 200). */
+    @GetMapping("/players/{userId}/link-history")
+    java.util.List<dev.pppp.model.LinkEvent> linkHistory(@PathVariable String userId) {
+        return tracker.linkHistory(userId.toLowerCase(Locale.ROOT));
     }
 }

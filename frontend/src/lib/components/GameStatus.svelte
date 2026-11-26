@@ -13,6 +13,8 @@
 	import { speciesName } from '#lib/components/PartyIcons.svelte';
 	import DexCard from '#lib/components/DexCard.svelte';
 	import { DexHover } from '#lib/dexhover.svelte.ts';
+	import { daily } from '#lib/daily.svelte.ts';
+	import { fitDrops } from '#lib/fit.ts';
 
 	const badgeArt = import.meta.glob('../assets/badges/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 	const art = (name: string, i: number) => badgeArt[`../assets/badges/${name.toLowerCase()}.png`] ?? `/api/v1/game/badges/${i}.png`;
@@ -74,16 +76,19 @@
 	);
 </script>
 
-<section class="panel card" aria-labelledby="run-h">
+<section class="panel card" aria-labelledby="run-h" use:fitDrops>
 	<div class="head">
-		<h2 id="run-h">Your run{#if version}<span class="version ver-{version}"> · Pokémon {version}</span>{/if}</h2>
-		{#if mine?.trainerName}<span class="trainer"><span class="muted xs">Trainer</span> <b class="pixel">{mine.trainerName}</b></span>{/if}
+		<h2 id="run-h">Your run{#if version}<span class="version ver-{version}"> · <span class="wide">Pokémon </span>{version}</span>{/if}</h2>
+		<span class="head-end">
+			{#if mine?.trainerName}<span class="trainer"><span class="muted xs wide">Trainer</span> <b class="pixel">{mine.trainerName}</b></span>{/if}
+			{#if daily.data?.days}<button type="button" class="day" onclick={() => (daily.open = true)} title="Daily rewards">Day {daily.data.days}</button>{/if}
+		</span>
 	</div>
 	{#if mine}
 		<RunSummary row={mine} {rank} total={board.rows.length} />
 	{/if}
 	{#if party.length || mine}
-		<ul class="cards" aria-label="Your party">
+		<ul class="cards" aria-label="Your party" data-squeeze="3" data-drop="9">
 			{#each party as m, i (i)}
 				{@const n = dexOf(i)}
 				{@const tier = mine?.party?.[i]?.tier}
@@ -118,7 +123,12 @@
 	{/if}
 	{#if summary}
 		{#each rows as row, r (row.label)}
-			<div class="line" class:later={r > 0 && !row.got && rows[0].got < 8} class:kanto={r > 0} class:due={r > 0 && (row.got > 0 || rows[0].got >= 8)}>
+			{@const kantoDue = rows.length > 1 && (rows[1].got > 0 || rows[0].got >= 8)}
+			<div
+				class="line"
+				class:later={r > 0 && !row.got && rows[0].got < 8}
+				data-drop={r === 0 ? (kantoDue && row.got >= 8 ? 5 : 7) : kantoDue ? 6 : 2}
+			>
 				<span class="muted">{row.label}</span>
 				{#if named.length}
 					<ul class="badges" aria-label="{row.label}: {row.got} of 8 earned">
@@ -145,7 +155,7 @@
 			</div>
 		{/each}
 		{#if dex}
-			<div class="dex">
+			<div class="dex" data-drop="4">
 				<div class="line">
 					<span class="muted">Pokédex</span>
 					<span class="muted">{dex.value} of {dex.max} caught{seen ? ` · ${seen.value} seen` : ''}</span>
@@ -156,13 +166,13 @@
 			</div>
 		{/if}
 		{#if summary.playTime}
-			<div class="line time"><span class="muted">Time played</span><span>{summary.playTime}</span></div>
+			<div class="line time" data-drop="1"><span class="muted">Time played</span><span>{summary.playTime}</span></div>
 		{/if}
 	{:else}
 		<p class="muted">Badges and your Pokédex show up here once your game is past the title screen.</p>
 	{/if}
 	{#if mine && session.me}
-		<div class="line">
+		<div class="line" data-drop="8">
 			<span class="muted">Achievements</span>
 			<a href="/pib/{encodeURIComponent(session.me.id)}">{mine.achievementsUnlocked} unlocked · see all →</a>
 		</div>
@@ -170,6 +180,27 @@
 </section>
 
 <style>
+	.head-end {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+	/* Daily rewards: the day count, opening the calendar (DailyRewards.svelte). */
+	.day {
+		flex: none;
+		padding: 3px 10px;
+		border: 1px solid var(--r-legendary);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--r-legendary) 14%, transparent);
+		color: var(--accent-text);
+		font: 700 12px var(--body-font);
+		cursor: pointer;
+	}
+	.day:focus-visible {
+		outline: 3px solid var(--accent-text);
+		outline-offset: 2px;
+	}
 	.card {
 		container-type: inline-size; /* the party grid widens to 3 columns in a wide card */
 		padding: 20px;
@@ -178,6 +209,22 @@
 		gap: 14px;
 		font-size: 14px;
 	}
+	/* The heading stays one line: as the card narrows, "Pokémon" and "Trainer" go; the title gives way (ellipsis) before the Day chip is ever pushed out. */
+	.head h2 {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.head-end {
+		flex: none;
+	}
+	@container (max-width: 440px) {
+		.head .wide {
+			display: none;
+		}
+	}
+
 	.head,
 	.line {
 		display: flex;
@@ -428,56 +475,21 @@
 			transition: none;
 		}
 	}
-	/* On desktop /play the card gets exactly the height left in its column (container-type: size there), so nothing
-	   scrolls: as that height shrinks, the least needed lines go first, then the party turns into one row of icons.
-	   Height queries never match elsewhere (an inline-size container), where the card shows everything. */
-	@container (max-height: 600px) {
-		.time {
-			display: none;
-		}
+	/* Where the card gets a set height (desktop /play, the phone panel: container-type: size), fitDrops gives up
+	   parts until the rest fits, least needed first: play time, Kanto while it is far off, the party as one row of
+	   icons (squeezed), the Pokédex, a finished Johto row (Kanto then matters more), Kanto, Johto, achievements, the
+	   party. Elsewhere the card shows everything. */
+	.cards:global(.squeezed) {
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		gap: 6px;
 	}
-	/* Kanto's row goes early while it is far off; once Johto is done (or Kanto started) it stays with the Pokédex. */
-	@container (max-height: 560px) {
-		.kanto:not(.due) {
-			display: none;
-		}
+	.cards:global(.squeezed) .pslot {
+		justify-content: center;
+		padding: 6px 0;
 	}
-	@container (max-height: 500px) {
-		.cards {
-			grid-template-columns: repeat(6, minmax(0, 1fr));
-			gap: 6px;
-		}
-		.pslot {
-			justify-content: center;
-			padding: 6px 0;
-		}
-		.pslot .info,
-		.pslot.empty .xs {
-			display: none;
-		}
-	}
-	@container (max-height: 400px) {
-		.dex,
-		.kanto {
-			display: none;
-		}
-	}
-	@container (max-height: 340px) {
-		.line:has(.badges, .pips) {
-			display: none;
-		}
-	}
-	/* Squeezed by a challenge in the Link cable card: points and rank only, then the heading alone. */
-	@container (max-height: 260px) {
-		.cards,
-		.line {
-			display: none;
-		}
-	}
-	@container (max-height: 150px) {
-		.card > :not(.head) {
-			display: none;
-		}
+	.cards:global(.squeezed) .pslot .info,
+	.cards:global(.squeezed) .pslot.empty .xs {
+		display: none;
 	}
 	@media (max-width: 760px), (orientation: landscape) and (max-height: 520px) {
 		.card {

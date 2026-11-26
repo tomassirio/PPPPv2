@@ -48,7 +48,7 @@ import org.springframework.stereotype.Service;
  *
  * <p>For Gold/Silver/Crystal the reading also unlocks {@link Achievements} (kept for good in
  * pibs:achievements:{userId}, the same way: never unlocked twice) and rates the save with a Trainer Score
- * ({@link TrainerScoring}; live, it can go down). The scoreboard ranks by Trainer Score, then achievement points.
+ * ({@link TrainerScoring}; each part keeps its best, so it never goes down). The scoreboard ranks by Trainer Score, then achievement points.
  * What the achievements need remembered goes to pibs:history:{userId} ({@link TrainerLog}). The battery save (PC
  * boxes, link battle record, Battle Tower) is read once a minute, every few seconds in the Battle Tower, and
  * counts once two reads in a row agree.
@@ -90,8 +90,12 @@ public class ProgressTracker {
     private final Map<String, Long> sramReadAt = new ConcurrentHashMap<>(); // poll thread only
     private Set<String> online = Set.of(); // poll thread only
 
+    private final dev.pppp.repository.LinkHistoryRepository history;
+
     public ProgressTracker(PlayerConsoles consoles, CartridgeService cartridges, ProgressRepository repo,
-                           ApplicationEventPublisher events, dev.pppp.repository.PlayerRepository players) {
+                           ApplicationEventPublisher events, dev.pppp.repository.PlayerRepository players,
+                           dev.pppp.repository.LinkHistoryRepository history) {
+        this.history = history;
         this.players = players;
         this.consoles = consoles;
         this.cartridges = cartridges;
@@ -269,7 +273,7 @@ public class ProgressTracker {
         long at = System.currentTimeMillis();
         List<ScoreEvent> battles = battles(userId, logBefore == null ? TrainerLog.EMPTY : logBefore, log, at);
         Map<String, Long> had = unlocked.computeIfAbsent(userId, repo::achievements);
-        TrainerScore was = trainers.computeIfAbsent(userId, repo::trainer), score = TrainerScoring.score(save);
+        TrainerScore was = trainers.computeIfAbsent(userId, repo::trainer), score = TrainerScoring.best(was, TrainerScoring.score(save));
         Map<String, Long> fresh = new LinkedHashMap<>();
         Achievements.earned(new Achievements.Moment(before, save, log, srams.get(userId))).stream()
                 .filter(id -> !had.containsKey(id)).forEach(id -> fresh.put(id, at));
@@ -338,6 +342,11 @@ public class ProgressTracker {
         events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
     }
 
+    /** Unlocks an achievement told by an event rather than a reading (Wonder Trade's), once. */
+    public synchronized void unlockNow(String userId, String achievementId) {
+        unlock(userId, List.of(achievementId));
+    }
+
     /** Unlocks these achievements for the player (those not unlocked yet), keeping their Trainer Score. */
     private void unlock(String userId, List<String> ids) {
         Map<String, Long> had = unlocked.computeIfAbsent(userId, repo::achievements);
@@ -394,6 +403,7 @@ public class ProgressTracker {
         if (partner != null) lastPartner.put(userId, partner);
         boolean otherVersion = partner != null && !Objects.equals(version(userId), version(partner));
         TrainerLog now = Achievements.log(was, before, save, partner, otherVersion, srams.get(userId));
+        if (was != null) record(userId, was, now, before, save);
         if (!now.equals(was)) {
             repo.saveLog(userId, now);
             logs.put(userId, now);
@@ -401,6 +411,59 @@ public class ProgressTracker {
             if (!ScoreRow.Link.of(now).equals(ScoreRow.Link.of(was))) events.publishEvent(new LiveEvent("SCOREBOARD_CHANGED", scoreboard()));
         }
         return now;
+    }
+
+    /**
+     * The link history (LinkHistoryRepository) from what this reading moved: each link battle won or lost (the battery
+     * save's record; both teams as last read: the game keeps no list of who fought), and each Pokémon a link trade
+     * brought (a new OT and DVs in a trade room, as TrainerLog counts them), with the one that left.
+     */
+    private void record(String userId, TrainerLog was, TrainerLog now, Gen2Save before, Gen2Save save) {
+        String with = consoles.linkedWith(userId);
+        if (with == null) with = lastPartner.get(userId);
+        long at = System.currentTimeMillis();
+        Gen2Save theirs = with == null ? null : saves.get(with);
+        for (int i = was.linkWins(); i < Math.min(now.linkWins(), was.linkWins() + 3); i++) {
+            history.add(userId, new dev.pppp.model.LinkEvent("BATTLE", at, with, "WIN", team(save), team(theirs), null, null));
+        }
+        for (int i = was.linkLosses(); i < Math.min(now.linkLosses(), was.linkLosses() + 3); i++) {
+            history.add(userId, new dev.pppp.model.LinkEvent("BATTLE", at, with, "LOSS", team(save), team(theirs), null, null));
+        }
+        if (before == null || now.trades() <= was.trades()) return;
+        Set<List<Integer>> had = new HashSet<>(), has = new HashSet<>();
+        before.slots().forEach(x -> had.add(List.of(x.ot(), x.dvs())));
+        save.slots().forEach(x -> has.add(List.of(x.ot(), x.dvs())));
+        List<Gen2Save.Slot> got = save.slots().stream().filter(x -> !had.contains(List.of(x.ot(), x.dvs()))).toList(),
+                gave = before.slots().stream().filter(x -> !has.contains(List.of(x.ot(), x.dvs()))).toList();
+        for (int i = 0; i < got.size(); i++) {
+            history.add(userId, new dev.pppp.model.LinkEvent("TRADE", at, with, null, null, null,
+                    i < gave.size() ? mon(gave.get(i)) : null, mon(got.get(i))));
+        }
+    }
+
+    private static List<dev.pppp.model.LinkEvent.Mon> team(Gen2Save save) {
+        return save == null ? List.of() : save.slots().stream().filter(x -> !x.egg()).map(ProgressTracker::mon).toList();
+    }
+
+    private static dev.pppp.model.LinkEvent.Mon mon(Gen2Save.Slot x) {
+        return new dev.pppp.model.LinkEvent.Mon(x.species(), x.level(), x.shiny());
+    }
+
+    /**
+     * A player's link history, newest first. The first time it is asked for, the battles from before it was kept are
+     * filled in from the activity stream: each LINK_WIN names the winner (user) and the loser (detail), with its time;
+     * their teams were never kept. Trades from then were only counted, so they cannot be.
+     */
+    public List<dev.pppp.model.LinkEvent> linkHistory(String userId) {
+        List<dev.pppp.model.LinkEvent> now = history.all(userId);
+        long since = now.stream().mapToLong(dev.pppp.model.LinkEvent::at).min().orElse(Long.MAX_VALUE);
+        List<dev.pppp.model.LinkEvent> older = repo.newestOfType("LINK_WIN").stream()
+                .filter(e -> e.at() < since && (e.user().equals(userId) || userId.equals(e.detail())))
+                .map(e -> e.user().equals(userId)
+                        ? new dev.pppp.model.LinkEvent("BATTLE", e.at(), e.detail().isEmpty() ? null : e.detail(), "WIN", null, null, null, null)
+                        : new dev.pppp.model.LinkEvent("BATTLE", e.at(), e.user(), "LOSS", null, null, null, null))
+                .toList();
+        return history.fillOnce(userId, older) && !older.isEmpty() ? history.all(userId) : now;
     }
 
     /** "Gold", "Silver", "Crystal", or the cartridge id for other games. */

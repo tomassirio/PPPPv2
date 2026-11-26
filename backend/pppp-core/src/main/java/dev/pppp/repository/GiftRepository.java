@@ -40,6 +40,11 @@ public class GiftRepository {
         redis.opsForList().leftPop(key(userId));
     }
 
+    /** Every gift still waiting for the player (a reset run). */
+    public void clear(String userId) {
+        redis.delete(key(userId));
+    }
+
     private static String key(String userId) {
         return "pibs:gifts:" + userId;
     }

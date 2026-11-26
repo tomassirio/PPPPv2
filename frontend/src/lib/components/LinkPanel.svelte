@@ -10,6 +10,8 @@
 	import CableClubLocked from '#lib/components/CableClubLocked.svelte';
 	import LinkError from '#lib/components/LinkError.svelte';
 	import LinkFinder from '#lib/components/LinkFinder.svelte';
+	import WonderTile from '#lib/components/WonderTile.svelte';
+	import { fitDrops } from '#lib/fit.ts';
 	import FindButton from '#lib/components/FindButton.svelte';
 	import PartyIcons from '#lib/components/PartyIcons.svelte';
 	import { board, watchBoard } from '#lib/board.svelte.ts';
@@ -67,7 +69,7 @@
 	</svg>
 {/snippet}
 
-<section class="panel card {s?.session ? (s.session.kind === 'TRADE' ? 'k-trade' : 'k-battle') : ''}" class:linked={!!s?.session} aria-labelledby="link-h">
+<section class="panel card {s?.session ? (s.session.kind === 'TRADE' ? 'k-trade' : 'k-battle') : ''}" class:linked={!!s?.session} aria-labelledby="link-h" use:fitDrops>
 	{#if s?.session}
 		{@const ss = s.session}
 		{@const d = desk(ss.kind)}
@@ -128,6 +130,7 @@
 			>
 		</div>
 		<CableClubLocked step={rowOf(me!)?.cableClub ?? 0} />
+		<WonderTile locked />
 	{:else}
 		<div class="head">
 			<h2 id="link-h" class="blue title">
@@ -164,7 +167,7 @@
 		<div class="controls" class:split={!others.length}>
 		<div class="ups">
 		<div class="toggles-head"><span class="label">I'm up for</span></div>
-		<div class="toggles" role="group" aria-label="I'm up for">
+		<div class="toggles" role="group" aria-label="I'm up for" data-squeeze="3">
 			{#each ['TRADE', 'BATTLE'] as const as kind (kind)}
 				{@const on = s?.ready === kind}
 				<button class="toggle {kind === 'TRADE' ? 't-trade' : 't-battle'}" class:on aria-pressed={on} title="Let others offer you a {verb(kind)}" onclick={() => act('PUT', '/link/ready', { kind: on ? null : kind })}>
@@ -179,11 +182,11 @@
 		{#if !others.length}
 			<!-- Nobody is waiting: an empty state with the way to find someone. -->
 			<div class="nobody">
-				<svg class="nobody-art" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"
+				<svg class="nobody-art" data-drop="2" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"
 					><path d="M9 7H6a5 5 0 0 0 0 10h3M15 7h3a5 5 0 0 1 0 10h-3M8 12h2M14 12h2" /></svg
 				>
-				<b>Nobody is waiting.</b>
-				<span class="nobody-hint">Pick Trade or Battle so others can find you, or offer one to someone online.</span>
+				<b data-drop="5">Nobody is waiting.</b>
+				<span class="nobody-hint" data-drop="1">Pick Trade or Battle so others can find you, or offer one to someone online.</span>
 				<FindButton onclick={() => (finding = true)} />
 			</div>
 		{/if}
@@ -243,6 +246,7 @@
 				{/each}
 			</ul>
 		{/if}
+		<WonderTile />
 		<LinkFinder bind:open={finding} />
 	{/if}
 	<!-- An incoming challenge shows the error in its own card (LinkChallenge, in the corner): once is enough. -->
@@ -369,6 +373,29 @@
 	}
 	button.toggle.t-battle {
 		--t: var(--danger);
+	}
+	/* Desktop: ready, the pill goes under the name (the name keeps its room). Phones place it in the corner. */
+	@media (min-width: 761px) {
+		button.toggle.on {
+			display: grid;
+			grid-template-columns: auto minmax(0, 1fr);
+			grid-template-areas: 'ico tl' 'ico ready';
+			column-gap: 10px;
+			row-gap: 2px;
+			align-content: center;
+		}
+		button.toggle.on .ico {
+			grid-area: ico;
+		}
+		button.toggle.on .tl {
+			grid-area: tl;
+		}
+		button.toggle.on .ready {
+			grid-area: ready;
+			justify-self: start;
+			padding: 1px 7px;
+			font-size: 10px;
+		}
 	}
 	button.toggle:hover {
 		border-color: color-mix(in oklab, var(--t) 55%, var(--border));
@@ -563,14 +590,12 @@
 			color: var(--danger);
 		}
 		.controls {
-			flex: 1 1 auto;
-			min-height: 0;
+			flex: 1 0 auto; /* not squashed either: an overflow shows, and fitDrops gives parts up */
 			gap: 12px;
 		}
 		/* The empty state takes whatever height is left, its contents centred. */
 		.nobody {
-			flex: 1 1 auto;
-			min-height: 0;
+			flex: 1 0 auto; /* never squashed: fitDrops sees the overflow and gives parts up instead */
 			justify-content: center;
 		}
 		button.toggle {
@@ -616,23 +641,13 @@
 	}
 	/* Phones: the card is exactly as tall as the panel under the screen (a size container, set by /play). As that
 	   height shrinks, the least needed parts go first, so it never scrolls. Height queries never match elsewhere. */
-	@container (max-height: 430px) {
-		.nobody-hint {
-			display: none;
-		}
+	/* What gives way first is measured (fitDrops: the hint under "Nobody is waiting", its art, the toggles' hints,
+	   the Wonder Trade label, "Nobody is waiting."), so the card fits whatever else it holds. */
+	.toggles:global(.squeezed) .hint {
+		display: none;
 	}
-	@container (max-height: 390px) {
-		.nobody-art {
-			display: none;
-		}
-	}
-	@container (max-height: 345px) {
-		.hint {
-			display: none;
-		}
-		button.toggle {
-			grid-template-areas: 'ico tl';
-		}
+	.toggles:global(.squeezed) button.toggle {
+		grid-template-areas: 'ico tl';
 	}
 	@container (max-height: 290px) {
 		.stats {

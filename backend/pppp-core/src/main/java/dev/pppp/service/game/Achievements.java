@@ -226,6 +226,12 @@ public final class Achievements {
                 "5 different players at the other end of the link cable",
                 m -> m.log().partners().size() >= SOCIAL_BUTTERFLY);
 
+        // Wonder Trade (WonderTrade): unlocked as it happens (ProgressTracker.unlockNow), never from a reading.
+        when("wonder-sent", "Link", "Message in a Bottle", "Send a Pokémon off in a Wonder Trade", 2,
+                "a Pokémon of theirs went into the Wonder Trade pool", m -> false);
+        when("wonder-received", "Link", "Wonder Struck", "Receive a Pokémon from a Wonder Trade", 5,
+                "another Pib's Pokémon reached their party through Wonder Trade", m -> false);
+
         // Added in the achievement review (2026-11). Story.
         add("mystery-egg", "Story", "Mystery Egg", "Receive the egg from Elm's aide", 2,
                 "event flag EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE", flag(EVENT_GOT_TOGEPI_EGG_FROM_ELMS_AIDE));

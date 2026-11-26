@@ -27,11 +27,13 @@
 		size = 24,
 		levels = false,
 		hp = true,
-		dex = false
-	}: { party?: PartyMon[]; size?: number; levels?: boolean; hp?: boolean; dex?: boolean } = $props();
+		dex = false,
+		empty = true
+	}: { party?: PartyMon[]; size?: number; levels?: boolean; hp?: boolean; dex?: boolean; empty?: boolean } = $props();
 	const hover = new DexHover();
 	$effect(() => watchGame()); // species names for the labels
-	const slots = $derived([...party.slice(0, 6), ...Array(Math.max(0, 6 - party.length)).fill(null)] as (PartyMon | null)[]);
+	// empty={false}: only the Pokémon there are (the compact scoreboard), no dashed free slots.
+	const slots = $derived([...party.slice(0, 6), ...Array(empty ? Math.max(0, 6 - party.length) : 0).fill(null)] as (PartyMon | null)[]);
 </script>
 
 <span class="party" style:--s="{size}px" role="img" aria-label="Party: {party.length ? party.map(monLabel).join(', ') : 'empty'}">

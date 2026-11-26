@@ -287,6 +287,38 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         return List.copyOf(java.util.Arrays.asList(names).subList(1, DEX_SIZE + 1)); // names[0] is unused (null)
     }
 
+    /** A species' name as this ROM spells it ("#n" past the list), for 1-251. */
+    String speciesName(int species) {
+        return species >= 1 && species <= DEX_SIZE ? names[species] : "#" + species;
+    }
+
+    /** An item's name as this ROM spells it, or null (none, or not a real item of this ROM). */
+    String itemName(int item) {
+        return item > 0 && item < itemNames.length ? itemNames[item] : null;
+    }
+
+    boolean crystal() {
+        return at.crystal;
+    }
+
+    /**
+     * A trainer's own name (pret engine/battle/read_trainer_party.asm GetTrainerName): TrainerGroups (bank $0e) has a
+     * pointer per class to its trainers, each record a name ending in "@", then party bytes ending in $ff; the id-th
+     * record's name. Null for a class or id out of range, or the rivals ("?": their name is the player's pick).
+     */
+    String trainerName(int trainerClass, int id) {
+        int groups = at.crystal ? rom(0x0E, 0x5999) : rom(0x0E, 0x593E);
+        if (trainerClass < 1 || id < 1 || groups + trainerClass * 2 > rom.length) return null;
+        int at0 = rom(0x0E, u16le(rom, groups + (trainerClass - 1) * 2));
+        for (int i = 1; i < id; i++) {
+            while (at0 < rom.length && (rom[at0] & 0xFF) != 0xFF) at0++;
+            at0++;
+        }
+        if (at0 + NAME_LENGTH > rom.length) return null;
+        String name = PokemonRed.titleCase(PokemonRed.text(rom, at0, NAME_LENGTH));
+        return name.isBlank() || name.equals("?") ? null : name;
+    }
+
     String version() {
         return at.crystal ? "Crystal" : rom[0x13C] == 'G' ? "Gold" : "Silver"; // POKEMON_GLD / POKEMON_SLV
     }

@@ -161,6 +161,12 @@ public class Ghosts {
         return s == null || onScreen(userId).isEmpty() ? null : new Where(s.map, s.x, s.y);
     }
 
+    /** Where the player last stood free in the overworld: kept through a battle (Bloodstains), null in a link room or a fresh map. */
+    public Where lastStood(String userId) {
+        Spot s = spots.get(userId);
+        return s == null ? null : new Where(s.map, s.x, s.y);
+    }
+
     /** The player left: they vanish from everyone's screen. */
     public void leave(String userId) {
         spots.remove(userId);

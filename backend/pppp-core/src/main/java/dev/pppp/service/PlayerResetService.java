@@ -13,7 +13,8 @@ import org.springframework.stereotype.Service;
 /**
  * Admin action: wipes one player's run so they pick a game again. Their console goes away (link cable pulled,
  * lobby and challenges cleared through the idle listeners), and so do their pick, saves, progress, achievements,
- * Trainer Score, rank and activity entries (ProgressRepository.delete). Their account, role and chat messages stay.
+ * Trainer Score, rank and activity entries (ProgressRepository.delete), days played and gifts waiting (the daily
+ * rewards start again at day 1) and their Wonder Trade record. Their account, role and chat messages stay.
  */
 @Service
 public class PlayerResetService {
@@ -24,10 +25,20 @@ public class PlayerResetService {
     private final ProgressTracker tracker;
     private final ChatService chat;
     private final ApplicationEventPublisher events;
+    private final dev.pppp.repository.DaysRepository days;
+    private final dev.pppp.repository.GiftRepository gifts;
+    private final dev.pppp.repository.WonderRepository wonder;
+    private final dev.pppp.repository.LinkHistoryRepository history;
 
     public PlayerResetService(PlayerConsoles consoles, PlayerRepository players, CartridgeRepository files,
                               ProgressRepository progress, ProgressTracker tracker, ChatService chat,
-                              ApplicationEventPublisher events) {
+                              ApplicationEventPublisher events, dev.pppp.repository.DaysRepository days,
+                              dev.pppp.repository.GiftRepository gifts, dev.pppp.repository.WonderRepository wonder,
+                              dev.pppp.repository.LinkHistoryRepository history) {
+        this.history = history;
+        this.days = days;
+        this.gifts = gifts;
+        this.wonder = wonder;
         this.consoles = consoles;
         this.players = players;
         this.files = files;
@@ -47,6 +58,10 @@ public class PlayerResetService {
         consoles.discard(userId);
         progress.delete(userId);
         files.deletePlayerFiles(userId);
+        days.delete(userId);
+        gifts.clear(userId);
+        wonder.forget(userId);
+        history.delete(userId);
         tracker.forget(userId);
         events.publishEvent(new LiveEvent("PLAYER_RESET", Map.of("user", userId)));
         chat.postAdmin(adminId + " reset the game of " + userId);

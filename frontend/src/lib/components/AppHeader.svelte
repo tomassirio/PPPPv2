@@ -43,7 +43,7 @@
 	const rank = $derived(board.rows.findIndex((r) => r.userId === me.id));
 	const row = $derived(rank < 0 ? null : board.rows[rank]);
 	const version = $derived(row ? versionOf(row.game, board.names) : null);
-	const NAV = $derived([['/play', 'Play'], ['/scoreboard', 'Scoreboard'], ['/watch', 'Live'], [mine, 'My profile']]);
+	const NAV = $derived([['/play', 'Play'], ['/scoreboard', 'Scoreboard'], ['/dex', 'Pokédex'], ['/watch', 'Live'], [mine, 'My profile']]);
 	// The burger menu: a panel of /play, or a page. Icons are static SVG path data (24x24, stroked).
 	// panel: shown under the game screen (page: its full-screen page, lit while on it); href: a page of its own.
 	type Item = { label: string; d: string; panel?: string; page?: string; href?: string };
@@ -54,6 +54,7 @@
 		{ label: 'Scoreboard', panel: 'scores', page: '/scoreboard', d: 'M6 20v-8m6 8V4m6 16v-5' },
 		{ label: 'Activity', panel: 'activity', d: 'M3 12h4l3-8 4 16 3-8h4' },
 		{ label: 'Chat', panel: 'chat', d: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z' },
+		{ label: "Pibs' Pokédex", href: '/dex', d: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6' },
 		{ label: 'Live', href: '/watch', d: 'M12 12h.01M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8' }
 	]);
 

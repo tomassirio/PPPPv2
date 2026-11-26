@@ -157,7 +157,7 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.trainer.score").value(0))
                 .andExpect(jsonPath("$.trainer.title").value("Youngster"))
                 .andExpect(jsonPath("$.points").value(0))
-                .andExpect(jsonPath("$.achievements.length()").value(85))
+                .andExpect(jsonPath("$.achievements.length()").value(87))
                 .andExpect(jsonPath("$.achievements[0].id").value("new-bark-beginnings"))
                 .andExpect(jsonPath("$.achievements[0].unlockedAt").doesNotExist());
         mvc.perform(get("/api/v1/players/ash@x.y/achievements").with(ash)).andExpect(status().isNotFound());
@@ -218,7 +218,7 @@ class ScoreboardApiTest {
                 .andExpect(jsonPath("$.party[0].moves[1]").value("Earthquake"))
                 .andExpect(jsonPath("$.party[0].types[1]").value("ground"))
                 .andExpect(jsonPath("$.party[1].nickname").doesNotExist())
-                .andExpect(jsonPath("$.achievements.length()").value(85))
+                .andExpect(jsonPath("$.achievements.length()").value(87))
                 .andExpect(jsonPath("$.achievements[0].id").value("new-bark-beginnings"))
                 .andExpect(jsonPath("$.achievements[0].unlocked").value(true))
                 .andExpect(jsonPath("$.achievements[0].progress").doesNotExist())

@@ -116,6 +116,117 @@ final class GiftMon {
         return true;
     }
 
+    /** A party member's bytes as the game keeps them: party_struct (48), OT name and nickname (11 each). */
+    record Raw(byte[] mon, byte[] ot, byte[] nick) {}
+
+    /** The bytes of a party slot, or null past the party. */
+    static Raw read(Bus bus, PokemonGen2 game, int slot) {
+        int p = game.partyCount(), count = bus.getByte(p);
+        if (slot < 0 || slot >= count || count > PARTY_LENGTH) return null;
+        int mons = p + 1 + PARTY_LENGTH + 1, ot = mons + PARTY_LENGTH * MON, nick = ot + PARTY_LENGTH * NAME;
+        return new Raw(bytes(bus, mons + slot * MON, MON), bytes(bus, ot + slot * NAME, NAME), bytes(bus, nick + slot * NAME, NAME));
+    }
+
+    /** Whether the slot holds an egg (the species list has EGG for it). */
+    static boolean egg(Bus bus, PokemonGen2 game, int slot) {
+        return bus.getByte(game.partyCount() + 1 + slot) == EGG;
+    }
+
+    /** Takes a member out of the party, the ones after it moving up (as RemoveMonFromParty). */
+    static void remove(Bus bus, PokemonGen2 game, int slot) {
+        int p = game.partyCount(), count = bus.getByte(p);
+        int mons = p + 1 + PARTY_LENGTH + 1, ot = mons + PARTY_LENGTH * MON, nick = ot + PARTY_LENGTH * NAME;
+        for (int i = slot; i < count - 1; i++) {
+            bus.setByte(p + 1 + i, bus.getByte(p + 2 + i));
+            copy(bus, mons + (i + 1) * MON, mons + i * MON, MON);
+            copy(bus, ot + (i + 1) * NAME, ot + i * NAME, NAME);
+            copy(bus, nick + (i + 1) * NAME, nick + i * NAME, NAME);
+        }
+        bus.setByte(p + count, END);
+        bus.setByte(p, count - 1);
+    }
+
+    /** Adds a traded Pokémon's bytes to the end of the party, marked seen and caught; false when the party is full. */
+    static boolean put(Bus bus, PokemonGen2 game, Raw raw) {
+        int p = game.partyCount(), count = bus.getByte(p);
+        if (count >= PARTY_LENGTH || bus.getByte(p + 1 + count) != END) return false;
+        int species = raw.mon()[0] & 0xFF;
+        int mons = p + 1 + PARTY_LENGTH + 1, ot = mons + PARTY_LENGTH * MON, nick = ot + PARTY_LENGTH * NAME;
+        for (int i = 0; i < MON; i++) bus.setByte(mons + count * MON + i, raw.mon()[i] & 0xFF);
+        write(bus, ot + count * NAME, raw.ot());
+        write(bus, nick + count * NAME, raw.nick());
+        bus.setByte(p + 1 + count, species);
+        bus.setByte(p + 2 + count, END);
+        bus.setByte(p, count + 1);
+        int bit = species - 1, caught = game.dexCaught();
+        for (int flags : new int[] {caught, caught + DEX_BYTES}) bus.setByte(flags + bit / 8, bus.getByte(flags + bit / 8) | 1 << bit % 8);
+        return true;
+    }
+
+    /** Evolve when traded (pret data/pokemon/evos_attacks.asm EVOLVE_TRADE): species, into, the item it holds (null: any but an Everstone). */
+    private static final Object[][] TRADE_EVOLUTIONS = {{64, 65, null}, {67, 68, null}, {75, 76, null}, {93, 94, null},
+            {95, 208, "Metal Coat"}, {123, 212, "Metal Coat"}, {117, 230, "Dragon Scale"}, {61, 186, "King's Rock"},
+            {79, 199, "King's Rock"}, {137, 233, "Up-Grade"}};
+
+    /**
+     * The Pokémon as it arrives from a trade in this game: evolved when its species does so by trade (the item it
+     * needed used up), stats recalculated, a nickname that was the species' name renamed; a held item this ROM does
+     * not have dropped. The same bytes otherwise.
+     */
+    static Raw arrive(PokemonGen2 game, Raw raw) {
+        byte[] mon = raw.mon().clone(), nick = raw.nick();
+        String held = game.itemName(mon[1] & 0xFF);
+        if (mon[1] != 0 && (held == null || held.equalsIgnoreCase("Teru-Sama"))) mon[1] = 0;
+        int species = mon[0] & 0xFF, item = mon[1] & 0xFF, into = 0;
+        for (Object[] e : TRADE_EVOLUTIONS) {
+            if ((int) e[0] != species) continue;
+            if (e[2] == null ? item != game.itemId("Everstone") : item == game.itemId((String) e[2])) {
+                into = (int) e[1];
+                if (e[2] != null) mon[1] = 0;
+            }
+        }
+        if (into == 0) return new Raw(mon, raw.ot(), nick);
+        mon[0] = (byte) into;
+        stats(game, mon);
+        byte[] was = game.rawName(species); // the game's nickname check: the text up to "@"
+        if (PokemonRed.text(nick, 0, NAME).equals(PokemonRed.text(was, 0, was.length))) nick = named(game.rawName(into));
+        return new Raw(mon, raw.ot(), nick);
+    }
+
+    /** Recalculates a party_struct's stats for its species and level (Gen 2's formula with its DVs and stat exp); HP moves with max HP. */
+    static void stats(PokemonGen2 game, byte[] mon) {
+        int level = mon[31] & 0xFF, atk = (mon[21] & 0xFF) >> 4, def = mon[21] & 0xF, spd = (mon[22] & 0xFF) >> 4, spc = mon[22] & 0xF;
+        byte[] base = game.baseData(mon[0] & 0xFF);
+        int[] dvs = {(atk & 1) << 3 | (def & 1) << 2 | (spd & 1) << 1 | spc & 1, atk, def, spd, spc, spc}, exp = {0, 1, 2, 3, 4, 4};
+        int oldMax = u16(mon, 36);
+        for (int i = 0; i < 6; i++) {
+            int statExp = u16(mon, 11 + exp[i] * 2), root = (int) Math.ceil(Math.sqrt(statExp));
+            int v = (((base[1 + i] & 0xFF) + dvs[i]) * 2 + Math.min(255, root) / 4) * level / 100 + (i == 0 ? level + 10 : 5);
+            mon[36 + i * 2] = (byte) (v >> 8);
+            mon[37 + i * 2] = (byte) v;
+        }
+        int hp = u16(mon, 34);
+        if (hp > 0) {
+            hp = Math.max(1, hp + u16(mon, 36) - oldMax);
+            mon[34] = (byte) (hp >> 8);
+            mon[35] = (byte) hp;
+        }
+    }
+
+    private static int u16(byte[] b, int at) {
+        return (b[at] & 0xFF) << 8 | b[at + 1] & 0xFF;
+    }
+
+    private static byte[] bytes(Bus bus, int at, int n) {
+        byte[] out = new byte[n];
+        for (int i = 0; i < n; i++) out[i] = (byte) bus.getByte(at + i);
+        return out;
+    }
+
+    private static void copy(Bus bus, int from, int to, int n) {
+        for (int i = 0; i < n; i++) bus.setByte(to + i, bus.getByte(from + i));
+    }
+
     /** Exp at a level, by growth rate (pret engine/pokemon/experience.asm GrowthRates, n = level). */
     static int exp(int growth, int n) {
         int n3 = n * n * n, n2 = n * n;

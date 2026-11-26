@@ -16,11 +16,12 @@
 	import { session } from '#lib/session.svelte.ts';
 	import RarityBall from '#lib/components/RarityBall.svelte';
 	import { tip } from '#lib/tour.svelte.ts';
+	import { giftArt } from '#lib/daily.svelte.ts';
 
 	const SHOW_MS = 4200;
 	const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	let queue = $state<ScoreEvent[]>([]);
+	let queue = $state<(ScoreEvent & { src?: string })[]>([]);
 	const current = $derived(queue[0]);
 
 	// user: whose cards these are (an admin watching a player passes theirs); default the signed-in player.
@@ -38,8 +39,32 @@
 			if (g.user !== whose) return;
 			const name = g.name.replace(/\s*\(.*\)$/, ''); // "Celebi (GS Ball, Lv 30)" -> "Celebi"
 			const detail = g.pokemon ? `${name === 'Odd Egg' ? 'An Odd Egg' : name} joined your party` : `${g.quantity}× ${name} in your PC`;
-			queue = [...queue, { user: g.user, type: 'GIFT', detail, points: 0, at: Date.now() }].slice(-5);
+			queue = [...queue, { user: g.user, type: 'GIFT', detail, points: 0, at: Date.now(), src: giftArt(g.name)?.src }].slice(-5);
 			if (mine) navigator.vibrate?.([20, 30, 20, 30, 60]);
+		})
+	);
+	// Someone Wonder Traded and got the Pokémon this player had put in the pool.
+	$effect(() =>
+		on('WONDER_TRADE', (t: { user: string; from: string; got: { species: number; name: string; nickname: string | null } }) => {
+			if (t.from !== whose) return;
+			const detail = `${nameOf(t.user)} got your ${t.got.nickname ?? t.got.name}: theirs is on its way to you`;
+			queue = [...queue, { user: t.user, type: 'WONDER', detail, points: 0, at: Date.now(), src: `/api/v1/game/icons/${t.got.species}.png` }].slice(-5);
+		})
+	);
+	// What another Pib sent for theirs just joined the party (backend WonderTrade.deliver).
+	$effect(() =>
+		on('WONDER_ARRIVED', (a: { user: string; from: string; got: { species: number; name: string; nickname: string | null; level: number } }) => {
+			if (a.user !== whose) return;
+			const detail = `${nameOf(a.from)}'s ${a.got.nickname ?? a.got.name} (Lv ${a.got.level}) joined your party. Your game was saved.`;
+			queue = [...queue, { user: a.user, type: 'WONDER', detail, points: 0, at: Date.now(), src: `/api/v1/game/icons/${a.got.species}.png` }].slice(-5);
+			if (mine) navigator.vibrate?.([20, 40, 60]);
+		})
+	);
+	// The first Pib to catch a species (backend GroupDex).
+	$effect(() =>
+		on('DEX_FIRST', (f: { user: string; species: string }) => {
+			if (f.user !== whose) return;
+			queue = [...queue, { user: f.user, type: 'FIRST', detail: f.species, points: 0, at: Date.now() }].slice(-5);
 		})
 	);
 	// @mentions: their username or their nickname without spaces, as the bubbles read them.
@@ -102,7 +127,9 @@
 		LINK_WIN: 'Link battle won!',
 		LINK_LOSS: 'Link battle',
 		MENTION: 'You were mentioned',
-		GIFT: 'Mystery Gift!'
+		GIFT: 'Mystery Gift!',
+		WONDER: 'Wonder Trade',
+		FIRST: 'First Pib to catch it!'
 	};
 	// The card's main line: the thing itself, not a sentence about "You".
 	function line(e: ScoreEvent): string {
@@ -127,8 +154,9 @@
 	}
 	// A sprite for catches and sightings (the Pokédex names in the player's own summary), the badge for badges.
 	const badgeArt = import.meta.glob('../assets/badges/*.png', { eager: true, import: 'default' }) as Record<string, string>;
-	function icon(e: ScoreEvent): string | null {
-		if (e.type === 'CAUGHT' || e.type === 'SEEN') {
+	function icon(e: ScoreEvent & { src?: string }): string | null {
+		if (e.src) return e.src;
+		if (e.type === 'CAUGHT' || e.type === 'SEEN' || e.type === 'FIRST') {
 			const n = game.summary?.collection.names.findIndex((name) => name?.toLowerCase() === e.detail.toLowerCase()) ?? -1;
 			return n >= 0 ? `/api/v1/game/icons/${n + 1}.png` : null;
 		}
@@ -151,7 +179,8 @@
 		const t = n >= 0 ? tiers[n + 1] : null;
 		return t ? MON_RARITY[t] : null;
 	}
-	const tier = (e: ScoreEvent) => (e.type === 'MENTION' ? 'ping' : (monRarity(e) ?? tierOf(e)));
+	const tier = (e: ScoreEvent) =>
+		e.type === 'MENTION' ? 'ping' : e.type === 'FIRST' ? 'epic' : e.type === 'WONDER' ? 'rare' : (monRarity(e) ?? tierOf(e));
 	const loud = (e: ScoreEvent) => tier(e) === 'epic' || tier(e) === 'legendary';
 	let broken = $state(false);
 	$effect(() => {
@@ -181,7 +210,7 @@
 				onpointercancel={drop}
 			>
 				<span class="art" aria-hidden="true">
-					{#if current.type === 'GIFT'}
+					{#if current.type === 'GIFT' && !src}
 						<span class="gift">🎁</span>
 					{:else if current.type === 'MENTION'}
 						<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"

@@ -84,8 +84,11 @@ class ProgressTrackerTest {
         }).when(repo).rate(any(), any(), any(), anyLong(), any());
     }
 
+    final dev.pppp.repository.LinkHistoryRepository history = mock(dev.pppp.repository.LinkHistoryRepository.class);
+
     ProgressTracker tracker() {
-        return new ProgressTracker(consoles, cartridges, repo, published::add, mock(dev.pppp.repository.PlayerRepository.class));
+        return new ProgressTracker(consoles, cartridges, repo, published::add, mock(dev.pppp.repository.PlayerRepository.class),
+                history);
     }
 
     List<String> scored() {
@@ -283,7 +286,7 @@ class ProgressTrackerTest {
     }
 
     @Test
-    void theTrainerScoreFollowsTheSaveDownAsWellAsUp() throws Exception {
+    void theTrainerScoreGoesUpWithTheSaveButNeverDown() throws Exception {
         var tracker = goldTracker();
         gold.mon(0, 150, 100, 0x9999); // a traded Lv 100 Mewtwo: team 25, collection 150 * 100 / 6020 = 2
         gold.mon(1, 129, 100, Gen2Ram.PLAYER_ID); // Lv 100 Magikarp: 5 more strength, team still 26
@@ -304,7 +307,7 @@ class ProgressTrackerTest {
         gold.partySize(1); // Magikarp went to the box, the coins were spent
         gold.coins(0);
         twice(tracker);
-        assertThat(trainers.get(ASH).score()).isEqualTo(29); // team 25, side 0
+        assertThat(trainers.get(ASH).score()).isEqualTo(44); // earned: team 26 and side 14 stay
         assertThat(tracker.scoreboard().getFirst().party())
                 .containsExactly(new ScoreRow.Member(150, 100, 100, null, false, false));
         verify(repo, org.mockito.Mockito.atLeastOnce()).saveCard(eq(ASH), any());
@@ -333,6 +336,9 @@ class ProgressTrackerTest {
         tracker.poll(); // still read again, so it counts
         assertThat(scored()).containsOnlyOnce("LINK_WIN misty@x.y +25");
         assertThat(tracker.scoreboard().getFirst().points()).isEqualTo(25); // a win counts towards the points
+        // ... and goes to the link history, against whom, with their team as read.
+        org.mockito.Mockito.verify(history).add(org.mockito.ArgumentMatchers.eq(ASH), org.mockito.ArgumentMatchers.argThat(
+                e -> e.kind().equals("BATTLE") && "WIN".equals(e.result()) && "misty@x.y".equals(e.partner())));
 
         sav[wins + 3] = 1; // a loss can only come from a running console
         when(consoles.isAwake(ASH)).thenReturn(true);
@@ -341,6 +347,8 @@ class ProgressTrackerTest {
         assertThat(scored()).noneMatch(s -> s.startsWith("LINK_LOSS"));
         assertThat(tracker.scoreboard().getFirst().link().losses()).isEqualTo(1);
         assertThat(tracker.scoreboard().getFirst().points()).isEqualTo(25); // a loss costs nothing
+        org.mockito.Mockito.verify(history).add(org.mockito.ArgumentMatchers.eq(ASH),
+                org.mockito.ArgumentMatchers.argThat(e -> e.kind().equals("BATTLE") && "LOSS".equals(e.result())));
     }
 
     @Test

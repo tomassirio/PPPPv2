@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 class Gen2AchievementsTest {
     /** 85 achievements after the review: the design's, less six Gen 1-only ones, plus 36. */
-    static final int TOTAL_POINTS = 1247;
+    static final int TOTAL_POINTS = 1254;
 
     @Test
     void pokedexEntriesComeFromTheRom() {
@@ -228,9 +228,20 @@ class Gen2AchievementsTest {
     }
 
     @Test
+    void earnedPointsStayWhenAPokemonLeaves() {
+        // Pokémon Master (S+) at 927: team 142 and rarities 30 from the party.
+        var was = new TrainerScore(927, "Pokémon Master", "S+", 200, 250, 150, 142, 100, 55, 30);
+        // The same save after Wonder Trading a shiny legend away: team and rarities fall, the Pokédex grew by one.
+        var now = new TrainerScore(890, "Mt. Silver Legend", "S", 200, 251, 150, 120, 100, 55, 14);
+        assertThat(TrainerScoring.best(was, now))
+                .isEqualTo(new TrainerScore(928, "Pokémon Master", "S+", 200, 251, 150, 142, 100, 55, 30));
+        assertThat(TrainerScoring.best(null, now)).isEqualTo(now);
+    }
+
+    @Test
     void theCatalogueIsTheDesigns() {
         List<Achievement> all = Achievements.catalogue();
-        assertThat(all).hasSize(85);
+        assertThat(all).hasSize(87);
         assertThat(all).extracting(Achievement::id).doesNotHaveDuplicates()
                 .doesNotContain("johto-complete", "bug-champion", "no-shopping") // not told by the RAM: removed
                 .doesNotContain("250-club", "living-history", "the-time-traveller", "kantos-strongest", "fossil-hunter",

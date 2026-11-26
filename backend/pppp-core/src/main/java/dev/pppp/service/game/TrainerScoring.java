@@ -60,6 +60,21 @@ final class TrainerScoring {
         return points;
     }
 
+    /**
+     * Earned points stay earned: each part at the best it has ever been (was: the stored score, ZERO at first), the
+     * total their sum, the title from that. Trading, boxing or losing a Pokémon never takes points back.
+     */
+    static TrainerScore best(TrainerScore was, TrainerScore now) {
+        if (was == null) return now;
+        int story = Math.max(was.story(), now.story()), pokedex = Math.max(was.pokedex(), now.pokedex()),
+                collection = Math.max(was.collection(), now.collection()), team = Math.max(was.team(), now.team()),
+                keyItems = Math.max(was.keyItems(), now.keyItems()), side = Math.max(was.side(), now.side()),
+                rarities = Math.max(was.rarities(), now.rarities());
+        int total = story + pokedex + collection + team + keyItems + side + rarities;
+        int t = title(total);
+        return new TrainerScore(total, TITLE[t], GRADE[t], story, pokedex, collection, team, keyItems, side, rarities);
+    }
+
     /** Index into the title table for a score. */
     private static int title(int score) {
         int t = 0;

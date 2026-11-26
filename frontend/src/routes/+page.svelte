@@ -104,11 +104,19 @@
 	const showing = $derived(SCREENS[screen]);
 
 	// Sound is only allowed after a gesture: the first key or tap plays the cry of the cartridge on show (Ho-Oh, Lugia,
-	// Suicune; recorded from each ROM), as the game would at START.
+	// Suicune; recorded from each ROM), as the game would at START. Not while the music switch in the corner is muted
+	// (TitleMusic: localStorage pppp.titleMusic is "on" only when sound is on).
 	const CRIES = { gold: hoOhCry, silver: lugiaCry, crystal: suicuneCry };
 	let cried = false;
+	const soundOn = () => {
+		try {
+			return localStorage.getItem('pppp.titleMusic') === 'on';
+		} catch {
+			return false;
+		}
+	};
 	function activity() {
-		if (cried) return;
+		if (cried || !soundOn()) return;
 		cried = true;
 		const cry = new Audio(CRIES[showing.id]);
 		cry.volume = 0.5;

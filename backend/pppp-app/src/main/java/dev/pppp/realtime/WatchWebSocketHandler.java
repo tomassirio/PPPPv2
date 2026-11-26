@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.pppp.service.PlayerConsoles;
 import dev.pppp.service.game.Ghosts;
+import dev.pppp.service.game.Bloodstains;
 import dev.pppp.service.game.NoteService;
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -51,13 +52,13 @@ public class WatchWebSocketHandler extends AbstractWebSocketHandler {
     private final Map<String, Watched> watched = new ConcurrentHashMap<>();
     private final PlayerConsoles consoles;
 
-    WatchWebSocketHandler(PlayerConsoles consoles, Ghosts ghosts, NoteService notes, ObjectMapper json) {
+    WatchWebSocketHandler(PlayerConsoles consoles, Ghosts ghosts, NoteService notes, Bloodstains stains, ObjectMapper json) {
         this.consoles = consoles;
         consoles.onFrame((userId, pixels) -> {
             Watched w = watched.get(userId);
             if (w == null) return;
             try {
-                w.encoder().offer(new Frame(pixels, json.writeValueAsString(Map.of("ghosts", ghosts.onScreen(userId), "notes", notes.visible(userId)))));
+                w.encoder().offer(new Frame(pixels, json.writeValueAsString(Map.of("ghosts", ghosts.onScreen(userId), "notes", notes.visible(userId), "stains", stains.visible(userId)))));
             } catch (JsonProcessingException e) {
                 throw new IllegalStateException(e);
             }

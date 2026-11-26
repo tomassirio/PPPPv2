@@ -101,7 +101,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   every address/flag cited from pret in comments). `ProgressTracker.record` unlocks `Achievements` (55 in 8 categories,
   see below; Hall of Fame / Red ones only on the observed moment) into
   `pibs:achievements:{userId}` (id -> unlockedAt, never re-awarded) and rates the save with `TrainerScoring`
-  (0-1000, title, grade; live, can drop) into `pibs:trainer:{userId}`. `PowerRating` is the design's 251-entry table.
+  (0-1000, title, grade; each part keeps its best, `TrainerScoring.best`: never drops) into `pibs:trainer:{userId}`. `PowerRating` is the design's 251-entry table.
   `pibs:scoreboard` now ranks by trainerScore x 10,000 + achievement points; `ScoreRow.points` is the older per-step
   tally, computed from `pibs:progress`. Feed types ACHIEVEMENT and TITLE; live `ACHIEVEMENT_UNLOCKED`
   {user, id, name, points, at}. `GET /api/v1/achievements`, `GET /api/v1/players/{userId}/achievements`.
@@ -161,8 +161,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   New chat from others while Chat is closed: a small bubble with the count in the controller's bottom-left corner
   (Gamepad `unread`, shell-coloured; opens Chat; own messages, system lines and emotes don't count).
   `FindButton` is the one "Find someone online" button (Link cable card, /watch, profiles).
-  On phones Link cable and Your run are exactly the height left under the screen (size containers) and drop parts by
-  height container queries instead of scrolling; Scoreboard, Activity and Chat scroll their lists.
+  On phones Link cable and Your run are exactly the height left under the screen (size containers) and drop parts
+  (`fitDrops` in lib/fit.ts: measured, by `data-drop`/`data-squeeze` priority; also Your run on desktop) instead of scrolling; Scoreboard, Activity and Chat scroll their lists.
   The Play panel on phones (`play-panel`, one swipe unit): the controller and the strips the player picked (`PlayStrips`;
   Settings on phones, as many as the measured room fits (48px each, at most 3; `controls.room`, `stripsThatFit`) of
   Location, Party, Latest activity, Badges, Pokédex, Rank, dragged into order;
@@ -210,6 +210,37 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   waits on Mt. Silver as Red: `V1Red`) into each Gen 2 player's PC mailbox and its backup, once (`aaaaMail` in
   `pibs:player:{userId}`), after their first save, while they are free in the overworld (`PokecenterDig.busy`),
   opening and closing save RAM as the game does. `AaaaMailTest` runs it on the real ROMs and parked games in data/.
+- Done: bloodstains, daily rewards, group Pokédex, Wonder Trade.
+  `Bloodstains` (every 500 ms, wBattleMode/wBattleResult LOSE, foe from wEnemyMon*, wOTClassName + `PokemonGen2.trainerName`
+  via TrainerGroups; link battles none) leaves a red mark on the tile the battle began on (`Ghosts.lastStood`), Redis hash
+  `pibs:bloodstains`, 48 h, 5 per player; `/ws/screen` and `/ws/watch` carry `stains`, GameScreen draws them and
+  "X blacked out here / to Leader Whitney's Miltank Lv 20". `DailyRewards`: days played (not in a row, UTC) in set
+  `pibs:days:{userId}`; the first activity of a day (onActive) queues that day's reward as Mystery Gifts (90-day calendar;
+  day 1 only welcomes, Poké Balls on day 2; milestones, random stone on 10/35, Surfing Pikachu 25, Odd Egg 45, Mew 60, Celebi 90; small things between) and sends
+  `DAY_PLAYED`; `GET /api/v1/me/days`; `DailyRewards.svelte` opens once a day (localStorage `pppp.daily:{user}`), Your
+  run's "Day N" reopens it. `GroupDex`: first to see / catch each species, hashes `pibs:dex:seen` / `pibs:dex:caught`
+  (name -> "user|epoch ms", from PROGRESS; first use fills from the `pibs:events` stream, then stored progress at time 0);
+  `DEX_FIRST` on a first catch; `GET /api/v1/dex/group`; page `/dex`. `WonderTrade`: `POST /api/v1/wonder-trade`
+  {slot, species}, once a day (`pibs:wonder:day:{userId}`), swaps a party member for the oldest other Pib's one in list
+  `pibs:wonder` in one console step, theirs delivered to them (`pibs:wonder:incoming:{userId}`, every 10 s, WONDER_ARRIVED);
+  with none waiting it waits in the pool (WONDER_POOL); `GET /api/v1/wonder-trade` = {waiting, mine, tradedToday, incoming}
+  (`GiftMon.read/remove/put`; `GiftMon.arrive` evolves trade evolutions and drops items the ROM lacks); no eggs, never the
+  last fighter, a Pokémon once per player (`pibs:wonder:given:{userId}`); `WONDER_TRADE` tells whoever sent the one
+  taken. Only with the Cable Club open (`ProgressTracker.cableClubOpen`, as link trades; the
+  `WonderTile` on the Link cable card takes the card's own `clubClosed` as `locked`). Dialog `WonderTrade.svelte`: pick,
+  confirm (the warning: gone for good, the swap is a surprise), send. A player reset also wipes their days, waiting gifts and
+  Wonder Trade keys. Each trade (and each arrival) is saved as a link trade saves (`TradeSave`, pret SaveAfterLinkTrade:
+  wPokemonData over sPokemonData and sBackupPokemonData, checksums moved by the change), so Reset cannot undo it; the
+  game must have been saved once, and no Pokémon holding Mail. Achievements `wonder-sent` (2) and `wonder-received` (5),
+  category Link, unlocked as it happens (`ProgressTracker.unlockNow`).
+- Done: link history. `LinkHistoryRepository` (Redis list `pibs:linklog:{userId}`, newest first, 200): BATTLE (WIN/LOSS
+  from the save's link record, both teams as last read), TRADE (a new OT+DVs in a trade room, and what left), WONDER
+  (sent / received / arrived); battles from before it are filled in once from the stream's LINK_WIN (`pibs:linklog:filled:`).
+  `GET /api/v1/players/{id}/link-history`; profile Link cable card's "Link history" (`LinkHistory.svelte`, pages of 5).
+  Profile achievements: one row per category (count, bar), opening to a grid of balls with a fixed card slot; the Link
+  card's balls show a floating card. /play Scoreboard tab: status on its own line, only real party icons, offline
+  dimmed, ▲/▼ since today began (`RankRepository`, hash `pibs:ranks:{date}`, `GET /api/v1/scoreboard/baseline`),
+  "n to #k" on your row, "Near you", your row always in sight (`fitItems` keep). Sign-in cry silent while muted. `WonderTradeTest`/`BloodstainsTest` use data/'s ROMs.
 - Speed: one Fast toggle (`SpeedControl`; on = the server's 4x: as fast as it manages, ~3x on the Pi since SameBoy; `GET /api/v1/me/speed` still reports the measured rate); a Pi 4
   core ran a Gen 2 console at about 1.2x on Coffee GB (`GET /api/v1/me/speed` timing: all of it in the emulator);
   hence SameBoy (2.1.0): ~2.7x cheaper per frame on a Mac, Pi numbers still to measure.
