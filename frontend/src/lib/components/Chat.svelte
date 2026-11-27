@@ -30,6 +30,13 @@
 	let muteMinutes = $state(60);
 	/** Message whose reaction choices are open, or null. */
 	let picking = $state<string | null>(null);
+	// The faces open under the message: scroll the list just enough to show them (the last message's sat below the fold).
+	function reveal(node: HTMLElement, open: boolean) {
+		const show = (on: boolean) =>
+			on && requestAnimationFrame(() => node.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+		show(open);
+		return { update: show };
+	}
 	let list: HTMLUListElement;
 
 	const admin = $derived(isAdmin(session.me));
@@ -284,7 +291,7 @@
 				{/if}
 				{#if m.kind !== 'ADMIN' && (picking === m.id || Object.keys(m.reactions ?? {}).length)}
 					{@const mine = myReaction(m, session.me?.id)}
-					<div class="reactions">
+					<div class="reactions" use:reveal={picking === m.id}>
 						{#each REACTIONS as r (r.id)}
 							{@const n = m.reactions?.[r.id]?.length ?? 0}
 							{#if n || picking === m.id}
