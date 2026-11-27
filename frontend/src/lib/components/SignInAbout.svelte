@@ -2,6 +2,7 @@
      way in. Drawn as an in-game text box: three features, then the totals. -->
 <script lang="ts">
 	import type { Teaser } from '#lib/teaser.js';
+	import { SIGN_IN } from '#lib/session.svelte.js';
 	import logo from '#lib/assets/ppppv2-logo.png';
 	import banner from '#lib/assets/banner-v2.png';
 
@@ -116,7 +117,7 @@
 		</div>
 	{/if}
 
-	<a class="cta" class:again={requested} href="/oauth2/authorization/google" data-sveltekit-reload>
+	<a class="cta" class:again={requested} href={SIGN_IN} data-sveltekit-reload>
 		<!-- Google's G, in Poké Ball colours: red top, black band, white bottom, the button where the bar starts. -->
 		<svg class="g" viewBox="0 0 24 24" aria-hidden="true">
 			<defs>

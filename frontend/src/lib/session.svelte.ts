@@ -28,3 +28,6 @@ export async function logout() {
 // Holds live state and event subscriptions: hot-swapping it in dev would leave a fresh copy with no listeners
 // while the page keeps the old one, so a change here reloads the page instead.
 import.meta.hot?.accept(() => location.reload());
+
+/** Where "Sign in with Google" goes: Google, or locally the backend's dev login (its first PPPP_ADMINS e-mail). */
+export const SIGN_IN = import.meta.env.DEV ? '/dev/login' : '/oauth2/authorization/google';

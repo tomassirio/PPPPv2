@@ -10,6 +10,7 @@
 	import { on } from '#lib/events.ts';
 	import { loadWords } from '#lib/notes.svelte.ts';
 	import { session } from '#lib/session.svelte.ts';
+	import { TIER_NAMES, type Tier } from '#lib/play.ts';
 
 	type First = { user: string; at: number };
 	type Dex = { seen: Record<string, First>; caught: Record<string, First> };
@@ -19,10 +20,13 @@
 	let dex = $state<Dex>({ seen: {}, caught: {} });
 	let filter = $state<Filter>('all');
 	let picked = $state<number | null>(null);
+	// Each species' Power Rating tier (S, M legends ... F): a seen or caught one is framed by it, as party cards are.
+	let tiers = $state<(string | null)[]>([]);
 
 	const load = () => api<Dex>('GET', '/dex/group').then((d) => (dex = d), () => {});
 	$effect(() => {
 		loadWords().then((w) => (names = w.words['Pokémon'] ?? []), () => {});
+		api<(string | null)[]>('GET', '/game/tiers').then((t) => (tiers = t), () => {});
 		load();
 		let t: ReturnType<typeof setTimeout> | undefined;
 		const soon = () => {
@@ -57,6 +61,7 @@
 			.slice(0, 5)
 	);
 	const current = $derived(picked ? entries[picked - 1] : null);
+	const currentTier = $derived(current && current.state !== 'missing' ? ((tiers[current.n] as Tier | null) ?? null) : null);
 	const when = (at: number) =>
 		at ? new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'before records began';
 	const pad = (n: number) => String(n).padStart(3, '0');
@@ -99,7 +104,7 @@
 				<ul class="grid">
 					{#each shown as e (e.n)}
 						<li>
-							<button type="button" class="mon {e.state}" class:on={picked === e.n} onclick={() => (picked = e.n)} aria-label="#{pad(e.n)} {e.state === 'missing' ? 'unknown' : e.name}, {e.state}">
+							<button type="button" class="mon {e.state} {e.state !== 'missing' && tiers[e.n] ? `tier-card tier-${tiers[e.n]}` : ''}" class:on={picked === e.n} onclick={() => (picked = e.n)} aria-label="#{pad(e.n)} {e.state === 'missing' ? 'unknown' : e.name}, {e.state}">
 								{#if e.state !== 'missing'}
 									<img src="/api/v1/game/icons/{e.n}.png" alt="" loading="lazy" />
 								{:else}
@@ -116,12 +121,17 @@
 
 		<aside>
 			{#if current}
-				<div class="card detail" role="dialog" aria-label="#{pad(current.n)} {current.state === 'missing' ? 'unknown' : current.name}">
+				<div class="card detail {currentTier ? `tier-card tier-${currentTier}` : ''}" role="dialog" aria-label="#{pad(current.n)} {current.state === 'missing' ? 'unknown' : current.name}">
 					<button type="button" class="x" aria-label="Close" onclick={() => (picked = null)}>×</button>
 					<div class="title">
-						{#if current.state !== 'missing'}<img src="/api/v1/game/icons/{current.n}.png" alt="" />{/if}
+						{#if current.state !== 'missing'}
+							<span class="pic">
+								<img src="/api/v1/game/icons/{current.n}.png" alt="" />
+								{#if currentTier}<span class="tier-tag tier-{currentTier}" aria-hidden="true">{currentTier}</span>{/if}
+							</span>
+						{/if}
 						<div>
-							<span class="muted xs">#{pad(current.n)}</span>
+							<span class="muted xs">#{pad(current.n)}{#if currentTier} · Tier {currentTier}, {TIER_NAMES[currentTier]}{/if}</span>
 							<h2>{current.state === 'missing' ? '???' : current.name}</h2>
 						</div>
 					</div>
@@ -213,6 +223,7 @@
 	}
 	.detail {
 		position: relative;
+		--frame-bg: var(--panel);
 	}
 	.x {
 		position: absolute;
@@ -272,6 +283,7 @@
 		border: 1px solid var(--border);
 		border-radius: 10px;
 		background: var(--sunk);
+		--frame-bg: var(--sunk);
 		color: var(--muted);
 		cursor: pointer;
 	}
@@ -330,6 +342,14 @@
 		display: flex;
 		align-items: center;
 		gap: 10px;
+	}
+	.title .pic {
+		position: relative;
+		display: block;
+	}
+	.title .pic .tier-tag {
+		top: 0;
+		right: 0;
 	}
 	.title img {
 		width: 64px;

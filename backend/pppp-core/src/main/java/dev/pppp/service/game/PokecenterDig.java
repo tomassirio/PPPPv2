@@ -253,6 +253,17 @@ public class PokecenterDig {
         return consoles.withBus(userId, bus -> teleport(game, bus, to, x, y));
     }
 
+    /** Dev only: the player's party at 1 HP (PokemonGen2.oneHp), to lose the next battle and black out. */
+    public String oneHp(String userId) {
+        Game game = game(userId);
+        if (game == null) return "not Gold, Silver or Crystal";
+        String why = consoles.withBus(userId, bus -> {
+            game.maps.oneHp(bus);
+            return null;
+        });
+        return why == null ? "ok" : why;
+    }
+
     static String teleport(Game game, Bus bus, int[] to, int x, int y) {
         String why = busy(game, bus);
         if (why != null) return why;

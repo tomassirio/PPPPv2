@@ -39,7 +39,7 @@ class BloodstainsTest {
         });
         BloodstainRepository repo = mock(BloodstainRepository.class);
         when(repo.all()).thenReturn(List.of());
-        stains = new Bloodstains(consoles, dig, ghosts, repo);
+        stains = new Bloodstains(consoles, dig, ghosts, repo, mock(Replays.class));
         when(ghosts.lastStood("a")).thenReturn(new Ghosts.Where("ROUTE_34", 10 * 16, 7 * 16));
     }
 

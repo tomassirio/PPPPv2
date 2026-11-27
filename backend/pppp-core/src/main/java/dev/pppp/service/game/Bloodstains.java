@@ -23,7 +23,8 @@ import org.springframework.stereotype.Service;
  * wBattleMode is read: when a battle starts the tile the player stood on is kept (Ghosts.lastStood), and while it runs
  * the foe (the trainer and their Pokémon out, or the wild one); when it ends with wBattleResult LOSE (pret
  * engine/battle/core.asm LostBattle; ClearBattleRAM zeroes it when a battle starts) the stain is left. Link battles
- * leave none. A stain lasts KEEP; a player has MAX_PER_PLAYER at most, the oldest go first.
+ * leave none. A stain lasts KEEP; a player has MAX_PER_PLAYER at most, the oldest go first. Each keeps the last
+ * seconds before the loss as a replay (Replays), deleted with it.
  */
 @Service
 public class Bloodstains {
@@ -44,8 +45,9 @@ public class Bloodstains {
     static final Layout GOLD_SILVER = new Layout(0xD116, 0xD118, 0xD11B, 0xCFE9, 0xD0EF, 0xD0FC, 0xCB34, 0xD042),
             CRYSTAL = new Layout(0xD22D, 0xD22F, 0xD231, 0xD0EE, 0xD206, 0xD213, 0xC656, 0xC2DC);
 
-    /** A stain on the player's screen: its tile's top left in screen pixels; here: they stand on it. */
-    public record Shown(String id, String user, int x, int y, String foe, long at, boolean mine, boolean here) {}
+    /** A stain on the player's screen: its tile's top left in screen pixels; here: they stand on it; replayMs: its replay's length (0: none). */
+    public record Shown(String id, String user, int x, int y, String foe, long at, boolean mine, boolean here,
+                        int replayMs) {}
 
     /** A battle running: where it began, and the latest foe seen. Poll thread only. */
     private static final class Fight {
@@ -61,11 +63,14 @@ public class Bloodstains {
     private final PokecenterDig dig;
     private final Ghosts ghosts;
     private final BloodstainRepository repo;
+    private final Replays replays;
     private final Map<String, Fight> fights = new ConcurrentHashMap<>();
     private final List<Bloodstain> stains = new CopyOnWriteArrayList<>();
     private volatile boolean loaded;
 
-    public Bloodstains(PlayerConsoles consoles, PokecenterDig dig, Ghosts ghosts, BloodstainRepository repo) {
+    public Bloodstains(PlayerConsoles consoles, PokecenterDig dig, Ghosts ghosts, BloodstainRepository repo,
+                       Replays replays) {
+        this.replays = replays;
         this.consoles = consoles;
         this.dig = dig;
         this.ghosts = ghosts;
@@ -76,6 +81,7 @@ public class Bloodstains {
     public void watch() {
         Set<String> running = consoles.running();
         fights.keySet().retainAll(running);
+        replays.retain(running);
         for (String id : running) {
             try {
                 PokecenterDig.Game game = dig.game(id);
@@ -141,6 +147,7 @@ public class Bloodstains {
                 Math.floorDiv(where.x() + STEP / 2, STEP), Math.floorDiv(where.y() + STEP / 2, STEP), foe, System.currentTimeMillis());
         repo.save(stain);
         stains.add(stain);
+        replays.save(userId, stain.id());
         log.info("Bloodstain: {} lost to {} on {}", userId, foe, where.map());
     }
 
@@ -160,13 +167,14 @@ public class Bloodstains {
             int sx = Ghosts.SCREEN_X + s.x() * STEP - w.x(), sy = Ghosts.SCREEN_Y + s.y() * STEP - w.y();
             if (sx <= -STEP || sx >= SCREEN_W || sy <= -STEP || sy >= SCREEN_H) continue;
             out.add(new Shown(s.id(), s.user(), sx, sy, s.foe(), s.at(), s.user().equals(userId),
-                    s.x() * STEP == w.x() && s.y() * STEP == w.y()));
+                    s.x() * STEP == w.x() && s.y() * STEP == w.y(), replays.millis(s.id())));
         }
         return out;
     }
 
     private void remove(String id) {
         repo.delete(id);
+        replays.delete(id);
         stains.removeIf(s -> s.id().equals(id));
     }
 

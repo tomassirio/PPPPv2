@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { loadMe } from '#lib/session.svelte.js';
+	import { loadMe, SIGN_IN } from '#lib/session.svelte.js';
 	import pibs from '#lib/assets/banner-pibs.webp';
 	import play from '#lib/assets/banner-play.webp';
 	import face from '#lib/assets/konami-face.webp';
@@ -267,7 +267,7 @@
 			<a
 				class="round a"
 				class:down={held === 'a'}
-				href="/oauth2/authorization/google"
+				href={SIGN_IN}
 				data-sveltekit-reload
 				tabindex="-1"
 				onpointerdown={() => {
@@ -291,7 +291,7 @@
 				bind:this={start}
 				class="pill"
 				class:down={held === 'start'}
-				href="/oauth2/authorization/google"
+				href={SIGN_IN}
 				data-sveltekit-reload
 				tabindex="-1"
 				aria-hidden="true"

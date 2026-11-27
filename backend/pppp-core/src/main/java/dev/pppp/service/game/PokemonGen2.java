@@ -258,6 +258,17 @@ final class PokemonGen2 implements GameProfile<Gen2Save> {
         return at.partyCount;
     }
 
+    /** Dev only: every party member still standing drops to 1 HP (eggs left alone), so the next battle is lost. */
+    void oneHp(dev.pppp.emulator.Bus bus) {
+        int count = bus.getByte(at.partyCount);
+        for (int i = 0; i < count && i < 6; i++) {
+            int hp = at.partyCount + 8 + i * MON_SIZE + MON_HP;
+            if (bus.getByte(at.partyCount + 1 + i) == EGG || bus.getByte(hp) == 0 && bus.getByte(hp + 1) == 0) continue;
+            bus.setByte(hp, 0);
+            bus.setByte(hp + 1, 1);
+        }
+    }
+
     int dexCaught() {
         return at.dexCaught;
     }

@@ -233,13 +233,19 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   `Bloodstains` (every 500 ms, wBattleMode/wBattleResult LOSE, foe from wEnemyMon*, wOTClassName + `PokemonGen2.trainerName`
   via TrainerGroups; link battles none) leaves a red mark on the tile the battle began on (`Ghosts.lastStood`), Redis hash
   `pibs:bloodstains`, 48 h, 5 per player; `/ws/screen` and `/ws/watch` carry `stains`, GameScreen draws them and
-  "X blacked out here / to Leader Whitney's Miltank Lv 20". `DailyRewards`: days played (not in a row, UTC) in set
+  "X blacked out here / to Leader Whitney's Miltank Lv 20". Replays (`Replays`): every running console's last 5 s of
+  game time at 15 fps in memory (a picture that doesn't change counts 1 s at most), written on a loss as a GIF played once
+  to `data/replays/{stainId}.gif` (deleted with the stain); `GET /api/v1/bloodstains/{id}/replay.gif`; `Shown.replayMs`.
+  Standing on the stain plays it once by itself (not with reduced motion), centred, red-tinted, rising out of and
+  dissolving into a red haze; "▶ Replay" in its box plays it again. Dev only: `GET /dev/faint?user=` puts the party
+  at 1 HP to lose the next battle. `DailyRewards`: days played (not in a row, UTC) in set
   `pibs:days:{userId}`; the first activity of a day (onActive) queues that day's reward as Mystery Gifts (90-day calendar;
   day 1 only welcomes, Poké Balls on day 2; milestones, random stone on 10/35, Surfing Pikachu 25, Odd Egg 45, Mew 60, Celebi 90; small things between) and sends
   `DAY_PLAYED`; `GET /api/v1/me/days`; `DailyRewards.svelte` opens once a day (localStorage `pppp.daily:{user}`), Your
   run's "Day N" reopens it. `GroupDex`: first to see / catch each species, hashes `pibs:dex:seen` / `pibs:dex:caught`
   (name -> "user|epoch ms", from PROGRESS; first use fills from the `pibs:events` stream, then stored progress at time 0);
-  `DEX_FIRST` on a first catch; `GET /api/v1/dex/group`; page `/dex`. `WonderTrade`: `POST /api/v1/wonder-trade`
+  `DEX_FIRST` on a first catch; `GET /api/v1/dex/group`; page `/dex` (seen/caught cells framed by
+  their Power Rating tier, `.tier-card`, from `GET /api/v1/game/tiers`; the picked one's card too, with its letter). `WonderTrade`: `POST /api/v1/wonder-trade`
   {slot, species}, once a day (`pibs:wonder:day:{userId}`), swaps a party member for the oldest other Pib's one in list
   `pibs:wonder` in one console step, theirs delivered to them (`pibs:wonder:incoming:{userId}`, every 10 s, WONDER_ARRIVED);
   with none waiting it waits in the pool (WONDER_POOL); `GET /api/v1/wonder-trade` = {waiting, mine, tradedToday, incoming}
@@ -319,7 +325,9 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Frontend: `PPPP_BACKEND=http://127.0.0.1:8082 npm run dev -- --host 127.0.0.1 --port 5174`. Open it as
   `http://127.0.0.1:5174`, not `localhost`: cookies are per host, and `localhost` belongs to v1's session.
 - Sign in without Google: `http://127.0.0.1:5174/dev/login?email=someone@example.com` (only with `PPPP_DEV_LOGIN=true`;
-  an e-mail listed in `PPPP_ADMINS` gets the admin role). Use two browsers or profiles for two players.
+  an e-mail listed in `PPPP_ADMINS` gets the admin role; no `email` = the first admin). In `npm run dev` the sign-in
+  page's Google button goes to `/dev/login` (`SIGN_IN`), as a local backend has no Google client. Use two browsers or
+  profiles for two players.
 
 ## Backend (`backend/`)
 - Spring Boot 3.5, Java 21, Maven multi-module, MVC layers. Package root `dev.pppp`.

@@ -58,6 +58,12 @@ class DevLoginController {
         return why == null ? "ok" : why;
     }
 
+    /** Drops a running console's party to 1 HP: walk into tall grass, lose, black out, and a bloodstain is left. */
+    @GetMapping("/dev/faint")
+    String faint(@RequestParam String user) {
+        return dig.oneHp(user.toLowerCase(Locale.ROOT));
+    }
+
     /**
      * Rings one of AAAA's calls again (badge, rocket, blackout, birb, champion, kanto, lost, beaten) the next time the
      * player stands free, or with call=forget forgets them all (the Pokégear's ??? comes back after a Reset).
@@ -100,7 +106,10 @@ class DevLoginController {
     }
 
     @GetMapping("/dev/login")
-    void login(@RequestParam String email, HttpServletRequest req, HttpServletResponse res) throws IOException {
+    void login(@RequestParam(required = false) String email, HttpServletRequest req, HttpServletResponse res)
+            throws IOException {
+        if (email == null && !props.admins().isEmpty()) email = props.admins().getFirst(); // the sign-in button in dev
+        if (email == null) throw new IllegalArgumentException("Pass ?email=");
         String id = email.toLowerCase(Locale.ROOT);
         if (!id.matches("[a-z0-9._+-]+@[a-z0-9.-]+")) throw new IllegalArgumentException("Not an e-mail address");
         List<GrantedAuthority> roles = new ArrayList<>(List.of(new SimpleGrantedAuthority("ROLE_PLAYER")));

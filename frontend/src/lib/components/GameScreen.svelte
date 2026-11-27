@@ -8,6 +8,7 @@
 	import GodMessage from '#lib/components/GodMessage.svelte';
 	import ReactionFloats from '#lib/components/ReactionFloats.svelte';
 	import type { Snippet } from 'svelte';
+	import { untrack } from 'svelte';
 	import { backoff, nearbyPlayers, type ScreenPlayer } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
 	import { nameOf, needPicture, usernameOf } from '#lib/pictures.svelte.ts';
@@ -50,9 +51,40 @@
 	let notes = $state<ScreenNote[]>([]);
 	const reading = $derived(notes.find((n) => n.here) ?? null);
 	// Bloodstains in view (backend Bloodstains): where someone lost a battle; standing on one tells who and to what.
-	type ScreenStain = { id: string; user: string; x: number; y: number; foe: string; at: number; mine: boolean; here: boolean };
+	type ScreenStain = { id: string; user: string; x: number; y: number; foe: string; at: number; mine: boolean; here: boolean; replayMs: number };
 	let stains = $state<ScreenStain[]>([]);
 	const stain = $derived(reading ? null : (stains.find((s) => s.here) ?? null));
+	// The stain's replay (backend Replays: the last 5 s before that blackout, played once): it plays by itself on
+	// stepping onto the stain (not with reduced motion), and again from its ▶ Replay. A fresh URL restarts the GIF;
+	// it fades out over its last 0.4 s and closes just before its end, timed from when it has loaded (replayMs), so
+	// its first picture never shows again.
+	const REPLAY_FADE = 400;
+	let replaying = $state<string | null>(null);
+	let replayRun = $state(0);
+	let replayFading = $state(false);
+	let replayTimers: ReturnType<typeof setTimeout>[] = [];
+	const replayable = $derived(stain?.replayMs ? stain.id : null);
+	function stopReplay() {
+		replayTimers.forEach(clearTimeout);
+		replayTimers = [];
+		replaying = null;
+		replayFading = false;
+	}
+	function playReplay(id: string) {
+		stopReplay();
+		replayRun++;
+		replaying = id;
+	}
+	function replayLoaded() {
+		const ms = stain?.replayMs ?? 0;
+		replayTimers.forEach(clearTimeout);
+		replayTimers = [setTimeout(() => (replayFading = true), Math.max(0, ms - REPLAY_FADE)), setTimeout(stopReplay, Math.max(0, ms - 40))];
+	}
+	$effect(() => {
+		const id = replayable;
+		if (id && !matchMedia('(prefers-reduced-motion: reduce)').matches) untrack(() => playReplay(id)); // replayRun is no dependency
+		return () => untrack(stopReplay);
+	});
 	const ago = (at: number) => {
 		const m = Math.max(1, Math.round((Date.now() - at) / 60000));
 		return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
@@ -273,8 +305,19 @@
 			{#if stain && !overlay}
 				<div class="stain-read" role="status">
 					<p class="note-text">{#if stain.mine}You{:else}<Name user={stain.user} />{/if} blacked out here</p>
-					<p class="note-meta"><span>to {stain.foe} · {ago(stain.at)}</span></p>
+					<p class="note-meta">
+						<span>to {stain.foe} · {ago(stain.at)}</span>
+						{#if stain.replayMs && replaying !== stain.id}
+							<button type="button" class="replay-open" onclick={() => playReplay(stain.id)}>▶ Replay</button>
+						{/if}
+					</p>
 				</div>
+			{/if}
+			{#if replaying && stain && !overlay}
+				<figure class="replay" class:fading={replayFading}>
+					<img src="/api/v1/bloodstains/{replaying}/replay.gif?run={replayRun}" onload={replayLoaded} alt="The last seconds before {stain.mine ? 'you' : 'they'} blacked out to {stain.foe}" />
+					<button type="button" class="replay-close" aria-label="Close the replay" onclick={stopReplay}>×</button>
+				</figure>
 			{/if}
 			<GodMessage user={watch ?? session.me?.id} />
 			<ReactionFloats user={watch ?? session.me?.id} />
@@ -344,6 +387,78 @@
 		color: #ffe1dc;
 		text-align: center;
 		animation: note-in 0.3s ease-out;
+		pointer-events: auto;
+	}
+	.stain-read .replay-open {
+		padding: 3px 10px;
+		border: 1px solid #d01f2c;
+		border-radius: 999px;
+		background: transparent;
+		color: #ffe1dc;
+		font: 700 12px var(--body-font);
+		cursor: pointer;
+	}
+	/* The replay: a small see-through screen in the middle, pixels kept sharp. Like Dark Souls' bloodstain
+	   phantoms it rises out of a red haze in place and dissolves back into it (no movement). */
+	.replay {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		translate: -50% -50%;
+		opacity: 0.8;
+		width: 46%;
+		margin: 0;
+		z-index: 4;
+		border: 2px solid #d01f2c;
+		border-radius: 6px;
+		overflow: hidden;
+		box-shadow: 0 0 14px rgb(208 31 44 / 0.6);
+		background: #000;
+		pointer-events: auto;
+		animation: replay-in 0.6s ease-out;
+	}
+	.replay.fading {
+		opacity: 0;
+		filter: blur(4px) drop-shadow(0 0 12px #d01f2c);
+		transition:
+			opacity 0.4s ease-in,
+			filter 0.4s ease-in;
+	}
+	@keyframes replay-in {
+		from {
+			opacity: 0;
+			filter: blur(4px) drop-shadow(0 0 12px #d01f2c);
+		}
+	}
+	/* The phantom's red: the clip keeps its light and dark, its colours turn blood red. */
+	.replay::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: #d01f2c;
+		mix-blend-mode: color;
+		opacity: 0.6;
+		pointer-events: none;
+	}
+	.replay img {
+		display: block;
+		width: 100%;
+		image-rendering: pixelated;
+	}
+	.replay-close {
+		position: absolute;
+		z-index: 1;
+		top: 2px;
+		right: 2px;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		border: 0;
+		border-radius: 50%;
+		background: rgb(24 4 6 / 0.8);
+		color: #ffe1dc;
+		font: 700 15px/1 var(--body-font);
+		cursor: pointer;
 	}
 	.stain-read .note-text {
 		text-shadow: 0 0 8px #d01f2c;
@@ -398,6 +513,7 @@
 		.note-mark,
 		.stain-mark,
 		.stain-read,
+		.replay,
 		.note-read {
 			animation: none;
 		}
