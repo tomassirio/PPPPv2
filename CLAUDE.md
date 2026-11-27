@@ -203,6 +203,13 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   `SpeedControl` toggles on it (`isFastKey`). Notification cards (`GameToasts`) swipe away (sideways or up, finger or
   mouse; × for keyboards), are see-through, and catches/sightings take the Pokémon's tier (`GET /api/v1/game/tiers`,
   PowerRating letters by dex number: S/M legendary, A epic, B rare, C uncommon, D-F common).
+- Done: the new-game intro (`Intro.patch` at insert, last in the chain, all three games): Oak's speech rewritten
+  ("QUE HACES TITAN?", "My name is TOM. People call me the EGG.", "Wait, which Pib are you again?", ...; each new
+  text in its bank's free tail, its text_far repointed); Oak's pic is `oak-face.png` (his body, TOM's head hand-drawn,
+  one LZ literal in a free Pics bank; his olive made brown); ready-made names TOM/PIB/PIBETTE/GANGBST; a rival left
+  unnamed is LLOYD (bank 3 $7AF0). Crystal's gender menu adds "Apache Helicopter" ("Are you a boy, a girl, or
+  something else?"): it leaves wPlayerGender 2, which `Intro.helicopter` (frame hook) makes a boy and walks as the
+  Sailor (`pickSprite`). `IntroTest` uses data/'s ROMs.
 - Done: the release number at the foot of the account menu (`UserMenu`, desktop and phones): `__APP_VERSION__`, baked in
   by Vite from `PPPP_VERSION` (deploy.yml passes it as a build-arg to the frontend image; "dev" locally).
 - Done: notes on the ground (Dark Souls style). Holding A ~0.7 s while free in the overworld (Gamepad, nobody nearby)

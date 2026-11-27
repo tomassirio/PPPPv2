@@ -7,6 +7,7 @@ import dev.pppp.repository.CartridgeRepository;
 import dev.pppp.repository.PlayerRepository;
 import dev.pppp.service.game.AaaaCalls;
 import dev.pppp.service.game.Credits;
+import dev.pppp.service.game.Intro;
 import dev.pppp.service.game.Ghosts;
 import dev.pppp.service.game.PlayerPic;
 import dev.pppp.service.game.PlayerSprites;
@@ -669,12 +670,20 @@ public class PlayerConsoles {
         EmulatorHost host = new EmulatorHost();
         V1Red red = new V1Red();
         host.insert(game, cartridges.require(game), files.playerBatterySave(userId, game),
-                rom -> PlayerPic.patch(PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(
+                rom -> Intro.patch(PlayerPic.patch(PlayerSprites.patch(PokecenterDig.patch(Credits.patch(red.patch(
                         AaaaCalls.patch(rom, AaaaCalls.stage(players.aaaaCalls(userId)))))), players.sprite(userId),
-                        players.spriteColor(userId)), players.sprite(userId)));
+                        players.spriteColor(userId)), players.sprite(userId))));
         host.afterFrame(red::nicknames);
         host.afterFrame(AaaaCalls.battles(outcome -> battleListeners.forEach(l -> l.accept(userId, outcome))));
         host.afterFrame(PokecenterDig.patientReceptionist(host::isLinked));
+        // Crystal's "Apache Helicopter": a boy to the game, walking as the Sailor (rebuilt off the emulator's thread).
+        host.afterFrame(Intro.helicopter(() -> Thread.ofVirtual().start(() -> {
+            try {
+                pickSprite(userId, "SAILOR");
+            } catch (RuntimeException e) {
+                log.warn("Could not make {} the Sailor", userId, e);
+            }
+        })));
         host.onFrame(pixels -> {
             ghosts.frame(userId, game, host, pixels); // before the listeners: they send this array to the browser
             frameListeners.forEach(l -> l.accept(userId, pixels));
