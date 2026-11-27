@@ -1,6 +1,9 @@
 package dev.pppp.service.game;
 
+import dev.pppp.exception.NotFoundException;
 import dev.pppp.model.Bloodstain;
+import dev.pppp.model.LiveEvent;
+import dev.pppp.service.ChatService;
 import dev.pppp.repository.BloodstainRepository;
 import dev.pppp.service.PlayerConsoles;
 import java.time.Duration;
@@ -9,11 +12,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -45,9 +50,12 @@ public class Bloodstains {
     static final Layout GOLD_SILVER = new Layout(0xD116, 0xD118, 0xD11B, 0xCFE9, 0xD0EF, 0xD0FC, 0xCB34, 0xD042),
             CRYSTAL = new Layout(0xD22D, 0xD22F, 0xD231, 0xD0EE, 0xD206, 0xD213, 0xC656, 0xC2DC);
 
-    /** A stain on the player's screen: its tile's top left in screen pixels; here: they stand on it; replayMs: its replay's length (0: none). */
+    /**
+     * A stain on the player's screen: its tile's top left in screen pixels; here: they stand on it; replayMs: its
+     * replay's length (0: none); reactions: how many of each (ChatService.REACTIONS); reacted: the viewer's own.
+     */
     public record Shown(String id, String user, int x, int y, String foe, long at, boolean mine, boolean here,
-                        int replayMs) {}
+                        int replayMs, Map<String, Integer> reactions, String reacted) {}
 
     /** A battle running: where it began, and the latest foe seen. Poll thread only. */
     private static final class Fight {
@@ -66,10 +74,14 @@ public class Bloodstains {
     private final Replays replays;
     private final Map<String, Fight> fights = new ConcurrentHashMap<>();
     private final List<Bloodstain> stains = new CopyOnWriteArrayList<>();
+    /** Stain id -> user -> reaction, as in Redis (read every frame, so kept here too). */
+    private final Map<String, Map<String, String>> reactions = new ConcurrentHashMap<>();
+    private final ApplicationEventPublisher events;
     private volatile boolean loaded;
 
     public Bloodstains(PlayerConsoles consoles, PokecenterDig dig, Ghosts ghosts, BloodstainRepository repo,
-                       Replays replays) {
+                       Replays replays, ApplicationEventPublisher events) {
+        this.events = events;
         this.replays = replays;
         this.consoles = consoles;
         this.dig = dig;
@@ -166,13 +178,38 @@ public class Bloodstains {
             if (!s.map().equals(w.map())) continue;
             int sx = Ghosts.SCREEN_X + s.x() * STEP - w.x(), sy = Ghosts.SCREEN_Y + s.y() * STEP - w.y();
             if (sx <= -STEP || sx >= SCREEN_W || sy <= -STEP || sy >= SCREEN_H) continue;
+            Map<String, String> who = reactions.getOrDefault(s.id(), Map.of());
+            Map<String, Integer> counts = new TreeMap<>();
+            who.values().forEach(r -> counts.merge(r, 1, Integer::sum));
             out.add(new Shown(s.id(), s.user(), sx, sy, s.foe(), s.at(), s.user().equals(userId),
-                    s.x() * STEP == w.x() && s.y() * STEP == w.y(), replays.millis(s.id())));
+                    s.x() * STEP == w.x() && s.y() * STEP == w.y(), replays.millis(s.id()), counts, who.get(userId)));
         }
         return out;
     }
 
+    /**
+     * Reacts to someone else's stain with one of ChatService.REACTIONS; the same one again takes it back, another
+     * replaces it. The first reaction from each player tells the one who blacked out (STAIN_REACTION).
+     */
+    public void react(String userId, String stainId, String reaction) {
+        if (!ChatService.REACTIONS.contains(reaction)) throw new IllegalArgumentException("Unknown reaction");
+        load();
+        Bloodstain stain = stains.stream().filter(s -> s.id().equals(stainId)).findFirst()
+                .orElseThrow(() -> new NotFoundException("No such bloodstain"));
+        if (stain.user().equals(userId)) throw new IllegalArgumentException("That is your own bloodstain");
+        Map<String, String> who = reactions.computeIfAbsent(stainId, k -> new ConcurrentHashMap<>());
+        String was = who.get(userId), now = reaction.equals(was) ? null : reaction;
+        repo.react(stainId, userId, now);
+        if (now == null) who.remove(userId);
+        else who.put(userId, now);
+        if (was == null && now != null) {
+            events.publishEvent(new LiveEvent("STAIN_REACTION", Map.of("user", stain.user(), "from", userId,
+                    "reaction", now, "foe", stain.foe())));
+        }
+    }
+
     private void remove(String id) {
+        reactions.remove(id);
         repo.delete(id);
         replays.delete(id);
         stains.removeIf(s -> s.id().equals(id));
@@ -181,6 +218,10 @@ public class Bloodstains {
     private synchronized void load() {
         if (loaded) return;
         stains.addAll(repo.all());
+        for (Bloodstain s : stains) {
+            Map<String, String> who = repo.reactions(s.id());
+            if (!who.isEmpty()) reactions.put(s.id(), new ConcurrentHashMap<>(who));
+        }
         loaded = true;
     }
 }

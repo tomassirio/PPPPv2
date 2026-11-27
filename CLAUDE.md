@@ -237,7 +237,10 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   game time at 15 fps in memory (a picture that doesn't change counts 1 s at most), written on a loss as a GIF played once
   to `data/replays/{stainId}.gif` (deleted with the stain); `GET /api/v1/bloodstains/{id}/replay.gif`; `Shown.replayMs`.
   Standing on the stain plays it once by itself (not with reduced motion), centred, red-tinted, rising out of and
-  dissolving into a red haze; "▶ Replay" in its box plays it again. Dev only: `GET /dev/faint?user=` puts the party
+  dissolving into a red haze; "▶ Replay" in its box plays it again. Reactions: others pick one of the chat's six faces
+  in the stain's box (`POST /api/v1/bloodstains/{id}/reaction` {reaction}, again = take back; not your own), Redis hash
+  `pibs:bloodstains:reactions:{stainId}` (user -> face, gone with the stain), `Shown.reactions`/`reacted`; the owner
+  sees the counts and a "Bloodstain" card (`STAIN_REACTION` {user, from, reaction, foe}, first reaction per person). Dev only: `GET /dev/faint?user=` puts the party
   at 1 HP to lose the next battle. `DailyRewards`: days played (not in a row, UTC) in set
   `pibs:days:{userId}`; the first activity of a day (onActive) queues that day's reward as Mystery Gifts (90-day calendar;
   day 1 only welcomes, Poké Balls on day 2; milestones, random stone on 10/35, Surfing Pikachu 25, Odd Egg 45, Mew 60, Celebi 90; small things between) and sends

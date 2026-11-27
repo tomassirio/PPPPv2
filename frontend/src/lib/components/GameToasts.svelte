@@ -12,7 +12,7 @@
 	import { api } from '#lib/api.ts';
 	import { nameOf, usernameOf } from '#lib/pictures.svelte.ts';
 	import { mentions } from '#lib/chat/bubble.ts';
-	import type { ChatMessage } from '#lib/chat/messages.ts';
+	import { REACTIONS, type ChatMessage } from '#lib/chat/messages.ts';
 	import { session } from '#lib/session.svelte.ts';
 	import RarityBall from '#lib/components/RarityBall.svelte';
 	import { tip } from '#lib/tour.svelte.ts';
@@ -58,6 +58,15 @@
 			const detail = `${nameOf(a.from)}'s ${a.got.nickname ?? a.got.name} (Lv ${a.got.level}) joined your party. Your game was saved.`;
 			queue = [...queue, { user: a.user, type: 'WONDER', detail, points: 0, at: Date.now(), src: `/api/v1/game/icons/${a.got.species}.png` }].slice(-5);
 			if (mine) navigator.vibrate?.([20, 40, 60]);
+		})
+	);
+	// Another Pib reacted to one of this player's bloodstains (backend Bloodstains.react; first reaction each).
+	$effect(() =>
+		on('STAIN_REACTION', (r: { user: string; from: string; reaction: string; foe: string }) => {
+			if (r.user !== whose) return;
+			const face = REACTIONS.find((x) => x.id === r.reaction);
+			const detail = `${nameOf(r.from)} reacted ${face?.label ?? r.reaction} to your blackout to ${r.foe}`;
+			queue = [...queue, { user: r.from, type: 'STAIN', detail, points: 0, at: Date.now(), src: face?.src }].slice(-5);
 		})
 	);
 	// The first Pib to catch a species (backend GroupDex).
@@ -129,6 +138,7 @@
 		MENTION: 'You were mentioned',
 		GIFT: 'Mystery Gift!',
 		WONDER: 'Wonder Trade',
+		STAIN: 'Bloodstain',
 		FIRST: 'First Pib to catch it!'
 	};
 	// The card's main line: the thing itself, not a sentence about "You".
@@ -180,7 +190,7 @@
 		return t ? MON_RARITY[t] : null;
 	}
 	const tier = (e: ScoreEvent) =>
-		e.type === 'MENTION' ? 'ping' : e.type === 'FIRST' ? 'epic' : e.type === 'WONDER' ? 'rare' : (monRarity(e) ?? tierOf(e));
+		e.type === 'MENTION' ? 'ping' : e.type === 'FIRST' ? 'epic' : e.type === 'WONDER' ? 'rare' : e.type === 'STAIN' ? 'uncommon' : (monRarity(e) ?? tierOf(e));
 	const loud = (e: ScoreEvent) => tier(e) === 'epic' || tier(e) === 'legendary';
 	let broken = $state(false);
 	$effect(() => {

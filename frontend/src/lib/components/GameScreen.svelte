@@ -12,7 +12,7 @@
 	import { backoff, nearbyPlayers, type ScreenPlayer } from '#lib/play.ts';
 	import { on } from '#lib/events.ts';
 	import { nameOf, needPicture, usernameOf } from '#lib/pictures.svelte.ts';
-	import { nameColor, type ChatMessage } from '#lib/chat/messages.ts';
+	import { nameColor, REACTIONS, type ChatMessage } from '#lib/chat/messages.ts';
 	import { bubble, letters, type BubbleContext } from '#lib/chat/bubble.ts';
 	import { board } from '#lib/board.svelte.ts';
 	import { game } from '#lib/game.svelte.ts';
@@ -51,7 +51,7 @@
 	let notes = $state<ScreenNote[]>([]);
 	const reading = $derived(notes.find((n) => n.here) ?? null);
 	// Bloodstains in view (backend Bloodstains): where someone lost a battle; standing on one tells who and to what.
-	type ScreenStain = { id: string; user: string; x: number; y: number; foe: string; at: number; mine: boolean; here: boolean; replayMs: number };
+	type ScreenStain = { id: string; user: string; x: number; y: number; foe: string; at: number; mine: boolean; here: boolean; replayMs: number; reactions?: Record<string, number>; reacted?: string | null };
 	let stains = $state<ScreenStain[]>([]);
 	const stain = $derived(reading ? null : (stains.find((s) => s.here) ?? null));
 	// The stain's replay (backend Replays: the last 5 s before that blackout, played once): it plays by itself on
@@ -311,6 +311,28 @@
 							<button type="button" class="replay-open" onclick={() => playReplay(stain.id)}>▶ Replay</button>
 						{/if}
 					</p>
+					<!-- Reactions: the chat's six faces. Others pick one (again: take it back); the owner sees the counts. -->
+					{#if !stain.mine && !watch}
+						<p class="stain-faces" role="group" aria-label="React">
+							{#each REACTIONS as r (r.id)}
+								<button
+									type="button"
+									class:on={stain.reacted === r.id}
+									aria-pressed={stain.reacted === r.id}
+									aria-label={r.label}
+									title={r.label}
+									onclick={() => api('POST', `/bloodstains/${stain.id}/reaction`, { reaction: r.id }).catch(() => {})}
+									><img src={r.src} alt="" />{#if stain.reactions?.[r.id]}<span>{stain.reactions[r.id]}</span>{/if}</button
+								>
+							{/each}
+						</p>
+					{:else if Object.keys(stain.reactions ?? {}).length}
+						<p class="stain-faces" aria-label="Reactions">
+							{#each REACTIONS.filter((r) => stain.reactions?.[r.id]) as r (r.id)}
+								<span title={r.label}><img src={r.src} alt={r.label} /><span>{stain.reactions?.[r.id]}</span></span>
+							{/each}
+						</p>
+					{/if}
 				</div>
 			{/if}
 			{#if replaying && stain && !overlay}
@@ -459,6 +481,37 @@
 		color: #ffe1dc;
 		font: 700 15px/1 var(--body-font);
 		cursor: pointer;
+	}
+	.stain-faces {
+		margin: 6px 0 0;
+		display: flex;
+		justify-content: center;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+	.stain-faces > button,
+	.stain-faces > span {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding: 2px 6px;
+		border: 1px solid rgb(208 31 44 / 0.5);
+		border-radius: 999px;
+		background: transparent;
+		color: #ffe1dc;
+		font: 700 11px var(--body-font);
+	}
+	.stain-faces > button {
+		cursor: pointer;
+	}
+	.stain-faces > button.on {
+		border-color: #ff6b75;
+		background: rgb(208 31 44 / 0.45);
+	}
+	.stain-faces img {
+		width: 18px;
+		height: 18px;
+		image-rendering: pixelated;
 	}
 	.stain-read .note-text {
 		text-shadow: 0 0 8px #d01f2c;

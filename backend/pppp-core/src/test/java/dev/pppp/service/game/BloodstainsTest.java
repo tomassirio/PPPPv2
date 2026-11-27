@@ -23,6 +23,8 @@ class BloodstainsTest {
     final int[] ram = new int[0x10000];
     final PlayerConsoles consoles = mock(PlayerConsoles.class);
     final Ghosts ghosts = mock(Ghosts.class);
+    final java.util.List<Object> published = new java.util.ArrayList<>();
+    final org.springframework.context.ApplicationEventPublisher events = published::add;
     Bloodstains stains;
 
     void setUp() throws Exception {
@@ -39,7 +41,7 @@ class BloodstainsTest {
         });
         BloodstainRepository repo = mock(BloodstainRepository.class);
         when(repo.all()).thenReturn(List.of());
-        stains = new Bloodstains(consoles, dig, ghosts, repo, mock(Replays.class));
+        stains = new Bloodstains(consoles, dig, ghosts, repo, mock(Replays.class), events);
         when(ghosts.lastStood("a")).thenReturn(new Ghosts.Where("ROUTE_34", 10 * 16, 7 * 16));
     }
 
@@ -77,5 +79,26 @@ class BloodstainsTest {
         assertThat(stains.visible("b")).extracting(Bloodstains.Shown::foe).contains("a wild Gastly Lv 17");
         when(ghosts.where("b")).thenReturn(new Ghosts.Where("ROUTE_35", 10 * 16, 7 * 16));
         assertThat(stains.visible("b")).isEmpty();
+    }
+
+    @Test
+    void othersReactOnceEachAndOnlyTheFirstTellsTheOwner() throws Exception {
+        setUp();
+        battle(0, 0, 92, 17, 1); // "a" loses to a wild Gastly
+        when(ghosts.where("b")).thenReturn(new Ghosts.Where("ROUTE_34", 10 * 16, 7 * 16));
+        String id = stains.visible("b").getFirst().id();
+
+        stains.react("b", id, "haha");
+        stains.react("b", id, "sad"); // changes it: no second card
+        stains.react("c", id, "sad");
+        var shown = stains.visible("b").getFirst();
+        assertThat(shown.reactions()).containsExactly(java.util.Map.entry("sad", 2));
+        assertThat(shown.reacted()).isEqualTo("sad");
+        assertThat(published).hasSize(2);
+
+        stains.react("b", id, "sad"); // the same again takes it back
+        assertThat(stains.visible("b").getFirst().reactions()).containsExactly(java.util.Map.entry("sad", 1));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> stains.react("a", id, "haha"))
+                .isInstanceOf(IllegalArgumentException.class); // not your own
     }
 }
