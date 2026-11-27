@@ -38,7 +38,9 @@ class GameMetricsTest {
                 "pppp_websockets{endpoint=\"screen\"}", "pppp_link_sessions{kind=\"TRADE\"} 0.0", "pppp_players_reached{step=\"4 champion\"} 0.0",
                 "pppp_players_by_badges{badges=\"16\"} 0.0", "pppp_pokemon_caught 0.0", "pppp_players_active{window=\"today\"} 1.0", "pppp_players_returned{after=\"1d\"} 0.0",
                 "pppp_gifts{state=\"sent\"} 0.0", "pppp_access_requests 0.0", "pppp_shinies 0.0", "pppp_play_session_seconds_count",
-                "pppp_events_total{detail=\"USER\",kind=\"\",type=\"CHAT_MESSAGE\"} 1.0", "jvm_memory_used_bytes");
+                "pppp_events_total{detail=\"USER\",kind=\"\",type=\"CHAT_MESSAGE\"} 1.0", "jvm_memory_used_bytes",
+                "pppp_bloodstains 0.0", "pppp_group_dex{state=\"caught\"} 0.0", "pppp_wonder_pool 0.0",
+                "pppp_aaaa_calls{call=\"beaten\"} 0.0", "pppp_konami_gifts 0.0");
     }
 
     @Test

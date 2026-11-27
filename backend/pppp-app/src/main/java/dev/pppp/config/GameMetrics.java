@@ -37,7 +37,8 @@ public class GameMetrics implements MeterBinder {
     private static final List<String> KINDS = List.of("TRADE", "BATTLE");
     /** Events worth counting; the rest (SCOREBOARD_CHANGED, GAME_STATE, ...) are just refreshes. */
     private static final Set<String> COUNTED = Set.of("PROGRESS", "ACHIEVEMENT_UNLOCKED", "MYSTERY_GIFT", "CHAT_MESSAGE",
-            "LINK_CHALLENGE", "LINK_SESSION", "PLAYER_RESET", "WATCH_REACTION");
+            "LINK_CHALLENGE", "LINK_SESSION", "PLAYER_RESET", "WATCH_REACTION", "WONDER_TRADE", "WONDER_ARRIVED", "WONDER_POOL",
+            "DEX_FIRST", "DAY_PLAYED");
 
     private final PlayerConsoles consoles;
     private final LinkService link;
@@ -51,12 +52,22 @@ public class GameMetrics implements MeterBinder {
     private final dev.pppp.repository.StatsRepository stats;
     private final dev.pppp.repository.GiftRepository gifts;
     private final dev.pppp.repository.AccessRequestRepository requests;
+    private final dev.pppp.repository.BloodstainRepository stains;
+    private final dev.pppp.repository.GroupDexRepository dex;
+    private final dev.pppp.repository.WonderRepository wonder;
+    private final dev.pppp.repository.PlayerRepository players;
     private MeterRegistry registry;
 
     public GameMetrics(PlayerConsoles consoles, LinkService link, EventPublisher events, ScreenWebSocketHandler screens,
                        AudioWebSocketHandler audio, WatchWebSocketHandler watch, ProgressRepository progress,
                        NoteRepository notes, ProgressTracker tracker, dev.pppp.repository.StatsRepository stats,
-                       dev.pppp.repository.GiftRepository gifts, dev.pppp.repository.AccessRequestRepository requests) {
+                       dev.pppp.repository.GiftRepository gifts, dev.pppp.repository.AccessRequestRepository requests,
+                       dev.pppp.repository.BloodstainRepository stains, dev.pppp.repository.GroupDexRepository dex,
+                       dev.pppp.repository.WonderRepository wonder, dev.pppp.repository.PlayerRepository players) {
+        this.stains = stains;
+        this.dex = dex;
+        this.wonder = wonder;
+        this.players = players;
         this.tracker = tracker;
         this.stats = stats;
         this.gifts = gifts;
@@ -156,6 +167,15 @@ public class GameMetrics implements MeterBinder {
         gauge(r, "pppp_access_accepted", "Sign-in requests let in (running total)", m -> slow().totals.getOrDefault("accessAccepted", 0L));
         gauge(r, "pppp_access_rejected", "Sign-in requests turned down (running total)", m -> slow().totals.getOrDefault("accessRejected", 0L));
         gauge(r, "pppp_access_wait_seconds", "Time requests waited before being let in, added up", m -> slow().totals.getOrDefault("accessWaitSeconds", 0L));
+        // Later features: bloodstains, the Pibs' Pokédex, Wonder Trade, AAAA's calls, the Konami gift.
+        gauge(r, "pppp_bloodstains", "Bloodstains on the ground (blackouts in the last 48 h)", m -> slow().bloodstains);
+        gauge(r, "pppp_group_dex", "Species in the Pibs' Pokédex (anyone)", m -> slow().dexSeen, "state", "seen");
+        gauge(r, "pppp_group_dex", "Species in the Pibs' Pokédex (anyone)", m -> slow().dexCaught, "state", "caught");
+        gauge(r, "pppp_wonder_pool", "Pokémon waiting in the Wonder Trade pool", m -> slow().wonderPool);
+        for (String call : dev.pppp.service.game.AaaaCalls.IDS) {
+            gauge(r, "pppp_aaaa_calls", "Players AAAA's phone call has rung for", m -> slow().calls.getOrDefault(call, 0L), "call", call);
+        }
+        gauge(r, "pppp_konami_gifts", "Players who found the Konami code (and got the prima donna)", m -> slow().konami);
     }
 
     /** Steps timed in play hours and their achievements. */
@@ -171,7 +191,8 @@ public class GameMetrics implements MeterBinder {
     private record Slow(long activeToday, long activeYesterday, long active7d, long active30d, long returnedDay,
                         long returnedWeek, long previousWeek, java.util.Map<String, double[]> hoursTo, long hatched,
                         long shinies, java.util.Map<String, Long> totals, long giftsWaiting, long notesRated,
-                        long noteGoods, long requests, double oldestWait) {}
+                        long noteGoods, long requests, double oldestWait, long bloodstains, long dexSeen,
+                        long dexCaught, long wonderPool, java.util.Map<String, Long> calls, long konami) {}
 
     private volatile Slow slow;
     private volatile long slowAt;
@@ -203,12 +224,23 @@ public class GameMetrics implements MeterBinder {
             goods += g;
         }
         var waiting = requests.findAll();
+        long since = System.currentTimeMillis() - java.time.Duration.ofHours(48).toMillis();
+        java.util.Map<String, Long> calls = new java.util.HashMap<>();
+        long konami = 0;
+        for (String user : progress.ranking()) {
+            players.aaaaCalls(user).forEach((call, v) -> {
+                if (!"pending".equals(v)) calls.merge(call, 1L, Long::sum);
+            });
+            if (players.konamiGift(user)) konami++;
+        }
         long oldest = waiting.stream().mapToLong(dev.pppp.model.AccessRequest::requestedAt).min().orElse(0);
         return new Slow(todays.size(), yesterdays.size(), week.size(), stats.active(days(today, 0, 30)).size(),
                 yesterdays.stream().filter(todays::contains).count(), previous.stream().filter(week::contains).count(),
                 previous.size(), hoursTo, logs.stream().mapToLong(dev.pppp.model.TrainerLog::hatched).sum(),
                 logs.stream().mapToLong(l -> l.shinies().size()).sum(), stats.totals(), gifts.waiting(progress.ranking()),
-                rated, goods, waiting.size(), oldest == 0 ? 0 : (System.currentTimeMillis() - oldest) / 1000.0);
+                rated, goods, waiting.size(), oldest == 0 ? 0 : (System.currentTimeMillis() - oldest) / 1000.0,
+                stains.all().stream().filter(b -> b.at() >= since).count(), dex.all(dev.pppp.repository.GroupDexRepository.SEEN).size(),
+                dex.all(dev.pppp.repository.GroupDexRepository.CAUGHT).size(), wonder.pool().size(), calls, konami);
     }
 
     /** UTC days from today - from to today - (to - 1). */

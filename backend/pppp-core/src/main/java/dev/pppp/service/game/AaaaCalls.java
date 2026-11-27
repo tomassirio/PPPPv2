@@ -68,6 +68,8 @@ public class AaaaCalls {
             new Call("kanto", false, "Come and get me,", LINE, "Pib."),
             new Call("lost", true, "AY LMAOCHAMP"),
             new Call("beaten", true, "GG champ! Thanks", LINE, "for playing", CONT, "PPPPv2!"));
+    /** The call ids, in story order (GameMetrics). */
+    public static final List<String> IDS = CALLS.stream().map(Call::id).toList();
 
     /** What ??? says when the player calls: twice the first, then the second. */
     static final Object[] DOTS = {"............", LINE, "............"},

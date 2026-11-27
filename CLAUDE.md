@@ -290,7 +290,9 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   minutes at unlock; ProgressTracker.rate) -> pppp_hours_to_avg/_players{step}. TrainerLog.shinies ("OT:DVs" ever in the
   party) -> pppp_shinies; pppp_eggs_hatched. `pibs:stats` hash (StatsRepository; giftsSent/giftsDelivered from
   GiftRepository, accessAccepted/accessWaitSeconds/accessRejected from AccessRequestRepository.counted) ->
-  pppp_gifts{state sent|delivered|waiting}, pppp_access_*; pppp_notes_rated, pppp_note_goods. Timer pppp_play_session
+  pppp_gifts{state sent|delivered|waiting}, pppp_access_*; pppp_notes_rated, pppp_note_goods. Later features: pppp_bloodstains (last 48 h),
+  pppp_group_dex{state seen|caught}, pppp_wonder_pool, pppp_aaaa_calls{call} (players it rang for), pppp_konami_gifts;
+  pppp_events_total also counts WATCH_REACTION, WONDER_TRADE/ARRIVED/POOL, DEX_FIRST, DAY_PLAYED (the dashboard's Community row). Timer pppp_play_session
   (a /ws/screen socket open to close, SLO buckets 1m-4h). The Redis-heavy gauges are built at most once a minute. Scraped by turing-pi-server's Prometheus (job
   `ppppv2-backend-prod`, labels project=ppppv2 ...); Grafana dashboard `services/grafana/dashboards/ppppv2.json` there.
 - Next: achievements UI, admin actions on player consoles, a party box for Gold/Silver/Crystal, a real trade between two Pokémon

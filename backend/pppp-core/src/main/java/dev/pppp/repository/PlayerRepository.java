@@ -68,6 +68,10 @@ public class PlayerRepository {
         redis.opsForHash().delete(key(userId), "call:" + call);
     }
 
+    public boolean konamiGift(String userId) {
+        return redis.opsForHash().hasKey(key(userId), "konamiGift");
+    }
+
     /** Marks the Konami code's gift as given (field konamiGift); false when it already was. A reset forgets it. */
     public boolean claimKonamiGift(String userId) {
         return redis.opsForHash().putIfAbsent(key(userId), "konamiGift", String.valueOf(System.currentTimeMillis()));
