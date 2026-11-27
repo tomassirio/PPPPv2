@@ -279,7 +279,65 @@ public class PokecenterDig {
         write(out, game, BATTLE_SCRIPT, BATTLE_X);
         if (game.at == CRYSTAL) keepLook(out);
         shortReceptionists(out);
+        shortNurse(out);
         return out;
+    }
+
+    /**
+     * PokecenterNurseScript (engine/events/std_scripts.asm): no greeting, "Heal?" (Yes/No), "Healing...", no "Your
+     * #MON are fully healed", then the goodbye as before. Each greeting's `writetext; promptbutton; sjump .ok` (all
+     * jump to the same .ok as the morning one; Crystal's PokéCom ones too) becomes `sjump .ok`, and the return text's
+     * `writetext; pause 20` an sjump past it. Crystal uses farwritetext (4B bank addr), Gold/Silver writetext (4C addr);
+     * promptbutton/buttonsound is 55/54 and pause 8B/8A. Anything not found as pret has it is left alone.
+     */
+    static void shortNurse(byte[] rom) {
+        int morning = indexOf(rom, text("Good morning!", LINE, "Welcome to our"));
+        if (morning < 0) return;
+        int[] ref = textRef(rom, morning);
+        if (ref == null || !button(rom[ref[0] + ref[1]]) || rom[ref[0] + ref[1] + 1] != SJUMP) return;
+        int ok = rom[ref[0] + ref[1] + 2] & 0xFF | (rom[ref[0] + ref[1] + 3] & 0xFF) << 8;
+        int base = ref[0] / 0x4000 * 0x4000;
+        for (int i = base; i + 8 <= base + 0x4000; i++) {
+            int len = (rom[i] & 0xFF) == FARWRITETEXT ? 4 : (rom[i] & 0xFF) == WRITETEXT ? 3 : 0;
+            if (len == 0 || !button(rom[i + len]) || rom[i + len + 1] != SJUMP
+                    || (rom[i + len + 2] & 0xFF | (rom[i + len + 3] & 0xFF) << 8) != ok) continue;
+            rom[i] = (byte) SJUMP;
+            rom[i + 1] = (byte) ok;
+            rom[i + 2] = (byte) (ok >> 8);
+        }
+        int healed = indexOf(rom, text("Thank you for", LINE, "waiting."));
+        while (healed >= 0) { // also in Crystal's Mobile texts, unused by the nurse
+            int[] r = textRef(rom, healed);
+            int p = r == null ? -1 : r[0] + r[1];
+            if (p >= 0 && ((rom[p] & 0xFF) == 0x8A || (rom[p] & 0xFF) == 0x8B) && rom[p + 1] == 20) {
+                int next = (p + 2) % 0x4000 + 0x4000;
+                rom[r[0]] = (byte) SJUMP;
+                rom[r[0] + 1] = (byte) next;
+                rom[r[0] + 2] = (byte) (next >> 8);
+            }
+            healed = indexOf(rom, text("Thank you for", LINE, "waiting."), healed + 1);
+        }
+        rewrite(rom, text("We can heal your", LINE), text("Heal?", DONE));
+        rewrite(rom, text("OK, may I see your", LINE), text("Healing...", DONE));
+    }
+
+    private static boolean button(byte b) {
+        return b == 0x54 || b == 0x55;
+    }
+
+    /** The one script command that writes the text at `at`: {position, length}, or null when none or several. */
+    static int[] textRef(byte[] rom, int at) {
+        int local = at % 0x4000 + 0x4000;
+        byte[] far = {(byte) FARWRITETEXT, (byte) (at / 0x4000), (byte) local, (byte) (local >> 8)};
+        int i = indexOf(rom, far);
+        if (i >= 0) return indexOf(rom, far, i + 1) < 0 ? new int[] {i, 4} : null;
+        byte[] near = {(byte) WRITETEXT, (byte) local, (byte) (local >> 8)};
+        int bank = at / 0x4000 * 0x4000, found = -1;
+        for (int j = indexOf(rom, near, bank); j >= 0 && j < bank + 0x4000; j = indexOf(rom, near, j + 1)) {
+            if (found >= 0) return null;
+            found = j;
+        }
+        return found < 0 ? null : new int[] {found, 3};
     }
 
     /**
@@ -312,7 +370,7 @@ public class PokecenterDig {
     }
 
     /** Script opcodes (macros/scripts/events.asm, the same in all three) and text control bytes (charmap.asm). */
-    private static final int WRITETEXT = 0x4C, YESORNO = 0x4E, IFFALSE = 0x08, SJUMP = 0x03;
+    private static final int WRITETEXT = 0x4C, FARWRITETEXT = 0x4B, YESORNO = 0x4E, IFFALSE = 0x08, SJUMP = 0x03;
     private static final Object LINE = 0x4F, CONT = 0x55, PROMPT = 0x58, DONE = 0x57;
 
     /** Where old starts (once in the ROM) after writing new over it, ended by `done`; -1 when absent or too short. */
