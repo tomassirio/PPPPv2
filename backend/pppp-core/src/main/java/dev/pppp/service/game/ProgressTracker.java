@@ -318,13 +318,15 @@ public class ProgressTracker {
 
     /**
      * Partners recorded only on one side before links were recorded at plug-in time: give the other side theirs
-     * (and its link achievements). Runs once at start-up; a no-op when every pair is already mutual.
+     * (and its link achievements). Runs once at start-up; a no-op when every pair is already mutual. A partner no
+     * longer on the scoreboard (reset) is left alone, or each start-up would bring their run back.
      */
     @EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
     public void backfillPartners() {
-        for (String userId : repo.ranking()) {
+        List<String> players = repo.ranking();
+        for (String userId : players) {
             TrainerLog log = repo.log(userId);
-            if (log != null) log.partners().forEach(p -> linked(p, userId));
+            if (log != null) log.partners().stream().filter(players::contains).forEach(p -> linked(p, userId));
         }
     }
 
