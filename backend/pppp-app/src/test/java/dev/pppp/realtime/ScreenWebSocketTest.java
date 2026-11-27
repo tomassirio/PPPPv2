@@ -116,7 +116,8 @@ class ScreenWebSocketTest {
             byte[] png = frames.poll(15, TimeUnit.SECONDS);
             assertThat(png).isNotNull().startsWith((byte) 0x89, (byte) 'P', (byte) 'N', (byte) 'G');
             assertThat(png.length).isLessThan(10_000);
-            assertThat(frames.poll(15, TimeUnit.SECONDS)).isNotNull(); // keeps streaming
+            // No "keeps streaming" check: the test ROM's screen stops changing, and an unchanged picture is not sent
+            // again (FrameEncoderTest.anUnchangedPictureIsTheSamePngArray).
 
             events.publishEvent(new UserRevokedEvent("friend@x.y"));
             assertThat(closed.get(5, TimeUnit.SECONDS).getCode()).isEqualTo(CloseStatus.POLICY_VIOLATION.getCode());

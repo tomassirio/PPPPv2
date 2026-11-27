@@ -59,6 +59,7 @@ class SessionsApiTest {
     @AfterEach
     void defaults() {
         consoles.limits(Duration.ofSeconds(60), Duration.ofMinutes(15));
+        consoles.unwatchedLimit(Duration.ofMinutes(2));
     }
 
     private void pick(String userId) throws Exception {
@@ -122,6 +123,23 @@ class SessionsApiTest {
         consoles.sweep();
         assertThat(consoles.isAwake("leaver@x.y")).isTrue();
         consoles.discard("leaver@x.y");
+    }
+
+    @Test
+    void aConsoleWithNoScreenOpenIsPausedSoon() throws Exception {
+        pick("gone@x.y");
+        consoles.unwatchedLimit(Duration.ofMillis(200)); // stands in for two minutes
+        consoles.open("gone@x.y"); // no /ws/screen socket in this test: nobody sees it
+        consoles.leave("gone@x.y");
+        consoles.sweep(); // first seen without a screen
+        assertThat(consoles.isAwake("gone@x.y")).isTrue();
+        Thread.sleep(250);
+        consoles.sweep();
+        assertThat(consoles.isAwake("gone@x.y")).isFalse();
+        assertThat(consoles.running()).contains("gone@x.y"); // parked: Continue resumes it at once
+        consoles.open("gone@x.y");
+        assertThat(consoles.isAwake("gone@x.y")).isTrue();
+        consoles.discard("gone@x.y");
     }
 
     @Test

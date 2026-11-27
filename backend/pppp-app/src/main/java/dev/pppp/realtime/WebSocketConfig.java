@@ -1,6 +1,7 @@
 package dev.pppp.realtime;
 
 import dev.pppp.service.LinkService;
+import dev.pppp.service.PlayerConsoles;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
@@ -19,10 +20,11 @@ class WebSocketConfig implements WebSocketConfigurer {
     private final WatchWebSocketHandler watch;
 
     WebSocketConfig(ScreenWebSocketHandler screen, AudioWebSocketHandler audio, InputWebSocketHandler input, EventPublisher events,
-                    WatchWebSocketHandler watch, LinkService link) {
+                    WatchWebSocketHandler watch, LinkService link, PlayerConsoles consoles) {
         this.events = events;
         this.watch = watch;
         link.presence(events::isOnline); // a linked player with no tab open for a minute leaves their session
+        consoles.screens(screen::watching); // a console with no screen open for two minutes is parked
         this.screen = screen;
         this.audio = audio;
         this.input = input;

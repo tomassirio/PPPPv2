@@ -23,7 +23,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   name tag off other screens): the console keeps running. `PlayerConsoles.sweep` (every 5 s) pauses one untouched for
   an hour (`inactivity`: no button and no browser activity ping, `"active"` on /ws/input at most once a minute; tab
   open or not; `idle`: paused, battery flushed, state parked, still in memory so Continue resumes at once) and shuts
-  down one paused for a day (`grace`); linked consoles are left to LinkService. `onAway` (fired once a console
+  down one paused for a day (`grace`); one with no /play screen open for 2 minutes (`unwatched`,
+  `ScreenWebSocketHandler.watching`) is paused the same way, so unwatched consoles cost no CPU; linked consoles are left to LinkService. `onAway` (fired once a console
   is paused and parked) closes its screens with 4408 ("Paused while you were away" + Continue) and admin watchers
   with 4410. The next open boots from the parked state. Admin: People's Manage opens `/admin/players/{id}`: their
   Game Boy (`GET /api/v1/admin/sessions/{userId}`: RUNNING / IDLE / PAUSED-not-saved / CLOSED, last action, pause or
@@ -154,7 +155,7 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
   segmented control, the sorts as chips scrolling sideways; each table row a small card (no sideways scroll). Profiles on phones: the header a centred stack, the tabs
   share the width ("Stats"). Sign-in on phones: the handheld with the full banner on its bezel (tapping its screen is START),
   the numbers on a pill and the Google button, sized to fit one screen. `GET /api/v1/me` is open: 204 when signed out.
-  Tab titles: "<page> · PPPPv2". `FrameEncoder` writes palette PNGs by hand (BEST_SPEED,
+  Tab titles: "<page> · PPPPv2". `FrameEncoder.Last` reuses the PNG while the pixels are unchanged and /ws/screen and /ws/watch send a picture only when it changed. `FrameEncoder` writes palette PNGs by hand (BEST_SPEED,
   RGB past 256 colours): ~15x cheaper than ImageIO, which at 120 frames/s took the CPU a 4x console needed on the
   Pi (it measured 0.9x; `GET /api/v1/me/speed`). GameScreen coalesces /ws/screen: messages only store the
   newest picture and name tags, one draw per animation frame (handling each of 120/s at 4x queued up on phones). Game picker on phones: the three cartridges in one row. A sideways drag on /play's panel moves it with the next/previous one beside it (menu order, looping; a third
@@ -312,7 +313,8 @@ Screen mock-ups: https://claude.ai/artifact/BJrZcj9MsEe7sN9m6odiMa.
 - Deploy: `.github/workflows/deploy.yml`. Every push to main is a release: the next version (latest `v*` tag, patch
   bump; `#minor`/`#major` in the commit message; first 2.0.0), arm64 images `ghcr.io/tomassirio/ppppv2-{backend,
   frontend}:{version,sha,latest}`, both charts as OCI packages `oci://ghcr.io/tomassirio/charts/ppppv2-*` (image tag
-  = version), a GitHub Release `v{version}` (commits since the last one, chart .tgz attached), then Helm releases `ppppv2-backend` / `ppppv2-frontend` in namespace `ppppv2`; GitHub environment `prod`:
+  = version), a GitHub Release `v{version}` (commits since the last one, chart .tgz attached), then, once approved (the `prod`
+  environment's required reviewer: tomassirio; deploy when nobody is playing), Helm releases `ppppv2-backend` / `ppppv2-frontend` in namespace `ppppv2`; GitHub environment `prod`:
   secrets TWINGATE_SERVICE_KEY, KUBECONFIG_CONTENT, GOOGLE_CLIENT_SECRET; vars GOOGLE_CLIENT_ID, PPPP_ADMINS).
   Namespace and `ppppv2-data-pvc` (NFS 192.168.2.150:/volume1/PPPPv2) come from turing-pi-server's storage chart; v1
   stays in `pppp` with its own /volume1/PPPP. KUBECONFIG_CONTENT = `kubectl config view --raw --minify --flatten
