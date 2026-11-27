@@ -103,12 +103,13 @@ public class WatchWebSocketHandler extends AbstractWebSocketHandler {
         }
         Watched w = watched.computeIfAbsent(target, id -> {
             Map<WebSocketSession, Handoff<Out>> sockets = new ConcurrentHashMap<>();
+            FrameEncoder.Last last = new FrameEncoder.Last();
             return new Watched(new Handoff<>(1, frame -> {
-                Out out = new Out(frame.players(), FrameEncoder.png(frame.pixels()));
+                Out out = new Out(frame.players(), last.png(frame.pixels()));
                 sockets.values().forEach(slot -> slot.offer(out));
             }), sockets);
         });
-        String[] sent = {null}; // the players message this socket last got; only its handoff's thread touches it
+        Object[] sent = {null, null}; // the players message and picture this socket last got; only its handoff's thread touches it
         w.sockets().put(session, new Handoff<>(1, out -> send(session, out, sent)));
         // It may have stopped between the check above and now (onAway missed this socket).
         if (admin(session) && consoles.linkedWith(target) == null && !consoles.isAwake(target)) {
@@ -151,14 +152,17 @@ public class WatchWebSocketHandler extends AbstractWebSocketHandler {
         return last.isEmpty() ? null : URLDecoder.decode(last, StandardCharsets.UTF_8).toLowerCase();
     }
 
-    private static void send(WebSocketSession session, Out out, String[] sent) {
+    private static void send(WebSocketSession session, Out out, Object[] sent) {
         if (!session.isOpen()) return;
         try {
             if (!out.players().equals(sent[0])) {
                 session.sendMessage(new TextMessage(out.players()));
                 sent[0] = out.players();
             }
-            session.sendMessage(new BinaryMessage(out.png()));
+            if (out.png() != sent[1]) { // the same array: the picture did not change since this socket got it
+                session.sendMessage(new BinaryMessage(out.png()));
+                sent[1] = out.png();
+            }
         } catch (IOException | IllegalStateException e) {
             ScreenWebSocketHandler.close(session, CloseStatus.SESSION_NOT_RELIABLE);
         }

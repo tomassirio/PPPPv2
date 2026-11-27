@@ -91,12 +91,13 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
     public synchronized void afterConnectionEstablished(WebSocketSession session) {
         session.getAttributes().put("openedAt", System.nanoTime());
         String userId = userId(session);
-        String[] sent = {null}; // the players this socket last got; only its handoff's thread touches it
+        Object[] sent = {null, null}; // the players text and picture this socket last got; only its handoff's thread touches it
         viewers.compute(userId, (id, v) -> {
             if (v == null) {
                 Map<WebSocketSession, Handoff<Out>> sockets = new ConcurrentHashMap<>();
+                FrameEncoder.Last last = new FrameEncoder.Last();
                 v = new Viewer(new Handoff<>(1, frame -> {
-                    Out out = new Out(ghostsJson(frame.ghosts(), frame.notes(), frame.stains()), FrameEncoder.png(frame.pixels()));
+                    Out out = new Out(ghostsJson(frame.ghosts(), frame.notes(), frame.stains()), last.png(frame.pixels()));
                     sockets.values().forEach(slot -> slot.offer(out));
                 }), sockets);
             }
@@ -125,14 +126,17 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         }
     }
 
-    private void send(WebSocketSession session, Out out, String[] sent) {
+    private void send(WebSocketSession session, Out out, Object[] sent) {
         if (!session.isOpen()) return;
         try {
             if (!out.players().equals(sent[0])) {
                 session.sendMessage(new TextMessage(out.players()));
                 sent[0] = out.players();
             }
-            session.sendMessage(new BinaryMessage(out.png()));
+            if (out.png() != sent[1]) { // the same array: the picture did not change since this socket got it
+                session.sendMessage(new BinaryMessage(out.png()));
+                sent[1] = out.png();
+            }
         } catch (IOException | IllegalStateException e) {
             close(session, CloseStatus.SESSION_NOT_RELIABLE);
         }
@@ -162,6 +166,11 @@ public class ScreenWebSocketHandler extends AbstractWebSocketHandler {
         for (String id : List.of(s.a(), s.b())) {
             if (!viewers.containsKey(id)) consoles.leave(id);
         }
+    }
+
+    /** Whether the player has their screen open in some tab. */
+    public boolean watching(String userId) {
+        return viewers.containsKey(userId);
     }
 
     @EventListener

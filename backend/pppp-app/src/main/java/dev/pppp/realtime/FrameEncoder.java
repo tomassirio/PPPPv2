@@ -22,6 +22,23 @@ public final class FrameEncoder {
 
     private FrameEncoder() {}
 
+    /**
+     * One stream's last picture: png() hands back the same array while the pixels stay the same (menus, text, standing
+     * still), so the deflate is skipped and senders can tell by identity that there is nothing new. One thread only.
+     */
+    static final class Last {
+        private int[] pixels;
+        private byte[] png;
+
+        byte[] png(int[] rgb) {
+            if (!java.util.Arrays.equals(rgb, pixels)) {
+                png = FrameEncoder.png(rgb);
+                pixels = rgb;
+            }
+            return png;
+        }
+    }
+
     public static byte[] png(int[] rgb) {
         Map<Integer, Integer> index = new HashMap<>();
         byte[] rows = new byte[H * (1 + W)];

@@ -2,6 +2,8 @@ name: Build, Release and Deploy
 
 # Every push to main is a release: the next version (patch bump; "#minor" or "#major" in the commit message for
 # more), images tagged with it, both Helm charts as OCI packages, a GitHub Release, then the deploy.
+# The deploy waits for a person: the `prod` environment has a required reviewer (approve it under the run's
+# "Review deployments" once nobody is playing; a redeploy restarts every console).
 
 on:
   push:

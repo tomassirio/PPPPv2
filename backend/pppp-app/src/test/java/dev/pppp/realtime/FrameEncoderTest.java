@@ -21,6 +21,17 @@ class FrameEncoderTest {
     }
 
     @Test
+    void anUnchangedPictureIsTheSamePngArray() {
+        FrameEncoder.Last last = new FrameEncoder.Last();
+        int[] frame = new int[160 * 144];
+        byte[] first = last.png(frame);
+        assertThat(last.png(frame.clone())).isSameAs(first);
+        frame = frame.clone();
+        frame[7] = 0xFFFFFF;
+        assertThat(last.png(frame)).isNotSameAs(first);
+    }
+
+    @Test
     void moreThan256ColoursFallBackToFullColour() throws Exception {
         int[] frame = new int[160 * 144];
         for (int i = 0; i < frame.length; i++) frame[i] = i * 37 & 0xFFFFFF;

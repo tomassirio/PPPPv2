@@ -42,8 +42,8 @@ import org.springframework.stereotype.Service;
 /**
  * One private Game Boy per player. A console boots when its player opens it (from the state parked on disk, if
  * any). Leaving (the last tab closes, {@link #leave}) keeps it running, so coming back within the hour finds the game
- * ready. Untouched (no button, no activity ping) for {@link #inactivity} (an hour), with or without a tab open, it is
- * paused and its state parked ({@link #idle}; open screens are told why, see {@link #onAway}); it stays in memory,
+ * ready, but with no screen open for {@link #unwatched} (two minutes) it is paused and parked as below. Untouched (no
+ * button, no activity ping) for {@link #inactivity} (an hour), with or without a tab open, it is paused and its state parked ({@link #idle}; open screens are told why, see {@link #onAway}); it stays in memory,
  * so Continue resumes it at once. Paused for {@link #grace} (a day), it is shut down; the next open boots it from the
  * parked state. A linked console stays: its link session has its own rules (LinkService). The game is picked once.
  */
@@ -74,6 +74,12 @@ public class PlayerConsoles {
     private volatile Duration grace = Duration.ofDays(1);
     /** How long a running console may go untouched before it is parked and shut down. */
     private volatile Duration inactivity = Duration.ofHours(1);
+    /** How long a running console may go with no screen open (its player's /play tab) before it is parked. */
+    private volatile Duration unwatched = Duration.ofMinutes(2);
+    /** Whether the player has their screen open; the app plugs in /ws/screen. Until then every console counts as seen. */
+    private volatile Predicate<String> watching = id -> true;
+    /** Running consoles first found with no screen open: userId -> epoch ms. Only the sweep touches it. */
+    private final Map<String, Long> unseenSince = new ConcurrentHashMap<>();
     /** Players whose arrow keys do nothing: linked, standing at the receptionist until they are in the link room. */
     private final Set<String> pinned = ConcurrentHashMap.newKeySet();
     private static final Set<Button> ARROWS = Set.of(Button.UP, Button.DOWN, Button.LEFT, Button.RIGHT);
@@ -130,7 +136,7 @@ public class PlayerConsoles {
     /**
      * The player's last tab closed: they are not here (the listeners take them out of the lobby and their challenges,
      * held buttons let go, their name tag leaves other screens) but the console keeps running until the sweep finds
-     * it untouched for an hour.
+     * it with no screen for two minutes (or untouched for an hour).
      */
     public void leave(String userId) {
         left(userId);
@@ -161,19 +167,32 @@ public class PlayerConsoles {
 
     /**
      * Pauses a running console untouched for the inactivity limit (an hour: idle, its screens are told, see onAway)
-     * and shuts down one paused for the grace period (a day). Linked consoles are left to LinkService. Both checks are
+     * or with no screen open for {@link #unwatched} (two minutes: nobody sees it, so it only burns a core), and shuts
+     * down one paused for the grace period (a day). Linked consoles are left to LinkService. Both checks are
      * repeated, so an open() in between wins.
      */
     @Scheduled(fixedDelay = 5000)
     public void sweep() {
         long now = System.currentTimeMillis();
+        unseenSince.keySet().retainAll(consoles.keySet());
         for (String id : List.copyOf(consoles.keySet())) {
+            if (linkedWith(id) != null || watching.test(id)) unseenSince.remove(id);
             if (linkedWith(id) != null) continue;
             Long since = idleSince.get(id);
             if (since != null) {
+                unseenSince.remove(id);
                 // The same idle spell still (a reopen and leave in between starts a new grace period).
                 if (now - since >= grace.toMillis()) shutDown(id, c -> since.equals(idleSince.get(id)), "left");
                 continue;
+            }
+            if (!watching.test(id)) {
+                long gone = unseenSince.computeIfAbsent(id, k -> now);
+                if (now - gone >= unwatched.toMillis() && !watching.test(id) && linkedWith(id) == null) {
+                    unseenSince.remove(id);
+                    idle(id);
+                    log.info("Console paused (no screen open for {}): {}", unwatched, id);
+                    continue;
+                }
             }
             Long last = lastActive.get(id);
             if (last == null || now - last < inactivity.toMillis()) continue;
@@ -217,6 +236,16 @@ public class PlayerConsoles {
     public void limits(Duration grace, Duration inactivity) {
         this.grace = grace;
         this.inactivity = inactivity;
+    }
+
+    /** For tests: how long a running console may go with no screen open. */
+    public void unwatchedLimit(Duration unwatched) {
+        this.unwatched = unwatched;
+    }
+
+    /** Tells the sweep who has their screen open (the app's /ws/screen). */
+    public void screens(Predicate<String> watching) {
+        this.watching = watching;
     }
 
     /**

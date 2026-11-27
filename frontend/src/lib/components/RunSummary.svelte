@@ -48,6 +48,7 @@
 
 <style>
 	.summary {
+		flex: none; /* overflow: hidden lets a flex column shrink it to nothing (Your run's fixed-height card) */
 		border-radius: 12px;
 		background: var(--sunk);
 		border: 1px solid var(--border);
